@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, getPing } from "./api/client";
 import AccountsView from "./features/accounts/AccountsView";
+import NetWorthView from "./features/networth/NetWorthView";
 
-type View = "overview" | "accounts";
+type View = "overview" | "networth" | "accounts";
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
@@ -28,6 +29,13 @@ export default function App() {
           </button>
           <button
             type="button"
+            aria-pressed={view === "networth"}
+            onClick={() => setView("networth")}
+          >
+            Net worth
+          </button>
+          <button
+            type="button"
             aria-pressed={view === "accounts"}
             onClick={() => setView("accounts")}
           >
@@ -38,6 +46,8 @@ export default function App() {
 
       {view === "accounts" ? (
         <AccountsView />
+      ) : view === "networth" ? (
+        <NetWorthView />
       ) : (
         <section className="card" aria-label="backend status">
           <h2>Backend</h2>

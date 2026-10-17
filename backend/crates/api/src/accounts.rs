@@ -61,6 +61,7 @@ pub async fn create_account(
             institution: request.institution,
             currency,
             ownership_scope,
+            owner_user_id: request.owner_user_id,
         })
         .await?;
 
@@ -133,7 +134,7 @@ pub async fn record_balance(
     Ok((StatusCode::CREATED, Json(BalanceDto::from(balance))))
 }
 
-fn parse_date(value: &str) -> Result<Date, ApiError> {
+pub(crate) fn parse_date(value: &str) -> Result<Date, ApiError> {
     Date::parse(value, &Iso8601::DATE)
         .map_err(|error| ApiError::BadRequest(format!("invalid date '{value}': {error}")))
 }

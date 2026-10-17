@@ -6,9 +6,10 @@
 //! database via `#[sqlx::test]`.
 
 use networth_adapters::PostgresAccountRepository;
-use networth_application::ports::AccountRepository;
+use networth_application::ports::{AccountRepository, NetWorthRepository};
 use networth_domain::{
-    AccountType, BalanceSource, Currency, Money, NewAccount, NewBalance, OwnershipScope,
+    AccountType, AggregationScope, BalanceSource, Currency, Money, NewAccount, NewBalance,
+    NewSnapshot, OwnershipScope, RedemptionPolicy, SnapshotFilter,
 };
 use sqlx::PgPool;
 use time::macros::date;
@@ -21,6 +22,7 @@ fn account(name: &str, account_type: AccountType) -> NewAccount {
         institution: Some("Test Bank".to_string()),
         currency: Currency::usd(),
         ownership_scope: OwnershipScope::Household,
+        owner_user_id: None,
     }
 }
 
@@ -176,4 +178,57 @@ async fn persists_ownership_scope_and_account_type(pool: PgPool) {
     assert_eq!(found.account_type, AccountType::RothIra);
     assert_eq!(found.ownership_scope, OwnershipScope::User);
     assert_eq!(found.institution, None);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn latest_balances_picks_the_most_recent_on_or_before(pool: PgPool) {
+    let repo = PostgresAccountRepository::new(pool);
+    let account = repo
+        .insert_account(&account("Checking", AccountType::Checking))
+        .await
+        .unwrap();
+
+    repo.upsert_balance(&balance(account.id, date!(2026 - 01 - 01), "10.00"))
+        .await
+        .unwrap();
+    repo.upsert_balance(&balance(account.id, date!(2026 - 06 - 01), "20.00"))
+        .await
+        .unwrap();
+    repo.upsert_balance(&balance(account.id, date!(2026 - 12 - 01), "30.00"))
+        .await
+        .unwrap();
+
+    let latest = repo.latest_balances(date!(2026 - 10 - 17)).await.unwrap();
+    assert_eq!(latest.len(), 1);
+    assert_eq!(latest[0].amount.amount_string(), "20.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_and_lists_snapshots(pool: PgPool) {
+    let repo = PostgresAccountRepository::new(pool);
+    let policy = RedemptionPolicy::default();
+
+    let new = NewSnapshot {
+        as_of: date!(2026 - 10 - 17),
+        scope: AggregationScope::Household,
+        owner_user_id: None,
+        owner_age: Some(35),
+        currency: Currency::usd(),
+        total: Money::parse("100.00", "USD").unwrap(),
+        liquid: Money::parse("50.00", "USD").unwrap(),
+        accessible: Money::parse("40.00", "USD").unwrap(),
+        policy: policy.clone(),
+    };
+
+    let snapshot = repo.insert_snapshot(&new).await.unwrap();
+    assert_eq!(snapshot.total.amount_string(), "100.00");
+
+    let listed = repo
+        .list_snapshots(&SnapshotFilter::default())
+        .await
+        .unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].id, snapshot.id);
+    assert_eq!(listed[0].accessible.amount_string(), "40.00");
+    assert_eq!(listed[0].policy, policy);
 }

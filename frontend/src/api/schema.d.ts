@@ -114,6 +114,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/networth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compute net worth, optionally with what-if assumptions */
+        get: operations["getNetWorth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/networth/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List stored snapshots, oldest first */
+        get: operations["listSnapshots"];
+        put?: never;
+        /** Compute and persist an immutable snapshot */
+        post: operations["createSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -139,6 +174,8 @@ export interface components {
         OwnershipScope: "household" | "user";
         /** @enum {string} */
         BalanceSource: "manual" | "import" | "provider";
+        /** @enum {string} */
+        AggregationScope: "household" | "personal";
         Account: {
             /** Format: uuid */
             id: string;
@@ -148,6 +185,8 @@ export interface components {
             /** @example USD */
             currency: string;
             ownership_scope: components["schemas"]["OwnershipScope"];
+            /** Format: uuid */
+            owner_user_id: string | null;
             archived: boolean;
         };
         CreateAccountRequest: {
@@ -158,6 +197,8 @@ export interface components {
             currency?: string;
             /** @default household */
             ownership_scope?: components["schemas"]["OwnershipScope"];
+            /** Format: uuid */
+            owner_user_id?: string | null;
         };
         Balance: {
             /** Format: uuid */
@@ -178,6 +219,59 @@ export interface components {
             amount: string;
             currency?: string | null;
             source?: components["schemas"]["BalanceSource"];
+        };
+        BreakdownRow: {
+            key: string;
+            amount: string;
+            currency: string;
+        };
+        NetWorth: {
+            /** Format: date */
+            as_of: string;
+            currency: string;
+            total: string;
+            liquid: string;
+            accessible: string;
+            by_account_type: components["schemas"]["BreakdownRow"][];
+            by_asset_class: components["schemas"]["BreakdownRow"][];
+            account_count: number;
+            has_manual_data: boolean;
+            has_stale_data: boolean;
+        };
+        Policy: {
+            tax_rate: string;
+            penalty_rate: string;
+            penalty_age: number;
+            selling_rate: string;
+            fixed_costs: string;
+        };
+        Snapshot: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            as_of: string;
+            scope: components["schemas"]["AggregationScope"];
+            /** Format: uuid */
+            owner_user_id: string | null;
+            owner_age: number | null;
+            currency: string;
+            total: string;
+            liquid: string;
+            accessible: string;
+            policy: components["schemas"]["Policy"];
+        };
+        SnapshotRequest: {
+            /** Format: date */
+            as_of?: string;
+            scope?: components["schemas"]["AggregationScope"];
+            /** Format: uuid */
+            owner_user_id?: string | null;
+            owner_age?: number | null;
+            tax_rate?: string;
+            penalty_rate?: string;
+            penalty_age?: number;
+            selling_rate?: string;
+            fixed_costs?: string;
         };
     };
     responses: {
@@ -389,6 +483,85 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getNetWorth: {
+        parameters: {
+            query?: {
+                as_of?: string;
+                scope?: components["schemas"]["AggregationScope"];
+                owner_user_id?: string;
+                owner_age?: number;
+                tax_rate?: string;
+                penalty_rate?: string;
+                penalty_age?: number;
+                selling_rate?: string;
+                fixed_costs?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Computed net worth. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetWorth"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    listSnapshots: {
+        parameters: {
+            query?: {
+                scope?: components["schemas"]["AggregationScope"];
+                owner_user_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snapshots, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"][];
+                };
+            };
+        };
+    };
+    createSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored snapshot. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
         };
     };
 }

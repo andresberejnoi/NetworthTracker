@@ -25,7 +25,7 @@ The classic floating-point trap does not apply:
 use networth_domain::Money;
 
 let sum = Money::parse("0.1", "USD").unwrap() + Money::parse("0.2", "USD").unwrap();
-assert_eq!(sum.to_string(), "0.3 USD");
+assert_eq!(sum.to_string(), "0.30 USD");
 ```
 
 Amounts keep their full decimal precision — large balances and many decimal

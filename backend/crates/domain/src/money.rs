@@ -55,9 +55,10 @@ impl Money {
         &self.amount
     }
 
-    /// The exact amount as plain decimal text (never scientific notation).
+    /// The exact amount as plain decimal text (never scientific notation),
+    /// with at least two decimal places.
     pub fn amount_string(&self) -> String {
-        crate::decimal::to_plain_string(&self.amount)
+        crate::decimal::to_canonical_money_string(&self.amount)
     }
 
     /// The currency.
@@ -129,7 +130,7 @@ impl fmt::Display for Money {
         write!(
             f,
             "{} {}",
-            crate::decimal::to_plain_string(&self.amount),
+            crate::decimal::to_canonical_money_string(&self.amount),
             self.currency
         )
     }
@@ -146,7 +147,10 @@ impl Serialize for Money {
     {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("Money", 2)?;
-        state.serialize_field("amount", &crate::decimal::to_plain_string(&self.amount))?;
+        state.serialize_field(
+            "amount",
+            &crate::decimal::to_canonical_money_string(&self.amount),
+        )?;
         state.serialize_field("currency", &self.currency)?;
         state.end()
     }
@@ -233,6 +237,6 @@ mod tests {
     fn neg_and_sign() {
         assert!(Money::parse("-5.00", "USD").unwrap().is_negative());
         assert!(!usd("0").is_negative());
-        assert_eq!(usd("5").neg().to_string(), "-5 USD");
+        assert_eq!(usd("5").neg().to_string(), "-5.00 USD");
     }
 }

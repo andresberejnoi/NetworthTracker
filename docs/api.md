@@ -99,6 +99,63 @@ List (newest first):
 curl -s localhost:8080/api/v1/accounts/<id>/balances
 ```
 
+## Net worth
+
+Compute current net worth (defaults to today, household scope):
+
+```bash
+curl -s 'localhost:8080/api/v1/networth?as_of=2026-10-17&owner_age=35'
+```
+
+```json
+{
+  "as_of": "2026-10-17",
+  "currency": "USD",
+  "total": "610000.00",
+  "liquid": "10000.00",
+  "accessible": "550000.00",
+  "by_account_type": [{ "key": "401k", "amount": "100000.00", "currency": "USD" }],
+  "by_asset_class": [{ "key": "real_estate", "amount": "500000.00", "currency": "USD" }],
+  "account_count": 3,
+  "has_manual_data": true,
+  "has_stale_data": false
+}
+```
+
+Query parameters:
+
+| Parameter | Meaning |
+|-----------|---------|
+| `as_of` | Valuation date (ISO); defaults to today (UTC) |
+| `scope` | `household` (default) or `personal` |
+| `owner_user_id` | Required for `personal`; shared accounts are still included |
+| `owner_age` | Age used for early-withdrawal penalties |
+| `tax_rate`, `penalty_rate`, `penalty_age`, `selling_rate`, `fixed_costs` | Policy overrides |
+
+Policy overrides compute a **what-if** result without persisting anything:
+
+```bash
+curl -s 'localhost:8080/api/v1/networth?as_of=2026-10-17&owner_age=35&tax_rate=0.30'
+```
+
+Persist an immutable snapshot:
+
+```bash
+curl -s -X POST localhost:8080/api/v1/networth/snapshots \
+  -H 'content-type: application/json' \
+  -d '{"as_of":"2026-10-17","owner_age":35}'
+```
+
+List snapshots (oldest first):
+
+```bash
+curl -s localhost:8080/api/v1/networth/snapshots
+```
+
+A snapshot records the totals **and the policy used**, so later balance or
+policy changes never rewrite history. Only an explicit new snapshot changes the
+series.
+
 ## Errors
 
 Errors are `{"error": "<message>"}` with a 4xx/5xx status:

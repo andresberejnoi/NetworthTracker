@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use networth_application::{AccountError, RepositoryError};
+use networth_application::{AccountError, NetWorthError, RepositoryError};
 use serde::Serialize;
 
 /// An error that can be rendered as an HTTP response.
@@ -50,6 +50,20 @@ impl From<AccountError> for ApiError {
                 ApiError::Conflict(message)
             }
             AccountError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}
+
+impl From<NetWorthError> for ApiError {
+    fn from(error: NetWorthError) -> Self {
+        match error {
+            NetWorthError::Validation(message) => ApiError::BadRequest(message),
+            NetWorthError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            NetWorthError::Repository(RepositoryError::Storage(message)) => {
                 ApiError::Internal(message)
             }
         }

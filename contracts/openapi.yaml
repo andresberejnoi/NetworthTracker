@@ -20,6 +20,8 @@ tags:
     description: Liveness and service metadata
   - name: accounts
     description: Accounts and their dated balances
+  - name: networth
+    description: Net worth computation and history snapshots
 paths:
   /health:
     get:
@@ -152,6 +154,102 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/networth:
+    get:
+      tags: [networth]
+      operationId: getNetWorth
+      summary: Compute net worth, optionally with what-if assumptions
+      parameters:
+        - name: as_of
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: scope
+          in: query
+          schema:
+            $ref: "#/components/schemas/AggregationScope"
+        - name: owner_user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: owner_age
+          in: query
+          schema:
+            type: integer
+        - name: tax_rate
+          in: query
+          schema:
+            type: string
+        - name: penalty_rate
+          in: query
+          schema:
+            type: string
+        - name: penalty_age
+          in: query
+          schema:
+            type: integer
+        - name: selling_rate
+          in: query
+          schema:
+            type: string
+        - name: fixed_costs
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Computed net worth.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetWorth"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/networth/snapshots:
+    get:
+      tags: [networth]
+      operationId: listSnapshots
+      summary: List stored snapshots, oldest first
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            $ref: "#/components/schemas/AggregationScope"
+        - name: owner_user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Snapshots, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Snapshot"
+    post:
+      tags: [networth]
+      operationId: createSnapshot
+      summary: Compute and persist an immutable snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SnapshotRequest"
+      responses:
+        "201":
+          description: The stored snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Snapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   parameters:
     AccountId:
@@ -224,10 +322,13 @@ components:
     BalanceSource:
       type: string
       enum: [manual, import, provider]
+    AggregationScope:
+      type: string
+      enum: [household, personal]
     Account:
       type: object
       additionalProperties: false
-      required: [id, name, account_type, institution, currency, ownership_scope, archived]
+      required: [id, name, account_type, institution, currency, ownership_scope, owner_user_id, archived]
       properties:
         id:
           type: string
@@ -243,6 +344,9 @@ components:
           examples: [USD]
         ownership_scope:
           $ref: "#/components/schemas/OwnershipScope"
+        owner_user_id:
+          type: [string, "null"]
+          format: uuid
         archived:
           type: boolean
     CreateAccountRequest:
@@ -262,6 +366,9 @@ components:
         ownership_scope:
           $ref: "#/components/schemas/OwnershipScope"
           default: household
+        owner_user_id:
+          type: [string, "null"]
+          format: uuid
     Balance:
       type: object
       additionalProperties: false
@@ -298,3 +405,131 @@ components:
           type: [string, "null"]
         source:
           $ref: "#/components/schemas/BalanceSource"
+    BreakdownRow:
+      type: object
+      additionalProperties: false
+      required: [key, amount, currency]
+      properties:
+        key:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+    NetWorth:
+      type: object
+      additionalProperties: false
+      required:
+        - as_of
+        - currency
+        - total
+        - liquid
+        - accessible
+        - by_account_type
+        - by_asset_class
+        - account_count
+        - has_manual_data
+        - has_stale_data
+      properties:
+        as_of:
+          type: string
+          format: date
+        currency:
+          type: string
+        total:
+          type: string
+        liquid:
+          type: string
+        accessible:
+          type: string
+        by_account_type:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreakdownRow"
+        by_asset_class:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreakdownRow"
+        account_count:
+          type: integer
+        has_manual_data:
+          type: boolean
+        has_stale_data:
+          type: boolean
+    Policy:
+      type: object
+      additionalProperties: false
+      required: [tax_rate, penalty_rate, penalty_age, selling_rate, fixed_costs]
+      properties:
+        tax_rate:
+          type: string
+        penalty_rate:
+          type: string
+        penalty_age:
+          type: integer
+        selling_rate:
+          type: string
+        fixed_costs:
+          type: string
+    Snapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - as_of
+        - scope
+        - owner_user_id
+        - owner_age
+        - currency
+        - total
+        - liquid
+        - accessible
+        - policy
+      properties:
+        id:
+          type: string
+          format: uuid
+        as_of:
+          type: string
+          format: date
+        scope:
+          $ref: "#/components/schemas/AggregationScope"
+        owner_user_id:
+          type: [string, "null"]
+          format: uuid
+        owner_age:
+          type: [integer, "null"]
+        currency:
+          type: string
+        total:
+          type: string
+        liquid:
+          type: string
+        accessible:
+          type: string
+        policy:
+          $ref: "#/components/schemas/Policy"
+    SnapshotRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        as_of:
+          type: string
+          format: date
+        scope:
+          $ref: "#/components/schemas/AggregationScope"
+        owner_user_id:
+          type: [string, "null"]
+          format: uuid
+        owner_age:
+          type: [integer, "null"]
+        tax_rate:
+          type: string
+        penalty_rate:
+          type: string
+        penalty_age:
+          type: integer
+        selling_rate:
+          type: string
+        fixed_costs:
+          type: string

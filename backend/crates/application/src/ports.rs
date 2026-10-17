@@ -1,7 +1,10 @@
 //! Outbound ports implemented by adapters.
 
 use async_trait::async_trait;
-use networth_domain::{Account, Balance, NewAccount, NewBalance};
+use networth_domain::{
+    Account, Balance, NewAccount, NewBalance, NewSnapshot, Snapshot, SnapshotFilter,
+};
+use time::Date;
 use uuid::Uuid;
 
 /// Errors a repository can raise.
@@ -35,4 +38,20 @@ pub trait AccountRepository: Send + Sync {
 
     /// List an account's balances, newest first.
     async fn list_balances(&self, account_id: Uuid) -> Result<Vec<Balance>, RepositoryError>;
+}
+
+/// Persistence for net worth reads and snapshots.
+#[async_trait]
+pub trait NetWorthRepository: Send + Sync {
+    /// The latest balance on or before `as_of` for every account that has one.
+    async fn latest_balances(&self, as_of: Date) -> Result<Vec<Balance>, RepositoryError>;
+
+    /// Persist a new immutable snapshot.
+    async fn insert_snapshot(&self, new: &NewSnapshot) -> Result<Snapshot, RepositoryError>;
+
+    /// List snapshots, oldest first, optionally filtered.
+    async fn list_snapshots(
+        &self,
+        filter: &SnapshotFilter,
+    ) -> Result<Vec<Snapshot>, RepositoryError>;
 }

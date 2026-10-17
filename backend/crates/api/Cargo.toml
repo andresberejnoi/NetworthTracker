@@ -17,6 +17,7 @@ networth-application = { workspace = true }
 networth-domain = { workspace = true }
 networth-adapters = { workspace = true }
 axum = { workspace = true }
+bigdecimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }

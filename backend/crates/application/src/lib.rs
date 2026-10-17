@@ -5,10 +5,12 @@
 //! persistence details. It must not depend on Axum or on a specific database.
 
 pub mod accounts;
+pub mod networth;
 pub mod ports;
 
 pub use accounts::{AccountError, AccountService, CreateAccount, RecordBalance};
-pub use ports::{AccountRepository, RepositoryError};
+pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
+pub use ports::{AccountRepository, NetWorthRepository, RepositoryError};
 
 use networth_domain::APP_NAME;
 

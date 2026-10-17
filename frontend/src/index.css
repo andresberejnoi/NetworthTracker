@@ -173,3 +173,94 @@ body {
   color: var(--danger);
   border: 1px solid var(--border);
 }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.metric {
+  margin-top: 0;
+}
+
+.metric h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.metric-value {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.controls input,
+.controls select {
+  background: #0e1428;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+}
+
+.controls button {
+  background: var(--accent);
+  color: #06281c;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.badges {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.badge-warn {
+  color: #fbbf24;
+  border-color: #78350f;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  background: #0e1428;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}

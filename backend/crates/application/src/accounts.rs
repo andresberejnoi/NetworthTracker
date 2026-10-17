@@ -46,6 +46,8 @@ pub struct CreateAccount {
     pub currency: Currency,
     /// Household-visible or private to one user.
     pub ownership_scope: OwnershipScope,
+    /// The user who owns a `user`-scoped account.
+    pub owner_user_id: Option<Uuid>,
 }
 
 /// Request to record a balance.
@@ -92,6 +94,7 @@ impl AccountService {
             institution,
             currency: input.currency,
             ownership_scope: input.ownership_scope,
+            owner_user_id: input.owner_user_id,
         };
 
         Ok(self.repo.insert_account(&new).await?)

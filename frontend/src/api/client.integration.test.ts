@@ -5,9 +5,12 @@ import { parse } from "yaml";
 import {
   API_BASE_URL,
   createAccount,
+  createSnapshot,
+  getNetWorth,
   getPing,
   listAccounts,
   listBalances,
+  listSnapshots,
   recordBalance,
 } from "./client";
 
@@ -66,6 +69,26 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
 
     const balances = await listBalances(created.id);
     expect(balances.some((b) => b.amount === "1234.56")).toBe(true);
+  });
+
+  it("computes net worth and persists an immutable snapshot", async () => {
+    const account = await createAccount({
+      name: `Net worth ${Date.now()}`,
+      account_type: "cash",
+    });
+    await recordBalance(account.id, { as_of: "2026-10-17", amount: "1000.00" });
+
+    const networth = await getNetWorth({ as_of: "2026-10-17", owner_age: 35 });
+    expect(networth.account_count).toBeGreaterThan(0);
+    expect(networth.total).toMatch(/^\d+\.\d{2}$/);
+
+    const snapshot = await createSnapshot({ as_of: "2026-10-17", owner_age: 35 });
+    expect(snapshot.total).toBe(networth.total);
+    expect(snapshot.scope).toBe("household");
+
+    const snapshots = await listSnapshots();
+    expect(snapshots.some((item) => item.id === snapshot.id)).toBe(true);
+    expect(snapshots[snapshots.length - 1].id).toBe(snapshot.id);
   });
 
   it("matches the shared OpenAPI contract for GET endpoints", async () => {

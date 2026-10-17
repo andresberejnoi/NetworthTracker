@@ -183,6 +183,8 @@ pub struct Account {
     pub currency: Currency,
     /// Household-visible or private to one user.
     pub ownership_scope: OwnershipScope,
+    /// The user who owns a `user`-scoped account.
+    pub owner_user_id: Option<Uuid>,
     /// Whether the account has been archived (closed).
     pub archived: bool,
 }
@@ -212,6 +214,8 @@ pub struct NewAccount {
     pub currency: Currency,
     /// Household-visible or private to one user.
     pub ownership_scope: OwnershipScope,
+    /// The user who owns a `user`-scoped account.
+    pub owner_user_id: Option<Uuid>,
 }
 
 /// Where a balance came from.

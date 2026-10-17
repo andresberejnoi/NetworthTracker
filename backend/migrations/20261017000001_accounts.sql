@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     institution      TEXT,
     currency         TEXT NOT NULL,
     ownership_scope  TEXT NOT NULL DEFAULT 'household',
+    owner_user_id    UUID,
     archived         BOOLEAN NOT NULL DEFAULT FALSE,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),

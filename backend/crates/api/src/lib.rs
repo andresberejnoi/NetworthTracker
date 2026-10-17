@@ -7,17 +7,23 @@
 mod accounts;
 mod dto;
 mod error;
+mod networth;
 
-pub use dto::{AccountDto, BalanceDto, CreateAccountRequest, RecordBalanceRequest};
+pub use dto::{
+    AccountDto, BalanceDto, BreakdownRowDto, CreateAccountRequest, NetWorthDto, PolicyDto,
+    RecordBalanceRequest, SnapshotDto,
+};
 
 use std::sync::Arc;
 
 use axum::{
     http::{HeaderValue, Method},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
-use networth_application::{AccountRepository, AccountService};
+use networth_application::{
+    AccountRepository, AccountService, NetWorthRepository, NetWorthService,
+};
 use serde::Serialize;
 use tower_http::{
     cors::{AllowOrigin, CorsLayer},
@@ -27,19 +33,26 @@ use tower_http::{
 use crate::accounts::{
     archive_account, create_account, get_account, list_accounts, list_balances, record_balance,
 };
+use crate::networth::{create_snapshot, get_net_worth, list_snapshots};
 
 /// Shared application state.
 #[derive(Clone)]
 pub struct AppState {
     /// Account use cases.
     pub accounts: Arc<AccountService>,
+    /// Net worth use cases.
+    pub networth: Arc<NetWorthService>,
 }
 
 impl AppState {
-    /// Build state over an account repository.
-    pub fn new(repo: Arc<dyn AccountRepository>) -> Self {
+    /// Build state over the account and net worth repositories.
+    pub fn new(
+        accounts: Arc<dyn AccountRepository>,
+        networth: Arc<dyn NetWorthRepository>,
+    ) -> Self {
         Self {
-            accounts: Arc::new(AccountService::new(repo)),
+            accounts: Arc::new(AccountService::new(accounts.clone())),
+            networth: Arc::new(NetWorthService::new(accounts, networth)),
         }
     }
 }
@@ -80,13 +93,15 @@ pub fn app(state: AppState) -> Router {
         .route("/api/v1/ping", get(ping))
         .route("/api/v1/accounts", get(list_accounts).post(create_account))
         .route("/api/v1/accounts/{id}", get(get_account))
-        .route(
-            "/api/v1/accounts/{id}/archive",
-            axum::routing::post(archive_account),
-        )
+        .route("/api/v1/accounts/{id}/archive", post(archive_account))
         .route(
             "/api/v1/accounts/{id}/balances",
             get(list_balances).post(record_balance),
+        )
+        .route("/api/v1/networth", get(get_net_worth))
+        .route(
+            "/api/v1/networth/snapshots",
+            get(list_snapshots).post(create_snapshot),
         )
         .layer(TraceLayer::new_for_http())
         .layer(cors_layer())

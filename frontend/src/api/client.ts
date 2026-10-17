@@ -99,3 +99,49 @@ export function recordBalance(
     body: JSON.stringify(body),
   });
 }
+
+export type AggregationScope = components["schemas"]["AggregationScope"];
+export type NetWorth = components["schemas"]["NetWorth"];
+export type BreakdownRow = components["schemas"]["BreakdownRow"];
+export type Snapshot = components["schemas"]["Snapshot"];
+export type SnapshotRequest = components["schemas"]["SnapshotRequest"];
+
+export interface NetWorthParams {
+  as_of?: string;
+  scope?: AggregationScope;
+  owner_user_id?: string;
+  owner_age?: number;
+  tax_rate?: string;
+  penalty_rate?: string;
+  penalty_age?: number;
+  selling_rate?: string;
+  fixed_costs?: string;
+}
+
+function toQuery(params: object): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      query.set(key, String(value));
+    }
+  }
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}
+
+export function getNetWorth(params: NetWorthParams = {}): Promise<NetWorth> {
+  return request<NetWorth>(`/api/v1/networth${toQuery(params)}`);
+}
+
+export function createSnapshot(body: SnapshotRequest): Promise<Snapshot> {
+  return request<Snapshot>("/api/v1/networth/snapshots", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listSnapshots(
+  params: { scope?: AggregationScope; owner_user_id?: string } = {},
+): Promise<Snapshot[]> {
+  return request<Snapshot[]>(`/api/v1/networth/snapshots${toQuery(params)}`);
+}

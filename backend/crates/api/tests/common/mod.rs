@@ -14,11 +14,15 @@ use axum::{
 use http_body_util::BodyExt;
 use networth_adapters::InMemoryAccountRepository;
 use networth_api::{app, AppState};
+use networth_application::{AccountRepository, NetWorthRepository};
 use tower::ServiceExt;
 
 /// Build an app over a fresh in-memory repository.
 pub fn router() -> Router {
-    app(AppState::new(Arc::new(InMemoryAccountRepository::new())))
+    let repository = Arc::new(InMemoryAccountRepository::new());
+    let accounts: Arc<dyn AccountRepository> = repository.clone();
+    let networth: Arc<dyn NetWorthRepository> = repository;
+    app(AppState::new(accounts, networth))
 }
 
 /// Send a request and decode any JSON body.
@@ -76,4 +80,15 @@ pub async fn create_account(app: &Router, name: &str, account_type: &str) -> Str
     .await;
     assert_eq!(status, StatusCode::CREATED, "create account: {body}");
     body["id"].as_str().expect("id").to_string()
+}
+
+/// Record a balance for an account.
+pub async fn record_balance(app: &Router, account_id: &str, as_of: &str, amount: &str) {
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/accounts/{account_id}/balances"),
+        serde_json::json!({ "as_of": as_of, "amount": amount }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "record balance: {body}");
 }

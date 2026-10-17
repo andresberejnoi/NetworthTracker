@@ -47,19 +47,19 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 5. Net worth engine and history (backend + frontend)
 
-- [ ] 5.1 Implement total net worth (assets minus liabilities, reporting currency) and verify tests for the `networth` spec scenarios
-- [ ] 5.2 Implement liquid net worth filtering by liquidity class and verify tests prove illiquid and retirement assets are excluded
-- [ ] 5.3 Implement the `RedemptionPolicy` model with percentage and fixed-amount cost components, a single user-set tax rate, and age-banded penalties, and verify tests for the retirement-discount and composited-selling-cost scenarios
-- [ ] 5.4 Implement accessible net worth from redemption policies and verify tests for the accessible-net-worth scenarios
-- [ ] 5.5 Implement what-if scenario modeling that projects accessible net worth without persisting until applied, and verify tests for the model-without-saving and apply scenarios
-- [ ] 5.6 Implement household and per-user aggregation scope with no double counting of shared accounts and verify tests for the shared-account scenario
-- [ ] 5.7 Persist snapshots capturing total, liquid, and accessible values with the policies and inputs used, and verify tests that a later data or rule change does not alter an existing snapshot until an explicit recompute
-- [ ] 5.8 Expose net worth and snapshot endpoints, add them to the OpenAPI contract, and verify API and contract tests
-- [ ] 5.9 Build the frontend summary view showing total, liquid, and accessible net worth with period selection and verify component tests for period changes
-- [ ] 5.10 Build the frontend history chart with switchable net worth form and verify it renders from seeded snapshots
-- [ ] 5.11 Build frontend filtering and breakdown by account type and asset class/sector and verify tests that filters change summary and chart data
-- [ ] 5.12 Add stale/manual data indicators in the UI and verify a test with a cached price shows the stale marker
-- [ ] 5.13 Verify an integration test exercises the summary, history, and filters across the HTTP boundary, and document the dashboard in `docs/dashboard.md`
+- [x] 5.1 Implement total net worth (assets minus liabilities, reporting currency) and verify tests for the `networth` spec scenarios
+- [x] 5.2 Implement liquid net worth filtering by liquidity class and verify tests prove illiquid and retirement assets are excluded
+- [x] 5.3 Implement the `RedemptionPolicy` model with percentage and fixed-amount cost components, a single user-set tax rate, and age-banded penalties, and verify tests for the retirement-discount and composited-selling-cost scenarios
+- [x] 5.4 Implement accessible net worth from redemption policies and verify tests for the accessible-net-worth scenarios
+- [x] 5.5 Implement what-if scenario modeling that projects accessible net worth without persisting until applied, and verify tests for the model-without-saving and apply scenarios
+- [x] 5.6 Implement household and per-user aggregation scope with no double counting of shared accounts and verify tests for the shared-account scenario
+- [x] 5.7 Persist snapshots capturing total, liquid, and accessible values with the policies and inputs used, and verify tests that a later data or rule change does not alter an existing snapshot until an explicit recompute
+- [x] 5.8 Expose net worth and snapshot endpoints, add them to the OpenAPI contract, and verify API and contract tests
+- [x] 5.9 Build the frontend summary view showing total, liquid, and accessible net worth with period selection and verify component tests for period changes
+- [x] 5.10 Build the frontend history chart with switchable net worth form and verify it renders from seeded snapshots
+- [x] 5.11 Build frontend filtering and breakdown by account type and asset class/sector and verify tests that filters change summary and chart data
+- [x] 5.12 Add stale/manual data indicators in the UI and verify a test with a cached price shows the stale marker
+- [x] 5.13 Verify an integration test exercises the summary, history, and filters across the HTTP boundary, and document the dashboard in `docs/dashboard.md`
 
 ## 6. Bulk data entry (backend batch endpoints + frontend grid)
 

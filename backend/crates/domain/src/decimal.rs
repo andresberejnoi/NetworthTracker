@@ -41,6 +41,22 @@ pub(crate) fn to_plain_string(value: &BigDecimal) -> String {
     out
 }
 
+/// Canonical money text: trailing zeros trimmed, but at least two decimals.
+///
+/// This makes API output deterministic regardless of the intermediate scale
+/// produced by arithmetic (for example `550000.0000` becomes `550000.00`)
+/// while preserving full precision for values that need it.
+pub(crate) fn to_canonical_money_string(value: &BigDecimal) -> String {
+    let normalized = value.normalized();
+    let (_, scale) = normalized.as_bigint_and_exponent();
+    let padded = if scale < 2 {
+        normalized.with_scale(2)
+    } else {
+        normalized
+    };
+    to_plain_string(&padded)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,6 +77,21 @@ mod tests {
         ] {
             let value = BigDecimal::from_str(input).unwrap();
             assert_eq!(to_plain_string(&value), expected, "input {input}");
+        }
+    }
+
+    #[test]
+    fn canonical_money_has_at_least_two_decimals() {
+        for (input, expected) in [
+            ("550000.0000", "550000.00"),
+            ("250.50", "250.50"),
+            ("0.3", "0.30"),
+            ("0.000000000000000001", "0.000000000000000001"),
+            ("-5", "-5.00"),
+            ("100", "100.00"),
+        ] {
+            let value = BigDecimal::from_str(input).unwrap();
+            assert_eq!(to_canonical_money_string(&value), expected, "input {input}");
         }
     }
 }

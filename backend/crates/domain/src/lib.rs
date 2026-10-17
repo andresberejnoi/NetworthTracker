@@ -12,6 +12,7 @@
 pub mod accounts;
 pub mod currency;
 pub mod money;
+pub mod networth;
 pub mod quantity;
 
 mod decimal;
@@ -22,6 +23,10 @@ pub use accounts::{
 };
 pub use currency::Currency;
 pub use money::{Money, MoneyError};
+pub use networth::{
+    compute_net_worth, AggregationScope, AssetClass, BreakdownRow, ComputeParams,
+    NetWorthBreakdown, NetWorthKind, NewSnapshot, RedemptionPolicy, Snapshot, SnapshotFilter,
+};
 pub use quantity::{Quantity, QuantityError};
 
 /// Human-readable application name used in service metadata.

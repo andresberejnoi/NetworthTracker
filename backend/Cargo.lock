@@ -949,6 +949,7 @@ name = "networth-api"
 version = "0.1.20261017"
 dependencies = [
  "axum",
+ "bigdecimal",
  "http-body-util",
  "networth-adapters",
  "networth-application",
