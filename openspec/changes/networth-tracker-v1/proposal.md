@@ -28,6 +28,9 @@ personal/family networth tracker.
 - Introduce fast bulk data entry: a spreadsheet-like grid with keyboard-first navigation and
   clipboard paste, so many records (balances, holdings, wallet addresses) are entered without a
   form-per-row workflow, plus CSV/XLSX import/export for interchange and backup.
+- Structure the work as a monorepo whose `backend/` and `frontend/` grow together: the frontend is a
+  pure consumer of the backend HTTP API, the two share no code and ship as separate containers, and
+  each change that adds API capability adds its consumer UI and a cross-boundary test.
 - Treat every external provider (market data, chain data, aggregation) as an optional add-on the
   individual user enables with their own API key or subscription; nothing is bundled or required,
   and there is no central service operated by the product.
@@ -61,6 +64,9 @@ None (greenfield project).
 
 ## Impact
 
+- **Repository layout**: a monorepo with decoupled `backend/` (Rust) and `frontend/` (TypeScript)
+  projects, each with its own container file; the frontend consumes the backend HTTP API and no
+  cross-project imports are allowed.
 - **New codebase**: Rust backend (HTTP/JSON API) + TypeScript web dashboard, packaged to run locally in a container.
 - **Storage**: an embedded/local database chosen for exact decimal arithmetic and time-series history.
 - **Data model**: versioned schema with migrations; every money value exact and currency-tagged.

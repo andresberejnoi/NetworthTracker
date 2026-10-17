@@ -4,6 +4,9 @@ context: |
   Greenfield project: a local-first, offline-capable personal and family networth tracker.
 
   Stack: Rust backend (Axum + SQLx) exposing a JSON HTTP API, plus a TypeScript web dashboard.
+  Layout: a monorepo with decoupled `backend/` and `frontend/` projects. The frontend is only a
+  consumer of the backend HTTP API; neither project may import the other's code. Each project has its
+  own container file, and shared assets live at the repository root.
   Packaging: runs locally, distributed as a container (Docker Compose); no cloud dependency is
   required for core use.
 

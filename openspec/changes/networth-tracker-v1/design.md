@@ -12,6 +12,9 @@ the expensive things to change later.
 Constraints carried from `openspec/config.yaml`:
 
 - Rust backend, TypeScript dashboard, local/containerized deployment.
+- Monorepo with decoupled `backend/` and `frontend/` subprojects: the frontend is only an API
+  consumer, the backend never depends on frontend code, and each project carries its own container
+  files. Shared assets live at the repository root.
 - Exact decimal money, currency-tagged, with crypto precision (at least 18 places).
 - Manual entry and import must work fully offline; every external integration is optional and
   user-funded.
@@ -28,6 +31,8 @@ Constraints carried from `openspec/config.yaml`:
 - Fast bulk data entry (grid + paste) so hand-entering many records is not a form-per-record slog.
 - A vertical slice that is usable end to end (manual accounts → net worth → dashboard) before any
   integration work begins.
+- Backend and frontend that grow together: each change that adds API capability also adds its
+  consumer UI and a test exercising both across the HTTP boundary.
 - Container-first delivery that works with no internet access.
 
 **Non-Goals:**
@@ -42,6 +47,9 @@ Constraints carried from `openspec/config.yaml`:
 - Multi-currency UI. v1 records and reports USD; FX plumbing exists but is not exercised.
 - Full marginal income-tax bracket modeling. v1 applies a single user-set tax rate; bracket stacking
   is planned as its own future capability.
+- Shared runtime code between frontend and backend. There is no cross-project code sharing: the
+  backend must not import frontend code and the frontend must not import backend code. They integrate
+  only over the HTTP API, and only root-level shared, non-runtime assets may be common.
 
 ## Decisions
 
@@ -88,9 +96,10 @@ of ergonomics, which is the right trade for a correctness-critical money engine.
 
 **Decision:** Four layers — `domain` (pure types + net worth engine, no I/O), `application`
 (use cases/orchestration, transactions), `adapters` (HTTP API, Postgres repositories, price/chain/
-aggregation providers, CSV/XLSX), and `dashboard` (static TS app). The domain crate has no
+aggregation providers, CSV/XLSX), and the `frontend/` app. The domain crate has no
 dependency on Axum, SQLx, or any provider. External capabilities are Rust traits
-(`PriceProvider`, `ChainDataProvider`, `AggregationProvider`) with fakes for tests.
+(`PriceProvider`, `ChainDataProvider`, `AggregationProvider`) with fakes for tests. The first three
+layers live under `backend/`; the UI is the separate `frontend/` project (see D13).
 
 **Rationale:** It isolates the two things that must be correct (money math and net worth semantics)
 from the two that will churn (providers and UI), and it makes the spec scenarios directly testable.
@@ -145,20 +154,24 @@ only on explicit user action. Snapshots store both gross and accessible values p
 dashboard reads. Alternatives: pure derived-on-read (rejected: history drifts when prices/rules
 change) and full event sourcing (rejected: complexity beyond the requirement).
 
-### D7. Axum + Tokio + SQLx backend; Vite + React + TanStack dashboard
+### D7. Decoupled backend API and frontend, each its own container
 
-**Decision:** Axum for the JSON API (tower ecosystem, first-class async, easy static-file serving),
-SQLx with compile-time-checked queries for Postgres. Dashboard is a Vite-built React SPA using
-TanStack Query/Table for data and a time-series-capable chart library, shipped as static assets served
-by the Rust process so there is one origin and no CORS/network dependency.
+**Decision:** `backend/` is an Axum + Tokio + SQLx JSON API. `frontend/` is a Vite + React
+single-page app using TanStack Query/Table and a time-series-capable chart library. They are separate
+deployables with separate container files; the frontend is a pure consumer of the backend's HTTP API
+and is configured with the API base URL (with the backend allowing it via CORS). The backend never
+serves the SPA or references frontend assets, and the frontend never imports backend code. Local
+Compose runs `db`, `backend`, and `frontend`.
 
-**Rationale:** Keeps the Rust surface where learning value is highest (domain + API) and uses mature
-tooling for the dense UI work (grids, tables, charts, filters). Serving the SPA from the same process
-makes the whole app one artifact.
+**Rationale:** Decoupling keeps the two projects independently buildable and replaceable, and makes
+the API the single integration contract — which is what lets a feature be exercised end to end in one
+change. It keeps the Rust surface where learning value is highest (domain + API) and uses mature
+tooling for the dense UI work (grids, tables, charts, filters).
 
-**Alternatives considered:** Rust full-stack (Leptos/Dioxus — rejected per stack decision: smaller
-charting/table ecosystem, slower iteration); Next.js (rejected: SSR/server runtime is unnecessary for
-a local SPA).
+**Alternatives considered:** Serving the built SPA from the Rust process (rejected: couples the
+release artifacts and blurs the boundary the user asked to keep); Rust full-stack (Leptos/Dioxus —
+rejected per stack decision: smaller charting/table ecosystem, slower iteration); Next.js (rejected:
+adds a Node server runtime unnecessary for a local SPA).
 
 ### D8. Bulk entry is a spreadsheet-like grid, not a form per record
 
@@ -205,8 +218,8 @@ the user enables and configures one. This is a config-enabled adapter, not a run
 the `PriceProvider`/`ChainDataProvider`/`AggregationProvider` trait boundary keeps a future dynamic
 loader possible without changing the domain.
 
-**Rationale:** This keeps the product local-first, ships one artifact, and lets each user choose and
-pay for whatever service they trust, matching the user's stated intent. It also avoids taking on
+**Rationale:** This keeps the product local-first, ships one backend artifact, and lets each user
+choose and pay for whatever service they trust, matching the user's stated intent. It also avoids taking on
 provider terms-of-service, cost, and data-liability exposure, and means a provider going away degrades
 to manual entry rather than breaking the app. Compiling adapters in avoids the sandboxing, ABI-stability,
 and supply-chain risks of loading third-party code at runtime, which is not justified for v1.
@@ -223,8 +236,42 @@ companion for ad-hoc analysis and data wrangling against the Postgres database o
 is not a runtime dependency of the app.
 
 **Rationale:** The user's strength is Python and it is the right tool for exploratory analysis of
-exported data. Keeping it out of the runtime preserves a single, containerized artifact while letting
-Python do what it is best at. A read-only database role for analytics scripts keeps this safe.
+exported data. Keeping it out of the runtime preserves a small, containerized deployment surface
+while letting Python do what it is best at. A read-only database role for analytics scripts keeps
+this safe.
+
+### D13. Monorepo layout with enforced project boundaries
+
+**Decision:** The repository is a monorepo: `backend/` (Cargo workspace with `domain`,
+`application`, `adapters`, `api`), `frontend/` (Vite app), and root-level shared assets (`docs/`,
+`docker-compose.yml`, task runner, CI, `openspec/`). Each project has its own container file
+(`backend/Dockerfile`, `frontend/Dockerfile`). Root tooling orchestrates builds and tests but imports
+no project code. A CI check fails the build if backend code references a frontend path or frontend
+code references a backend path.
+
+**Rationale:** Hard boundaries stop the monorepo from becoming a tangle, keep the two containers
+genuinely independent, and encode the user's rule: no cross-subproject imports, while root-level
+shared assets are fine.
+
+**Alternatives considered:** One shared workspace/package pulling both in (rejected: couples builds
+and breaks independent deployability); separate repositories (rejected for now: a monorepo keeps
+cross-stack changes atomic).
+
+### D14. API contract first, so features are tested in unison
+
+**Decision:** The HTTP API is described by an OpenAPI document that is the source of truth. The
+frontend's typed client is generated from or checked against it, and a contract test asserts the
+running backend matches the spec. Feature work adds the endpoint, the spec entry, the frontend
+consumer, and an integration test that drives the real API across the HTTP boundary — in the same
+change.
+
+**Rationale:** The user wants new API capabilities exercised together with the frontend. A checked
+contract prevents silent drift between two decoupled projects, and cross-boundary integration tests
+are what actually prove a feature works.
+
+**Alternatives considered:** Hand-written duplicated request/response types on both sides (rejected:
+drifts silently); a shared-types codegen that couples the two projects (rejected: reintroduces the
+coupling D13 forbids).
 
 ## Risks / Trade-offs
 
@@ -241,6 +288,11 @@ Python do what it is best at. A read-only database role for analytics scripts ke
 - **Provider fragility: rate limits, API keys, ToS, and data licensing** (prices, chains, banks) →
   Cache-first with staleness flags, manual override always available, one adapter per provider, no
   provider required for core functionality, and the user owns their credentials.
+- **Monorepo boundary drift as the codebase grows** → Enforce the no-cross-project-import rule in
+  CI, keep the HTTP API as the only integration surface, and require a cross-boundary integration
+  test for every feature that spans the stack.
+- **Two containers plus a database add moving parts for a local app** → Root Compose starts
+  everything with one command, and per-project container files keep each build independent.
 - **Scope creep across eleven capabilities** → Phase the tasks so a usable vertical slice (manual
   accounts → net worth → history chart) ships first; bulk entry and integrations follow.
 - **Rust learning curve slows delivery** → Start with the narrow domain slice; keep the dashboard and
@@ -252,19 +304,24 @@ Python do what it is best at. A read-only database role for analytics scripts ke
 
 ## Migration Plan
 
-Greenfield, so there is no data migration. Delivery is phased:
+Greenfield, so there is no data migration. Delivery is phased as vertical slices, and every phase
+that adds API capability also adds its frontend consumer and a cross-boundary integration test:
 
-1. Repository skeleton: Rust workspace, Axum health endpoint, Compose with Postgres, SQLx migrations,
-   CI running `openspec validate` and tests.
-2. Domain core + persistence: accounts, balances, exact-decimal value objects, repository, migrations.
-3. Net worth engine: total/liquid/accessible with configurable redemption policies and snapshots.
-4. Bulk entry grid and spreadsheet import/export plus backup/restore.
-5. Dashboard vertical slice: summary, history chart, filters.
-6. Identity and RBAC.
-7. Investments and market data (including a user-funded price add-on).
-8. Cryptocurrency tracking (including a user-funded chain add-on).
-9. Budgeting.
-10. Aggregation adapter interface and a reference read-only, user-funded adapter.
+1. Monorepo scaffold: `backend/` Cargo workspace and `frontend/` Vite app, per-project container
+   files, root Compose (`db`, `backend`, `frontend`), CI with the boundary check and
+   `openspec validate`.
+2. Walking skeleton: a trivial backend endpoint consumed and rendered by the frontend, proven by an
+   integration test across the HTTP boundary, plus the OpenAPI contract and typed-client check.
+3. Domain core + persistence: accounts, balances, exact-decimal value objects, migrations, and the
+   accounts UI with its integration test.
+4. Net worth engine: total/liquid/accessible, configurable redemption policies and snapshots, plus the
+   summary, history chart, and filter UI with integration tests.
+5. Bulk entry grid and spreadsheet import/export plus backup/restore.
+6. Identity and RBAC, including the login UI and scoping tests.
+7. Investments and market data (including a user-funded price add-on) with the holdings UI.
+8. Cryptocurrency tracking (including a user-funded chain add-on) with the wallet UI.
+9. Budgeting with its UI.
+10. Aggregation adapter interface and a reference read-only, user-funded adapter, with a config UI.
 
 Rollback is per-migration and per-PR; the only irreversible artifact is data, which is why backups
 (`data-exchange`) land before integrations.
@@ -284,3 +341,5 @@ Deferrable without changing the specs, approach, or task breakdown:
 - Whether the analytics companion is documented as raw SQL, a small Python package, or both.
 - When to introduce the marginal tax-bracket capability and what inputs it would need (state tax,
   filing status).
+- Whether the OpenAPI contract is authored by hand and checked against the backend, or generated from
+  the backend with a typed client for the frontend.
