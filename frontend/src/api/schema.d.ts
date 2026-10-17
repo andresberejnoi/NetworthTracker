@@ -51,7 +51,7 @@ export interface components {
             message: string;
             /** @example NetworthTracker */
             service: string;
-            /** @example 0.1.0 */
+            /** @example 0.1.20261017 */
             version: string;
         };
     };

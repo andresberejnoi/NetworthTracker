@@ -1,12 +1,15 @@
 SHELL := /bin/bash
 
-.PHONY: help backend-build backend-test backend-fmt backend-lint \
+.PHONY: help version backend-build backend-test backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
         integration-test boundaries validate test build up down clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+version: ## Print the authoritative product version (MAJOR.MINOR.yyyymmdd)
+	./scripts/version.sh
 
 backend-build: ## Build the Rust backend workspace
 	cd backend && cargo build --workspace

@@ -13,6 +13,8 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [x] 1.5 Add root `docker-compose.yml` running `db`, `backend`, and `frontend` and verify all three start and the frontend can reach the backend
 - [x] 1.6 Add a root `.gitignore`, a task runner, and a README documenting the layout and the no-cross-project-import rule, and verify the documented commands run as written
 - [x] 1.7 Add CI that builds, tests, and lints both projects, runs a boundary check (backend must not reference `frontend/` and vice versa), and runs `openspec validate --strict`, and verify it passes on a trivial change
+- [x] 1.8 Record the date-based versioning convention (`MAJOR.MINOR.yyyymmdd`) in AGENTS.md, the OpenSpec config, and the `release-versioning` spec, and verify `make version` prints the authoritative value
+- [x] 1.9 Apply the date-based version to the backend, frontend, and OpenAPI contract and verify a backend test asserts the API reports it in the required format
 
 ## 2. Walking skeleton across the HTTP boundary
 

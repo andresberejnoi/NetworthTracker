@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "networth-adapters"
-version = "0.1.0"
+version = "0.1.20261017"
 dependencies = [
  "networth-application",
  "networth-domain",
@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "networth-api"
-version = "0.1.0"
+version = "0.1.20261017"
 dependencies = [
  "axum",
  "http-body-util",
@@ -297,14 +297,14 @@ dependencies = [
 
 [[package]]
 name = "networth-application"
-version = "0.1.0"
+version = "0.1.20261017"
 dependencies = [
  "networth-domain",
 ]
 
 [[package]]
 name = "networth-domain"
-version = "0.1.0"
+version = "0.1.20261017"
 dependencies = [
  "thiserror",
 ]

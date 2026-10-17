@@ -20,6 +20,11 @@ context: |
   External integrations (bank/investment aggregation, market prices, on-chain data) sit behind
   read-only adapter interfaces and must never be required for core functionality.
 
+  Versioning: date-based semantic versioning, MAJOR.MINOR.yyyymmdd, where the UTC release date
+  replaces the numeric patch (for example 0.1.20261017). The authoritative value lives in
+  backend/Cargo.toml and is mirrored into frontend/package.json and contracts/openapi.yaml. See
+  AGENTS.md and the release-versioning spec.
+
   Specs describe user-observable behavior and domain rules; keep infrastructure and framework
   choices in design.md.
 

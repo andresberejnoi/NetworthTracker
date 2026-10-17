@@ -57,6 +57,7 @@ personal/family networth tracker.
 - `data-exchange`: CSV/XLSX import/export between the app and external spreadsheets, plus local backup/restore.
 - `budgeting`: income, spending plan, and budget categories.
 - `dashboard`: web UI for networth metrics, history charts, and filtering.
+- `release-versioning`: the date-based `MAJOR.MINOR.yyyymmdd` product version, single-sourced and reported by the API.
 
 ### Modified Capabilities
 

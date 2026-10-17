@@ -29,7 +29,7 @@ describe("App", () => {
             JSON.stringify({
               message: "pong",
               service: "NetworthTracker",
-              version: "0.1.0",
+              version: "0.1.20261017",
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           ),

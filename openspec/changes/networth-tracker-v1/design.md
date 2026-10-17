@@ -273,6 +273,27 @@ are what actually prove a feature works.
 drifts silently); a shared-types codegen that couples the two projects (rejected: reintroduces the
 coupling D13 forbids).
 
+### D15. Date-based semantic versioning: MAJOR.MINOR.yyyymmdd
+
+**Decision:** The product version is `MAJOR.MINOR.yyyymmdd`, where the third segment is the UTC
+release date (for example `0.1.20261017`). `MAJOR` and `MINOR` carry the usual compatibility meaning;
+the date replaces the numeric patch. The authoritative value is `backend/Cargo.toml`
+(`[workspace.package].version`), mirrored into `frontend/package.json` and
+`contracts/openapi.yaml`; the API reports it via `GET /api/v1/ping`, and release images are tagged
+`v<version>`. `make version` prints the authoritative value, and a backend test asserts the reported
+version matches the format and is a real date.
+
+**Rationale:** The user's preference, and it fits a continuously shipped local app: the date is
+monotonic and human-readable, tells you how fresh a build is at a glance, and never collides the way
+an incremented patch number can when tags are cut by hand. Keeping `MAJOR`/`MINOR` preserves a
+compatibility signal that pure CalVer would lose, and single-sourcing it prevents the backend,
+frontend, and contract from disagreeing.
+
+**Alternatives considered:** plain semver `0.1.0` (rejected: the user's preference, and a bare patch
+number conveys less about freshness); CalVer `2026.10.17` (rejected: drops the
+compatibility signal and reads oddly as a three-part number); build metadata `0.1.0+20261017`
+(rejected: not reliably carried into container tags and registries).
+
 ## Risks / Trade-offs
 
 - **Accessible net worth is inherently approximate, and tax estimation multiplies the assumptions** →
