@@ -7,10 +7,10 @@ cross-project imports, integration only over the HTTP API, and each project ship
 ## 1. Monorepo, decoupling, and container scaffold
 
 - [x] 1.1 Create the `backend/` Cargo workspace (`domain`, `application`, `adapters`, `api`) and verify `cargo build --workspace` succeeds
-- [ ] 1.2 Add `backend/Dockerfile` and verify the built image runs the API and answers `GET /health`
+- [x] 1.2 Add `backend/Dockerfile` and verify the built image runs the API and answers `GET /health`
 - [x] 1.3 Scaffold `frontend/` as a Vite + React + TypeScript app and verify `npm run build` succeeds
-- [ ] 1.4 Add `frontend/Dockerfile` and verify the built image serves the SPA
-- [ ] 1.5 Add root `docker-compose.yml` running `db`, `backend`, and `frontend` and verify all three start and the frontend can reach the backend
+- [x] 1.4 Add `frontend/Dockerfile` and verify the built image serves the SPA
+- [x] 1.5 Add root `docker-compose.yml` running `db`, `backend`, and `frontend` and verify all three start and the frontend can reach the backend
 - [x] 1.6 Add a root `.gitignore`, a task runner, and a README documenting the layout and the no-cross-project-import rule, and verify the documented commands run as written
 - [x] 1.7 Add CI that builds, tests, and lints both projects, runs a boundary check (backend must not reference `frontend/` and vice versa), and runs `openspec validate --strict`, and verify it passes on a trivial change
 

@@ -46,6 +46,8 @@ Or run the pieces separately for development — see `docs/development.md`.
 | Backend  | http://localhost:8080   |
 | Postgres | internal (`db:5432`)    |
 
+Host ports are overridable, e.g. `FRONTEND_PORT=8081 docker compose up`.
+
 ## Development
 
 ```bash

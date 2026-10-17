@@ -62,6 +62,13 @@ The frontend container is served by nginx and calls the backend at
 `http://localhost:8080` (baked in at build time via the `VITE_API_BASE_URL`
 build arg), because the browser — not the container network — resolves that URL.
 
+Host ports default to `3000` (frontend) and `8080` (backend) and can be
+overridden; the CORS allowlist and the baked-in API URL follow the variables:
+
+```bash
+FRONTEND_PORT=8081 docker compose up --build
+```
+
 ## The contract
 
 `contracts/openapi.yaml` is the single integration surface. The backend's
