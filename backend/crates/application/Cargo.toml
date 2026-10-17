@@ -6,3 +6,7 @@ license.workspace = true
 
 [dependencies]
 networth-domain = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+uuid = { workspace = true }

@@ -7,3 +7,17 @@ license.workspace = true
 [dependencies]
 networth-domain = { workspace = true }
 networth-application = { workspace = true }
+async-trait = { workspace = true }
+bigdecimal = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[features]
+# Repository integration tests that need a live Postgres. Run with
+# `make backend-test-db`, which provides DATABASE_URL.
+db-tests = []

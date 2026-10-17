@@ -38,6 +38,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List accounts */
+        get: operations["listAccounts"];
+        put?: never;
+        /** Create an account */
+        post: operations["createAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        /** Fetch one account */
+        get: operations["getAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive an account, preserving its history */
+        post: operations["archiveAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        /** List an account's balances, newest first */
+        get: operations["listBalances"];
+        put?: never;
+        /** Record a dated balance (replaces the same-day value) */
+        post: operations["recordBalance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -54,9 +130,79 @@ export interface components {
             /** @example 0.1.20261017 */
             version: string;
         };
+        ApiError: {
+            error: string;
+        };
+        /** @enum {string} */
+        AccountType: "401k" | "traditional_ira" | "roth_ira" | "taxable_brokerage" | "checking" | "savings" | "cash" | "real_estate" | "other_asset" | "mortgage" | "loan";
+        /** @enum {string} */
+        OwnershipScope: "household" | "user";
+        /** @enum {string} */
+        BalanceSource: "manual" | "import" | "provider";
+        Account: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            account_type: components["schemas"]["AccountType"];
+            institution: string | null;
+            /** @example USD */
+            currency: string;
+            ownership_scope: components["schemas"]["OwnershipScope"];
+            archived: boolean;
+        };
+        CreateAccountRequest: {
+            name: string;
+            account_type: components["schemas"]["AccountType"];
+            institution?: string | null;
+            /** @default USD */
+            currency?: string;
+            /** @default household */
+            ownership_scope?: components["schemas"]["OwnershipScope"];
+        };
+        Balance: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            account_id: string;
+            /** Format: date */
+            as_of: string;
+            /** @example 250.50 */
+            amount: string;
+            /** @example USD */
+            currency: string;
+            source: components["schemas"]["BalanceSource"];
+        };
+        RecordBalanceRequest: {
+            /** Format: date */
+            as_of: string;
+            amount: string;
+            currency?: string | null;
+            source?: components["schemas"]["BalanceSource"];
+        };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description The request was malformed or failed validation. */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The resource does not exist. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+    };
+    parameters: {
+        AccountId: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -101,6 +247,148 @@ export interface operations {
                     "application/json": components["schemas"]["Ping"];
                 };
             };
+        };
+    };
+    listAccounts: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accounts, ordered by name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"][];
+                };
+            };
+        };
+    };
+    createAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description The created account. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account is archived. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listBalances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dated balances. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Balance"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordBalanceRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored balance. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Balance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

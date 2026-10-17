@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: help version backend-build backend-test backend-fmt backend-lint \
+.PHONY: help version backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
         integration-test boundaries validate test build up down clean
 
@@ -14,8 +14,11 @@ version: ## Print the authoritative product version (MAJOR.MINOR.yyyymmdd)
 backend-build: ## Build the Rust backend workspace
 	cd backend && cargo build --workspace
 
-backend-test: ## Run backend tests
+backend-test: ## Run backend tests (no database required)
 	cd backend && cargo test --workspace
+
+backend-test-db: ## Run backend repository tests against a throwaway Postgres
+	./scripts/test-backend-db.sh
 
 backend-fmt: ## Check backend formatting
 	cd backend && cargo fmt --all -- --check

@@ -1,44 +1,19 @@
 //! API-level tests for the walking-skeleton endpoints.
 
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-};
-use http_body_util::BodyExt;
-use tower::ServiceExt;
+mod common;
 
-async fn get(path: &str) -> (StatusCode, serde_json::Value) {
-    let response = networth_api::app()
-        .oneshot(
-            Request::builder()
-                .uri(path)
-                .body(Body::empty())
-                .expect("build request"),
-        )
-        .await
-        .expect("send request");
-
-    let status = response.status();
-    let bytes = response
-        .into_body()
-        .collect()
-        .await
-        .expect("collect body")
-        .to_bytes();
-    let json = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
-    (status, json)
-}
+use axum::http::StatusCode;
 
 #[tokio::test]
 async fn health_reports_ok() {
-    let (status, body) = get("/health").await;
+    let (status, body) = common::get(&common::router(), "/health").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");
 }
 
 #[tokio::test]
 async fn ping_reports_service_metadata() {
-    let (status, body) = get("/api/v1/ping").await;
+    let (status, body) = common::get(&common::router(), "/api/v1/ping").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["message"], "pong");
     assert_eq!(body["service"], "NetworthTracker");
@@ -47,18 +22,24 @@ async fn ping_reports_service_metadata() {
 
 #[tokio::test]
 async fn unknown_route_is_not_found() {
-    let (status, _) = get("/api/v1/does-not-exist").await;
+    let (status, _) = common::get(&common::router(), "/api/v1/does-not-exist").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 /// The product version must be date-based: MAJOR.MINOR.yyyymmdd (see AGENTS.md).
 #[tokio::test]
 async fn version_is_date_based() {
-    let (_, body) = get("/api/v1/ping").await;
-    let version = body["version"].as_str().expect("version should be a string");
+    let (_, body) = common::get(&common::router(), "/api/v1/ping").await;
+    let version = body["version"]
+        .as_str()
+        .expect("version should be a string");
 
     let parts: Vec<&str> = version.split('.').collect();
-    assert_eq!(parts.len(), 3, "expected MAJOR.MINOR.yyyymmdd, got {version}");
+    assert_eq!(
+        parts.len(),
+        3,
+        "expected MAJOR.MINOR.yyyymmdd, got {version}"
+    );
 
     assert!(
         parts[0].parse::<u64>().is_ok(),
@@ -79,7 +60,10 @@ async fn version_is_date_based() {
     let year: i32 = date[0..4].parse().expect("year");
     let month: u32 = date[4..6].parse().expect("month");
     let day: u32 = date[6..8].parse().expect("day");
-    assert!((2000..=2100).contains(&year), "implausible year in {version}");
+    assert!(
+        (2000..=2100).contains(&year),
+        "implausible year in {version}"
+    );
     assert!((1..=12).contains(&month), "invalid month in {version}");
     assert!((1..=31).contains(&day), "invalid day in {version}");
 }

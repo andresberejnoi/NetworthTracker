@@ -26,24 +26,24 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 3. Exact money and core value objects (backend)
 
-- [ ] 3.1 Implement a `Money` value object (`bigdecimal` amount + currency) and verify unit tests covering addition, subtraction, and non-lossy large/precise values
-- [ ] 3.2 Implement `Quantity` for crypto-style assets with at least 18 decimals and verify a test storing `0.000000000000000001` round-trips unchanged
-- [ ] 3.3 Serialize all decimal amounts as JSON strings and verify a serde round-trip test proves no precision loss and that no float type appears in the money API
-- [ ] 3.4 Add property-based tests for money arithmetic (associativity, round-trip, no rounding drift) and verify they pass
-- [ ] 3.5 Document the money rules (no floats, exact decimals, currency tagging) in `docs/money.md` and verify the examples in it compile as doctests
+- [x] 3.1 Implement a `Money` value object (`bigdecimal` amount + currency) and verify unit tests covering addition, subtraction, and non-lossy large/precise values
+- [x] 3.2 Implement `Quantity` for crypto-style assets with at least 18 decimals and verify a test storing `0.000000000000000001` round-trips unchanged
+- [x] 3.3 Serialize all decimal amounts as JSON strings and verify a serde round-trip test proves no precision loss and that no float type appears in the money API
+- [x] 3.4 Add property-based tests for money arithmetic (associativity, round-trip, no rounding drift) and verify they pass
+- [x] 3.5 Document the money rules (no floats, exact decimals, currency tagging) in `docs/money.md` and verify the examples in it compile as doctests
 
 ## 4. Accounts and balances (backend + frontend)
 
-- [ ] 4.1 Implement the account type taxonomy with asset/liability and liquidity classification and verify tests cover every type from the `accounts` spec
-- [ ] 4.2 Write migrations for accounts, ownership scope, and dated balance records and verify they apply and roll back against Postgres
-- [ ] 4.3 Define the `AccountRepository` trait and implement the Postgres adapter, verified by repository integration tests
-- [ ] 4.4 Implement create-account and record-balance use cases and verify a test that runs them with no network access succeeds
-- [ ] 4.5 Implement account archival that preserves history and verify a test shows the account leaves current balances but remains in history
-- [ ] 4.6 Expose account and balance HTTP endpoints and verify them with API tests covering success and validation errors
-- [ ] 4.7 Add the account and balance endpoints to the OpenAPI contract and verify the contract test passes against the running backend
-- [ ] 4.8 Build the frontend account list and create/edit views against the typed client and verify component tests for success and validation errors
-- [ ] 4.9 Verify an integration test creates an account and records a balance through the UI against the real backend
-- [ ] 4.10 Document the account and balance API and its UI in `docs/api.md` and verify the documented requests work as written
+- [x] 4.1 Implement the account type taxonomy with asset/liability and liquidity classification and verify tests cover every type from the `accounts` spec
+- [x] 4.2 Write migrations for accounts, ownership scope, and dated balance records and verify they apply and roll back against Postgres
+- [x] 4.3 Define the `AccountRepository` trait and implement the Postgres adapter, verified by repository integration tests
+- [x] 4.4 Implement create-account and record-balance use cases and verify a test that runs them with no network access succeeds
+- [x] 4.5 Implement account archival that preserves history and verify a test shows the account leaves current balances but remains in history
+- [x] 4.6 Expose account and balance HTTP endpoints and verify them with API tests covering success and validation errors
+- [x] 4.7 Add the account and balance endpoints to the OpenAPI contract and verify the contract test passes against the running backend
+- [x] 4.8 Build the frontend account list and create/edit views against the typed client and verify component tests for success and validation errors
+- [x] 4.9 Verify an integration test creates an account and records a balance through the UI against the real backend
+- [x] 4.10 Document the account and balance API and its UI in `docs/api.md` and verify the documented requests work as written
 
 ## 5. Net worth engine and history (backend + frontend)
 

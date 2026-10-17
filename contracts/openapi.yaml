@@ -9,12 +9,17 @@ info:
     surface between the decoupled `backend/` and `frontend/` projects: the
     backend is validated against it and the frontend's typed client is
     generated from it. Neither project imports the other's code.
+
+    Monetary amounts are always decimal **strings**, never numbers, so no
+    consumer can lose precision by parsing them as floats.
 servers:
   - url: http://localhost:8080
     description: Local backend
 tags:
   - name: system
     description: Liveness and service metadata
+  - name: accounts
+    description: Accounts and their dated balances
 paths:
   /health:
     get:
@@ -40,7 +45,135 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ping"
+  /api/v1/accounts:
+    get:
+      tags: [accounts]
+      operationId: listAccounts
+      summary: List accounts
+      parameters:
+        - name: include_archived
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Accounts, ordered by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+    post:
+      tags: [accounts]
+      operationId: createAccount
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: The created account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/accounts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [accounts]
+      operationId: getAccount
+      summary: Fetch one account
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    post:
+      tags: [accounts]
+      operationId: archiveAccount
+      summary: Archive an account, preserving its history
+      responses:
+        "204":
+          description: The account is archived.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{id}/balances:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [accounts]
+      operationId: listBalances
+      summary: List an account's balances, newest first
+      responses:
+        "200":
+          description: Dated balances.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Balance"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [accounts]
+      operationId: recordBalance
+      summary: Record a dated balance (replaces the same-day value)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordBalanceRequest"
+      responses:
+        "201":
+          description: The stored balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Balance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: The request was malformed or failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   schemas:
     Health:
       type: object
@@ -64,3 +197,104 @@ components:
         version:
           type: string
           examples: ["0.1.20261017"]
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+    AccountType:
+      type: string
+      enum:
+        - "401k"
+        - traditional_ira
+        - roth_ira
+        - taxable_brokerage
+        - checking
+        - savings
+        - cash
+        - real_estate
+        - other_asset
+        - mortgage
+        - loan
+    OwnershipScope:
+      type: string
+      enum: [household, user]
+    BalanceSource:
+      type: string
+      enum: [manual, import, provider]
+    Account:
+      type: object
+      additionalProperties: false
+      required: [id, name, account_type, institution, currency, ownership_scope, archived]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        institution:
+          type: [string, "null"]
+        currency:
+          type: string
+          examples: [USD]
+        ownership_scope:
+          $ref: "#/components/schemas/OwnershipScope"
+        archived:
+          type: boolean
+    CreateAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [name, account_type]
+      properties:
+        name:
+          type: string
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        institution:
+          type: [string, "null"]
+        currency:
+          type: string
+          default: USD
+        ownership_scope:
+          $ref: "#/components/schemas/OwnershipScope"
+          default: household
+    Balance:
+      type: object
+      additionalProperties: false
+      required: [id, account_id, as_of, amount, currency, source]
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        as_of:
+          type: string
+          format: date
+        amount:
+          type: string
+          examples: ["250.50"]
+        currency:
+          type: string
+          examples: [USD]
+        source:
+          $ref: "#/components/schemas/BalanceSource"
+    RecordBalanceRequest:
+      type: object
+      additionalProperties: false
+      required: [as_of, amount]
+      properties:
+        as_of:
+          type: string
+          format: date
+        amount:
+          type: string
+        currency:
+          type: [string, "null"]
+        source:
+          $ref: "#/components/schemas/BalanceSource"

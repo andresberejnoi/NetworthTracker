@@ -4,16 +4,45 @@
 //! between the `backend/` and `frontend/` projects. The frontend never imports
 //! backend code; it consumes these endpoints over HTTP.
 
+mod accounts;
+mod dto;
+mod error;
+
+pub use dto::{AccountDto, BalanceDto, CreateAccountRequest, RecordBalanceRequest};
+
+use std::sync::Arc;
+
 use axum::{
     http::{HeaderValue, Method},
     routing::get,
     Json, Router,
 };
+use networth_application::{AccountRepository, AccountService};
 use serde::Serialize;
 use tower_http::{
     cors::{AllowOrigin, CorsLayer},
     trace::TraceLayer,
 };
+
+use crate::accounts::{
+    archive_account, create_account, get_account, list_accounts, list_balances, record_balance,
+};
+
+/// Shared application state.
+#[derive(Clone)]
+pub struct AppState {
+    /// Account use cases.
+    pub accounts: Arc<AccountService>,
+}
+
+impl AppState {
+    /// Build state over an account repository.
+    pub fn new(repo: Arc<dyn AccountRepository>) -> Self {
+        Self {
+            accounts: Arc::new(AccountService::new(repo)),
+        }
+    }
+}
 
 /// Response body for `GET /health`.
 #[derive(Debug, Serialize)]
@@ -43,14 +72,25 @@ async fn ping() -> Json<Ping> {
 
 /// Build the application router.
 ///
-/// Exposed as a library function so tests and the contract check can exercise
-/// the real routes without binding a socket.
-pub fn app() -> Router {
+/// Exposed as a library function so tests, the contract check, and the binary
+/// all exercise the same routes.
+pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/api/v1/ping", get(ping))
+        .route("/api/v1/accounts", get(list_accounts).post(create_account))
+        .route("/api/v1/accounts/{id}", get(get_account))
+        .route(
+            "/api/v1/accounts/{id}/archive",
+            axum::routing::post(archive_account),
+        )
+        .route(
+            "/api/v1/accounts/{id}/balances",
+            get(list_balances).post(record_balance),
+        )
         .layer(TraceLayer::new_for_http())
         .layer(cors_layer())
+        .with_state(state)
 }
 
 /// Build the CORS layer from `CORS_ALLOWED_ORIGINS` (comma-separated).
@@ -78,15 +118,4 @@ fn cors_layer() -> CorsLayer {
             Method::OPTIONS,
         ])
         .allow_headers(tower_http::cors::Any)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn app_builds() {
-        // Building the router must not panic even with no configuration set.
-        let _ = app();
-    }
 }

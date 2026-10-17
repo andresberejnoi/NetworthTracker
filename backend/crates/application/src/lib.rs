@@ -4,6 +4,12 @@
 //! repository and provider traits; it owns transactions but not transport or
 //! persistence details. It must not depend on Axum or on a specific database.
 
+pub mod accounts;
+pub mod ports;
+
+pub use accounts::{AccountError, AccountService, CreateAccount, RecordBalance};
+pub use ports::{AccountRepository, RepositoryError};
+
 use networth_domain::APP_NAME;
 
 /// Name of the service, exposed through the API's metadata endpoints.
