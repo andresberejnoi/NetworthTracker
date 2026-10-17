@@ -1,0 +1,52 @@
+schema: spec-driven
+
+context: |
+  Greenfield project: a local-first, offline-capable personal and family networth tracker.
+
+  Stack: Rust backend (Axum + SQLx) exposing a JSON HTTP API, plus a TypeScript web dashboard.
+  Packaging: runs locally, distributed as a container (Docker Compose); no cloud dependency is
+  required for core use.
+
+  Money must be exact: store monetary amounts as arbitrary-precision decimals or integer minor
+  units, never binary floating point. Cryptocurrency requires many decimal places; fiat needs at
+  least 2 and the model must not assume 2. All money values are currency-tagged; design for multiple
+  currencies even though v1 targets USD.
+
+  Manual data entry must work fully offline; CSV/XLSX import-export is the primary bulk-entry path.
+
+  External integrations (bank/investment aggregation, market prices, on-chain data) sit behind
+  read-only adapter interfaces and must never be required for core functionality.
+
+  Specs describe user-observable behavior and domain rules; keep infrastructure and framework
+  choices in design.md.
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
