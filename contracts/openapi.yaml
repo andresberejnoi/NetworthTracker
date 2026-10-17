@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: NetworthTracker API
+  version: 0.1.0
+  description: |
+    JSON API for the local-first NetworthTracker backend.
+
+    This contract is a shared, root-level asset. It is the only integration
+    surface between the decoupled `backend/` and `frontend/` projects: the
+    backend is validated against it and the frontend's typed client is
+    generated from it. Neither project imports the other's code.
+servers:
+  - url: http://localhost:8080
+    description: Local backend
+tags:
+  - name: system
+    description: Liveness and service metadata
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness probe
+      responses:
+        "200":
+          description: The service is up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v1/ping:
+    get:
+      tags: [system]
+      operationId: getPing
+      summary: Service metadata reply
+      responses:
+        "200":
+          description: Service name and version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ping"
+components:
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    Ping:
+      type: object
+      additionalProperties: false
+      required: [message, service, version]
+      properties:
+        message:
+          type: string
+          examples: [pong]
+        service:
+          type: string
+          examples: [NetworthTracker]
+        version:
+          type: string
+          examples: ["0.1.0"]

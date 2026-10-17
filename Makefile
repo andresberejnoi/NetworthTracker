@@ -1,0 +1,56 @@
+SHELL := /bin/bash
+
+.PHONY: help backend-build backend-test backend-fmt backend-lint \
+        frontend-install frontend-build frontend-test frontend-api \
+        integration-test boundaries validate test build up down clean
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+backend-build: ## Build the Rust backend workspace
+	cd backend && cargo build --workspace
+
+backend-test: ## Run backend tests
+	cd backend && cargo test --workspace
+
+backend-fmt: ## Check backend formatting
+	cd backend && cargo fmt --all -- --check
+
+backend-lint: ## Lint the backend with clippy (warnings are errors)
+	cd backend && cargo clippy --workspace --all-targets -- -D warnings
+
+frontend-install: ## Install frontend dependencies
+	cd frontend && npm ci
+
+frontend-build: ## Type-check and build the frontend
+	cd frontend && npm run build
+
+frontend-test: ## Run frontend tests
+	cd frontend && npm test
+
+frontend-api: ## Regenerate the frontend typed client from the OpenAPI contract
+	cd frontend && npm run generate:api
+
+integration-test: ## Run the cross-boundary integration test (live backend + frontend)
+	./scripts/integration-test.sh
+
+boundaries: ## Verify there are no cross-project imports
+	./scripts/check-boundaries.sh
+
+validate: ## Validate the OpenSpec change strictly
+	openspec validate networth-tracker-v1 --strict
+
+test: backend-test frontend-test boundaries ## Run all tests and boundary checks
+
+build: backend-build frontend-build ## Build both projects
+
+up: ## Start the full local stack (db, backend, frontend)
+	docker compose up --build
+
+down: ## Stop the local stack
+	docker compose down
+
+clean: ## Remove build artifacts
+	cd backend && cargo clean
+	rm -rf frontend/dist

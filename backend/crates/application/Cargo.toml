@@ -1,0 +1,8 @@
+[package]
+name = "networth-application"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+networth-domain = { workspace = true }

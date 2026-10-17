@@ -1,0 +1,17 @@
+//! Application layer for NetworthTracker.
+//!
+//! Use cases and orchestration live here. It coordinates the domain through
+//! repository and provider traits; it owns transactions but not transport or
+//! persistence details. It must not depend on Axum or on a specific database.
+
+use networth_domain::APP_NAME;
+
+/// Name of the service, exposed through the API's metadata endpoints.
+pub fn service_name() -> &'static str {
+    APP_NAME
+}
+
+/// Version of the backend, exposed through the API's metadata endpoints.
+pub fn service_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}

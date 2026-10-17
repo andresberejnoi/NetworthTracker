@@ -6,21 +6,21 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 1. Monorepo, decoupling, and container scaffold
 
-- [ ] 1.1 Create the `backend/` Cargo workspace (`domain`, `application`, `adapters`, `api`) and verify `cargo build --workspace` succeeds
+- [x] 1.1 Create the `backend/` Cargo workspace (`domain`, `application`, `adapters`, `api`) and verify `cargo build --workspace` succeeds
 - [ ] 1.2 Add `backend/Dockerfile` and verify the built image runs the API and answers `GET /health`
-- [ ] 1.3 Scaffold `frontend/` as a Vite + React + TypeScript app and verify `npm run build` succeeds
+- [x] 1.3 Scaffold `frontend/` as a Vite + React + TypeScript app and verify `npm run build` succeeds
 - [ ] 1.4 Add `frontend/Dockerfile` and verify the built image serves the SPA
 - [ ] 1.5 Add root `docker-compose.yml` running `db`, `backend`, and `frontend` and verify all three start and the frontend can reach the backend
-- [ ] 1.6 Add a root `.gitignore`, a task runner, and a README documenting the layout and the no-cross-project-import rule, and verify the documented commands run as written
-- [ ] 1.7 Add CI that builds, tests, and lints both projects, runs a boundary check (backend must not reference `frontend/` and vice versa), and runs `openspec validate --strict`, and verify it passes on a trivial change
+- [x] 1.6 Add a root `.gitignore`, a task runner, and a README documenting the layout and the no-cross-project-import rule, and verify the documented commands run as written
+- [x] 1.7 Add CI that builds, tests, and lints both projects, runs a boundary check (backend must not reference `frontend/` and vice versa), and runs `openspec validate --strict`, and verify it passes on a trivial change
 
 ## 2. Walking skeleton across the HTTP boundary
 
-- [ ] 2.1 Add `GET /health` and `GET /api/v1/ping` to the backend and verify them with API tests
-- [ ] 2.2 Configure the backend CORS allowlist and the frontend API base URL and verify a component test calls the API from the SPA origin
-- [ ] 2.3 Render backend data in the frontend and verify an integration test drives the running `db`+`backend`+`frontend` stack across the HTTP boundary
-- [ ] 2.4 Publish an OpenAPI contract for the skeleton endpoints and a frontend typed-client check, and verify the contract test passes against the running backend
-- [ ] 2.5 Document the development workflow (run backend, run frontend, run compose) in `docs/development.md` and verify the steps work as written
+- [x] 2.1 Add `GET /health` and `GET /api/v1/ping` to the backend and verify them with API tests
+- [x] 2.2 Configure the backend CORS allowlist and the frontend API base URL and verify a component test calls the API from the SPA origin
+- [x] 2.3 Render backend data in the frontend and verify an integration test drives the running `db`+`backend`+`frontend` stack across the HTTP boundary
+- [x] 2.4 Publish an OpenAPI contract for the skeleton endpoints and a frontend typed-client check, and verify the contract test passes against the running backend
+- [x] 2.5 Document the development workflow (run backend, run frontend, run compose) in `docs/development.md` and verify the steps work as written
 
 ## 3. Exact money and core value objects (backend)
 

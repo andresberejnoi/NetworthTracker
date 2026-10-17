@@ -1,0 +1,45 @@
+name: networth-tracker
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: networth
+      POSTGRES_PASSWORD: networth
+      POSTGRES_DB: networth
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U networth -d networth"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      BACKEND_ADDR: 0.0.0.0:8080
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+      DATABASE_URL: postgres://networth:networth@db:5432/networth
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db-data:
