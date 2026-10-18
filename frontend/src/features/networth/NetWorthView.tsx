@@ -7,20 +7,22 @@ import {
   type Snapshot,
 } from "../../api/client";
 
-type Kind = "total" | "liquid" | "accessible";
+type Kind = "total" | "liquid" | "liquidity" | "accessible";
 type GroupBy = "by_asset_class" | "by_account_type";
 
-const KINDS: Kind[] = ["total", "liquid", "accessible"];
+const KINDS: Kind[] = ["total", "liquid", "liquidity", "accessible"];
 
 const KIND_LABELS: Record<Kind, string> = {
   total: "Total",
   liquid: "Liquid",
+  liquidity: "Liquidity",
   accessible: "Accessible",
 };
 
 const KIND_HINTS: Record<Kind, string> = {
   total: "assets minus liabilities",
-  liquid: "cash-like assets minus debts",
+  liquid: "cash, brokerage, and retirement accounts",
+  liquidity: "cash available right now",
   accessible: "after estimated taxes, penalties, and costs",
 };
 

@@ -26,7 +26,8 @@ const networth = {
   as_of: "2026-10-17",
   currency: "USD",
   total: "610000.00",
-  liquid: "10000.00",
+  liquid: "150000.00",
+  liquidity: "10000.00",
   accessible: "550000.00",
   by_account_type: [
     { key: "401k", amount: "100000.00", currency: "USD" },
@@ -59,7 +60,8 @@ const snapshots = [
     owner_age: 35,
     currency: "USD",
     total: "600000.00",
-    liquid: "9000.00",
+    liquid: "140000.00",
+    liquidity: "9000.00",
     accessible: "540000.00",
     policy,
   },
@@ -71,7 +73,8 @@ const snapshots = [
     owner_age: 35,
     currency: "USD",
     total: "610000.00",
-    liquid: "10000.00",
+    liquid: "150000.00",
+    liquidity: "10000.00",
     accessible: "550000.00",
     policy,
   },
@@ -106,6 +109,7 @@ describe("NetWorthView", () => {
     renderView();
 
     expect(await screen.findByText("610,000.00 USD")).toBeInTheDocument();
+    expect(screen.getByText("150,000.00 USD")).toBeInTheDocument();
     expect(screen.getAllByText("10,000.00 USD").length).toBeGreaterThan(0);
     expect(screen.getByText("550,000.00 USD")).toBeInTheDocument();
   });

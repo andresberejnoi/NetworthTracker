@@ -112,7 +112,8 @@ curl -s 'localhost:8080/api/v1/networth?as_of=2026-10-17&owner_age=35'
   "as_of": "2026-10-17",
   "currency": "USD",
   "total": "610000.00",
-  "liquid": "10000.00",
+  "liquid": "110000.00",
+  "liquidity": "10000.00",
   "accessible": "550000.00",
   "by_account_type": [{ "key": "401k", "amount": "100000.00", "currency": "USD" }],
   "by_asset_class": [{ "key": "real_estate", "amount": "500000.00", "currency": "USD" }],
@@ -131,6 +132,13 @@ Query parameters:
 | `owner_user_id` | Required for `personal`; shared accounts are still included |
 | `owner_age` | Age used for early-withdrawal penalties |
 | `tax_rate`, `penalty_rate`, `penalty_age`, `selling_rate`, `fixed_costs` | Policy overrides |
+
+Three net worth figures are reported, each answering a different question:
+
+- `liquid` — **liquid net worth**: cash, deposit accounts, taxable brokerage, and retirement accounts
+  (sellable, even with tax/penalty). Debt secured by an excluded asset (a mortgage) does not reduce it.
+- `liquidity` — **cash on hand**: cash, checking, and savings, available right now.
+- `accessible` — **net proceeds** after taxes, penalties, and selling costs, across all assets.
 
 Policy overrides compute a **what-if** result without persisting anything:
 

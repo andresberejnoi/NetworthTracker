@@ -13,9 +13,13 @@ HTTP API. It never imports backend code.
 
 ## Net worth
 
-- **Three summary cards** — total, liquid, and accessible net worth, each with
-  a one-line explanation. Values are formatted for display, but the underlying
-  decimals come from the API as exact strings.
+- **Four summary cards** — total, liquid, liquidity, and accessible net worth, each with a one-line
+  explanation. Values are formatted for display, but the underlying decimals come from the API as
+  exact strings.
+  - *Total* — assets minus liabilities.
+  - *Liquid* — cash, deposit accounts, brokerage, and retirement accounts (quickly sellable).
+  - *Liquidity* — cash and cash-like equivalents available right now.
+  - *Accessible* — net proceeds after estimated taxes, penalties, and selling costs.
 - **History chart** — an SVG line chart drawn from stored snapshots. A metric
   selector switches between total, liquid, and accessible. Fewer than two
   snapshots shows a prompt instead of a misleading flat line.

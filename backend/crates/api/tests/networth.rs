@@ -31,7 +31,10 @@ async fn computes_total_liquid_and_accessible() {
 
     assert_eq!(status, StatusCode::OK, "net worth: {body}");
     assert_eq!(body["total"], "610000.00");
-    assert_eq!(body["liquid"], "10000.00");
+    // Cash + 401k are liquid; the home is not.
+    assert_eq!(body["liquid"], "110000.00");
+    // Only cash is liquidity (cash on hand).
+    assert_eq!(body["liquidity"], "10000.00");
     // cash 10,000 + 401k at 70% (70,000) + home at 94% (470,000).
     assert_eq!(body["accessible"], "550000.00");
     assert_eq!(body["account_count"], 3);

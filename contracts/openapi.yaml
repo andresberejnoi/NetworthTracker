@@ -424,6 +424,7 @@ components:
         - currency
         - total
         - liquid
+        - liquidity
         - accessible
         - by_account_type
         - by_asset_class
@@ -439,6 +440,8 @@ components:
         total:
           type: string
         liquid:
+          type: string
+        liquidity:
           type: string
         accessible:
           type: string
@@ -483,6 +486,7 @@ components:
         - currency
         - total
         - liquid
+        - liquidity
         - accessible
         - policy
       properties:
@@ -504,6 +508,8 @@ components:
         total:
           type: string
         liquid:
+          type: string
+        liquidity:
           type: string
         accessible:
           type: string

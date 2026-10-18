@@ -104,18 +104,30 @@ layers live under `backend/`; the UI is the separate `frontend/` project (see D1
 **Rationale:** It isolates the two things that must be correct (money math and net worth semantics)
 from the two that will churn (providers and UI), and it makes the spec scenarios directly testable.
 
-### D4. Liquidity and accessibility are orthogonal axes
+### D4. Cash, liquidity, and accessibility are three distinct levels
 
-**Decision:** Model **liquidity** (how fast an asset converts to cash: immediate/liquid, near-liquid,
-illiquid) and **accessibility** (net realizable value after tax, penalty, and selling costs) as
-separate attributes and separate computations. `liquid net worth` filters by liquidity class;
-`accessible net worth` applies per-asset redemption policies. This corrects the common conflation of
-the two.
+**Decision:** Model three separate concepts instead of one "liquid" bucket:
 
-**Rationale:** The motivating case is a house: it is illiquid *and* its market value is not what the
-owner can extract. Treating speed-to-cash and net-proceeds as one concept produces the exact
-misleading single number the product exists to avoid. Both axes are kept, but they answer different
-questions: "what could I turn into cash quickly?" versus "what would I actually net?"
+1. **Liquidity** (cash on hand) — assets available *right now*: cash, checking, savings. This is the
+   "how much cash do I have this minute" number.
+2. **Liquid net worth** — assets that can be *quickly sold or bought*, which includes cash, deposit
+   accounts, taxable brokerage, and **retirement accounts** (sellable, albeit with tax/penalty), and
+   excludes illiquid assets such as real estate. Debt secured by an excluded asset does not reduce it.
+3. **Accessible net worth** — the *net proceeds* after taxes, early-withdrawal penalties, and selling
+   costs, across all assets.
+
+An asset's `Liquidity` classification (`Immediate` / `Marketable` / `Illiquid`) drives the first two
+numbers; accessibility is a separate computation over the same assets.
+
+**Rationale:** These answer different questions — "what cash do I have now?" (liquidity), "what could
+I raise quickly without touching the house?" (liquid net worth), and "what would I actually net if I
+sold?" (accessible). Conflating them produces the misleading single number the product exists to
+avoid. Notably, subtracting a mortgage from liquid net worth is wrong: the mortgage is secured by an
+excluded asset, so it belongs in accessible net worth, not liquid.
+
+**Alternatives considered:** One "liquid" metric (rejected: hides the cash-vs-sellable distinction);
+gross liquid assets with no liability handling (rejected: ignores consumer debt, which reaches the
+model later).
 
 ### D5. Redemption policies are configurable, composable, and versioned at snapshot time
 

@@ -88,6 +88,7 @@ impl NetWorthService {
             currency: request.currency,
             total: breakdown.total,
             liquid: breakdown.liquid,
+            liquidity: breakdown.liquidity,
             accessible: breakdown.accessible,
             policy: request.policy,
         };

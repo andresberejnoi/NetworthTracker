@@ -174,8 +174,10 @@ pub struct NetWorthBreakdown {
     pub currency: Currency,
     /// Assets minus liabilities.
     pub total: Money,
-    /// Liquid assets minus liabilities.
+    /// Marketable assets (cash, brokerage, retirement) minus liquid liabilities.
     pub liquid: Money,
+    /// Cash and cash equivalents available right now.
+    pub liquidity: Money,
     /// Net realizable value.
     pub accessible: Money,
     /// Net amount by account type.
@@ -212,6 +214,8 @@ pub struct Snapshot {
     pub total: Money,
     /// Liquid net worth at the time.
     pub liquid: Money,
+    /// Liquidity (cash on hand) at the time.
+    pub liquidity: Money,
     /// Accessible net worth at the time.
     pub accessible: Money,
     /// The policy used at the time (kept for reproducibility).
@@ -235,6 +239,8 @@ pub struct NewSnapshot {
     pub total: Money,
     /// Liquid net worth at the time.
     pub liquid: Money,
+    /// Liquidity (cash on hand) at the time.
+    pub liquidity: Money,
     /// Accessible net worth at the time.
     pub accessible: Money,
     /// The policy used at the time.
@@ -275,6 +281,7 @@ pub fn compute_net_worth(
     let zero = BigDecimal::from(0);
     let mut total = zero.clone();
     let mut liquid = zero.clone();
+    let mut liquidity = zero.clone();
     let mut accessible = zero.clone();
     let mut by_type: BTreeMap<String, BigDecimal> = BTreeMap::new();
     let mut by_class: BTreeMap<String, BigDecimal> = BTreeMap::new();
@@ -305,27 +312,48 @@ pub fn compute_net_worth(
         }
 
         let amount = balance.amount.amount();
-        let (signed_total, signed_liquid, signed_accessible) = match account.classification() {
-            AccountClassification::Asset => {
-                let liquid_part = if account.is_liquid() {
-                    amount.clone()
-                } else {
-                    zero.clone()
-                };
-                (
-                    amount.clone(),
-                    liquid_part,
-                    accessible_amount(account.account_type, amount, params),
-                )
-            }
-            AccountClassification::Liability => {
-                let owed = -amount;
-                (owed.clone(), owed.clone(), owed)
-            }
-        };
+        let (signed_total, signed_liquid, signed_liquidity, signed_accessible) =
+            match account.classification() {
+                AccountClassification::Asset => {
+                    let liquid_part = if account.is_liquid() {
+                        amount.clone()
+                    } else {
+                        zero.clone()
+                    };
+                    let cash_part = if account.account_type.liquidity().is_immediate() {
+                        amount.clone()
+                    } else {
+                        zero.clone()
+                    };
+                    (
+                        amount.clone(),
+                        liquid_part,
+                        cash_part,
+                        accessible_amount(account.account_type, amount, params),
+                    )
+                }
+                AccountClassification::Liability => {
+                    let owed = -amount;
+                    // Only liquid liabilities reduce liquid net worth, and only
+                    // immediate ones reduce liquidity. A mortgage secured by an
+                    // excluded property does neither.
+                    let liquid_part = if account.account_type.liquidity().is_liquid() {
+                        owed.clone()
+                    } else {
+                        zero.clone()
+                    };
+                    let cash_part = if account.account_type.liquidity().is_immediate() {
+                        owed.clone()
+                    } else {
+                        zero.clone()
+                    };
+                    (owed.clone(), liquid_part, cash_part, owed)
+                }
+            };
 
         total += &signed_total;
         liquid += &signed_liquid;
+        liquidity += &signed_liquidity;
         accessible += &signed_accessible;
 
         *by_type
@@ -341,6 +369,7 @@ pub fn compute_net_worth(
         currency: params.currency.clone(),
         total: Money::new(total, params.currency.clone()),
         liquid: Money::new(liquid, params.currency.clone()),
+        liquidity: Money::new(liquidity, params.currency.clone()),
         accessible: Money::new(accessible, params.currency.clone()),
         by_account_type: to_rows(by_type, &params.currency),
         by_asset_class: to_rows(by_class, &params.currency),
@@ -480,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    fn liquid_excludes_illiquid_and_retirement() {
+    fn liquid_includes_retirement_but_excludes_real_estate() {
         let cash = account("Cash", AccountType::Cash, OwnershipScope::Household, None);
         let brokerage = account(
             "Brokerage",
@@ -515,8 +544,47 @@ mod tests {
 
         let result = compute_net_worth(&accounts, &balances, &params());
         assert_eq!(result.total, money("650000.00"));
-        // Cash + brokerage only.
-        assert_eq!(result.liquid, money("50000.00"));
+        // Cash + brokerage + retirement; the home is excluded.
+        assert_eq!(result.liquid, money("150000.00"));
+        // Liquidity is cash on hand only.
+        assert_eq!(result.liquidity, money("10000.00"));
+    }
+
+    #[test]
+    fn liquid_excludes_debt_secured_by_an_excluded_asset() {
+        let cash = account(
+            "Checking",
+            AccountType::Checking,
+            OwnershipScope::Household,
+            None,
+        );
+        let home = account(
+            "Home",
+            AccountType::RealEstate,
+            OwnershipScope::Household,
+            None,
+        );
+        let mortgage = account(
+            "Mortgage",
+            AccountType::Mortgage,
+            OwnershipScope::Household,
+            None,
+        );
+
+        let accounts = vec![cash.clone(), home.clone(), mortgage.clone()];
+        let balances = vec![
+            balance(&cash, "10000.00"),
+            balance(&home, "500000.00"),
+            balance(&mortgage, "400000.00"),
+        ];
+
+        let result = compute_net_worth(&accounts, &balances, &params());
+        assert_eq!(result.total, money("110000.00"));
+        // The mortgage is illiquid debt, so it does not reduce liquid net worth.
+        assert_eq!(result.liquid, money("10000.00"));
+        assert_eq!(result.liquidity, money("10000.00"));
+        // Accessible net worth still subtracts it: 10k + 470k - 400k.
+        assert_eq!(result.accessible, money("80000.00"));
     }
 
     #[test]

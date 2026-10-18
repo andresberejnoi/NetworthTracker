@@ -136,8 +136,10 @@ pub struct NetWorthDto {
     pub currency: String,
     /// Assets minus liabilities.
     pub total: String,
-    /// Liquid assets minus liabilities.
+    /// Marketable assets minus liquid liabilities.
     pub liquid: String,
+    /// Cash and cash equivalents available right now.
+    pub liquidity: String,
     /// Net realizable value.
     pub accessible: String,
     /// Net amount by account type.
@@ -170,6 +172,7 @@ impl From<networth_domain::NetWorthBreakdown> for NetWorthDto {
             currency,
             total: value.total.amount_string(),
             liquid: value.liquid.amount_string(),
+            liquidity: value.liquidity.amount_string(),
             accessible: value.accessible.amount_string(),
             by_account_type: rows(value.by_account_type),
             by_asset_class: rows(value.by_asset_class),
@@ -214,6 +217,8 @@ pub struct SnapshotDto {
     pub total: String,
     /// Liquid net worth.
     pub liquid: String,
+    /// Liquidity (cash on hand).
+    pub liquidity: String,
     /// Accessible net worth.
     pub accessible: String,
     /// The policy used.
@@ -231,6 +236,7 @@ impl From<networth_domain::Snapshot> for SnapshotDto {
             currency: value.currency.to_string(),
             total: value.total.amount_string(),
             liquid: value.liquid.amount_string(),
+            liquidity: value.liquidity.amount_string(),
             accessible: value.accessible.amount_string(),
             policy: PolicyDto {
                 tax_rate: value.policy.tax_rate.to_string(),

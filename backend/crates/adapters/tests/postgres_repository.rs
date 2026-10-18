@@ -216,6 +216,7 @@ async fn persists_and_lists_snapshots(pool: PgPool) {
         currency: Currency::usd(),
         total: Money::parse("100.00", "USD").unwrap(),
         liquid: Money::parse("50.00", "USD").unwrap(),
+        liquidity: Money::parse("25.00", "USD").unwrap(),
         accessible: Money::parse("40.00", "USD").unwrap(),
         policy: policy.clone(),
     };

@@ -16,12 +16,34 @@ minus liability balances, expressed in the household reporting currency.
 - **THEN** total net worth for that date is reported as 300,000
 
 ### Requirement: Liquid net worth
-The system SHALL compute a liquid net worth that includes only assets classified as liquid, such as
-cash, checking, savings, and taxable brokerage balances, and subtracts liabilities.
+The system SHALL compute a liquid net worth from assets that can be quickly converted to cash,
+including cash, deposit accounts, taxable brokerage, and retirement accounts, and SHALL exclude
+illiquid assets such as real estate.
+
+#### Scenario: Retirement accounts are liquid
+- **WHEN** the household holds a retirement account
+- **THEN** its value is included in liquid net worth
 
 #### Scenario: Illiquid assets excluded
-- **WHEN** the household holds real estate and retirement accounts in addition to liquid assets
-- **THEN** liquid net worth excludes the illiquid and retirement holdings while total net worth includes them
+- **WHEN** the household holds real estate in addition to liquid assets
+- **THEN** liquid net worth excludes the property while total net worth includes it
+
+#### Scenario: Debt secured by an excluded asset
+- **WHEN** a mortgage is secured by a property that is excluded from liquid net worth
+- **THEN** the mortgage does not reduce liquid net worth
+
+### Requirement: Liquidity is cash on hand
+The system SHALL report a liquidity figure equal to cash and cash-like assets that are available
+immediately, such as checking, savings, and cash, and SHALL NOT include assets that must first be
+sold.
+
+#### Scenario: Only immediate cash counts
+- **WHEN** the household holds cash, a brokerage account, and a retirement account
+- **THEN** liquidity includes only the cash while liquid net worth includes all three
+
+#### Scenario: Immediately due debt reduces liquidity
+- **WHEN** a liability is immediately due rather than secured by an excluded asset
+- **THEN** it reduces liquidity
 
 ### Requirement: Accessible net worth
 The system SHALL compute an accessible net worth by applying reductions to each asset for taxes,

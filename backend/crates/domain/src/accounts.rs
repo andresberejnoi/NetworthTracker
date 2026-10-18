@@ -22,23 +22,32 @@ pub enum AccountClassification {
 
 /// How quickly an asset can be turned into cash.
 ///
-/// This is orthogonal to affordability/accessibility; see the design decision
-/// D4. `Immediate` and `NearLiquid` count towards liquid net worth.
+/// This classification drives two separate metrics:
+/// - `Immediate` + `Marketable` make up **liquid net worth**.
+/// - `Immediate` alone is **liquidity** (cash available right now).
+///
+/// Accessibility (net proceeds after taxes, penalties, and selling costs) is a
+/// different axis entirely; see design decision D4.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Liquidity {
     /// Cash or deposit accounts available now.
     Immediate,
-    /// Marketable but not instant, such as a taxable brokerage account.
-    NearLiquid,
-    /// Retirement accounts, property, and other slow or restricted assets.
+    /// Quickly sellable, such as a taxable brokerage or retirement account.
+    Marketable,
+    /// Retirement-age restrictions, property, and other slow assets.
     Illiquid,
 }
 
 impl Liquidity {
     /// Whether the asset counts towards liquid net worth.
     pub fn is_liquid(self) -> bool {
-        !matches!(self, Liquidity::Illiquid)
+        matches!(self, Liquidity::Immediate | Liquidity::Marketable)
+    }
+
+    /// Whether the asset counts towards liquidity (cash on hand).
+    pub fn is_immediate(self) -> bool {
+        matches!(self, Liquidity::Immediate)
     }
 }
 
@@ -121,9 +130,10 @@ impl AccountType {
         use AccountType::*;
         match self {
             Checking | Savings | Cash => Liquidity::Immediate,
-            TaxableBrokerage => Liquidity::NearLiquid,
-            Retirement401k | TraditionalIra | RothIra | RealEstate | OtherAsset | Mortgage
-            | Loan => Liquidity::Illiquid,
+            // Retirement accounts can be sold quickly (with tax/penalty), so
+            // they count as liquid net worth, but not as cash on hand.
+            Retirement401k | TraditionalIra | RothIra | TaxableBrokerage => Liquidity::Marketable,
+            RealEstate | OtherAsset | Mortgage | Loan => Liquidity::Illiquid,
         }
     }
 
@@ -349,10 +359,13 @@ mod tests {
         assert_eq!(AccountType::Checking.liquidity(), Immediate);
         assert_eq!(AccountType::Savings.liquidity(), Immediate);
         assert_eq!(AccountType::Cash.liquidity(), Immediate);
-        assert_eq!(AccountType::TaxableBrokerage.liquidity(), NearLiquid);
-        assert_eq!(AccountType::Retirement401k.liquidity(), Illiquid);
+        assert_eq!(AccountType::TaxableBrokerage.liquidity(), Marketable);
+        assert_eq!(AccountType::Retirement401k.liquidity(), Marketable);
+        assert_eq!(AccountType::RothIra.liquidity(), Marketable);
         assert_eq!(AccountType::RealEstate.liquidity(), Illiquid);
-        assert!(AccountType::TaxableBrokerage.liquidity().is_liquid());
+        assert!(AccountType::Retirement401k.liquidity().is_liquid());
+        assert!(!AccountType::Retirement401k.liquidity().is_immediate());
+        assert!(AccountType::Cash.liquidity().is_immediate());
         assert!(!AccountType::RealEstate.liquidity().is_liquid());
     }
 

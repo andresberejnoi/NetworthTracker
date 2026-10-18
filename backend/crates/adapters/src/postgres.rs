@@ -37,7 +37,8 @@ const ACCOUNT_COLUMNS: &str =
 // binary decoder can pad the scale, e.g. 250.50 -> 250.5000).
 const BALANCE_COLUMNS: &str = "id, account_id, as_of, amount::text AS amount, currency, source";
 const SNAPSHOT_COLUMNS: &str = "id, as_of, scope, owner_user_id, owner_age, currency, \
-    total::text AS total, liquid::text AS liquid, accessible::text AS accessible, \
+    total::text AS total, liquid::text AS liquid, liquidity::text AS liquidity, \
+    accessible::text AS accessible, \
     tax_rate::text AS tax_rate, penalty_rate::text AS penalty_rate, penalty_age, \
     selling_rate::text AS selling_rate, fixed_costs::text AS fixed_costs";
 
@@ -120,6 +121,7 @@ struct SnapshotRow {
     currency: String,
     total: String,
     liquid: String,
+    liquidity: String,
     accessible: String,
     tax_rate: String,
     penalty_rate: String,
@@ -148,6 +150,7 @@ impl TryFrom<SnapshotRow> for Snapshot {
             currency: currency.clone(),
             total: Money::new(parse_decimal(&row.total)?, currency.clone()),
             liquid: Money::new(parse_decimal(&row.liquid)?, currency.clone()),
+            liquidity: Money::new(parse_decimal(&row.liquidity)?, currency.clone()),
             accessible: Money::new(parse_decimal(&row.accessible)?, currency),
             policy: RedemptionPolicy {
                 tax_rate: parse_decimal(&row.tax_rate)?,
@@ -283,11 +286,11 @@ impl NetWorthRepository for PostgresAccountRepository {
     async fn insert_snapshot(&self, new: &NewSnapshot) -> Result<Snapshot, RepositoryError> {
         let sql = format!(
             "INSERT INTO net_worth_snapshots \
-             (as_of, scope, owner_user_id, owner_age, currency, total, liquid, accessible, \
-              tax_rate, penalty_rate, penalty_age, selling_rate, fixed_costs) \
+             (as_of, scope, owner_user_id, owner_age, currency, total, liquid, liquidity, \
+              accessible, tax_rate, penalty_rate, penalty_age, selling_rate, fixed_costs) \
              VALUES ($1, $2, $3, $4, $5, CAST($6 AS numeric), CAST($7 AS numeric), \
-                     CAST($8 AS numeric), CAST($9 AS numeric), CAST($10 AS numeric), $11, \
-                     CAST($12 AS numeric), CAST($13 AS numeric)) \
+                     CAST($8 AS numeric), CAST($9 AS numeric), CAST($10 AS numeric), \
+                     CAST($11 AS numeric), $12, CAST($13 AS numeric), CAST($14 AS numeric)) \
              RETURNING {SNAPSHOT_COLUMNS}"
         );
 
@@ -299,6 +302,7 @@ impl NetWorthRepository for PostgresAccountRepository {
             .bind(new.currency.as_str())
             .bind(new.total.amount_string())
             .bind(new.liquid.amount_string())
+            .bind(new.liquidity.amount_string())
             .bind(new.accessible.amount_string())
             .bind(new.policy.tax_rate.to_string())
             .bind(new.policy.early_withdrawal_penalty_rate.to_string())

@@ -150,6 +150,7 @@ impl NetWorthRepository for InMemoryAccountRepository {
             currency: new.currency.clone(),
             total: new.total.clone(),
             liquid: new.liquid.clone(),
+            liquidity: new.liquidity.clone(),
             accessible: new.accessible.clone(),
             policy: new.policy.clone(),
         };

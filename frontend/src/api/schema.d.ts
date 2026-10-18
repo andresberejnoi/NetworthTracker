@@ -231,6 +231,7 @@ export interface components {
             currency: string;
             total: string;
             liquid: string;
+            liquidity: string;
             accessible: string;
             by_account_type: components["schemas"]["BreakdownRow"][];
             by_asset_class: components["schemas"]["BreakdownRow"][];
@@ -257,6 +258,7 @@ export interface components {
             currency: string;
             total: string;
             liquid: string;
+            liquidity: string;
             accessible: string;
             policy: components["schemas"]["Policy"];
         };
