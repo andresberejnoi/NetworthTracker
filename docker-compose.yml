@@ -18,7 +18,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       BACKEND_ADDR: 0.0.0.0:8080
       CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-3000},http://localhost:5173
