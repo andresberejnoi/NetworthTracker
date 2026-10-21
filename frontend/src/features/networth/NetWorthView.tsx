@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   createSnapshot,
   getNetWorth,
@@ -94,6 +99,9 @@ export default function NetWorthView() {
   const networth = useQuery({
     queryKey: ["networth", ownerAge],
     queryFn: () => getNetWorth({ owner_age: ownerAge }),
+    // Keep the last figures on screen while a new age is computed, instead of
+    // flashing placeholders and shifting the layout.
+    placeholderData: keepPreviousData,
   });
 
   const snapshots = useQuery({

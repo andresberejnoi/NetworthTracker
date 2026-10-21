@@ -199,6 +199,8 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--accent);
   letter-spacing: -0.01em;
+  /* Reserve the line box so a value changing (or loading) never shifts layout. */
+  min-height: 1.9rem;
 }
 
 .controls {

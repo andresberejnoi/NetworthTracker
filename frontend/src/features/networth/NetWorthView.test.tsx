@@ -155,4 +155,46 @@ describe("NetWorthView", () => {
       );
     });
   });
+
+  it("keeps the previous figures visible while a new age loads", async () => {
+    let release: (() => void) | undefined;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/v1/networth/snapshots")) {
+          return jsonResponse(snapshots);
+        }
+        if (url.includes("owner_age=65")) {
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return jsonResponse({
+            ...networth,
+            total: "700000.00",
+            liquid: "200000.00",
+            liquidity: "20000.00",
+            accessible: "600000.00",
+          });
+        }
+        return jsonResponse(networth);
+      }),
+    );
+
+    renderView();
+    expect(await screen.findByText("610,000.00 USD")).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText("owner age"));
+    await userEvent.type(screen.getByLabelText("owner age"), "65");
+
+    // The refetch is still in flight, but the previous values stay on screen.
+    expect(screen.getByText("610,000.00 USD")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+
+    await waitFor(() => expect(typeof release).toBe("function"));
+    release?.();
+
+    expect(await screen.findByText("700,000.00 USD")).toBeInTheDocument();
+  });
 });
