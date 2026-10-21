@@ -197,4 +197,27 @@ describe("NetWorthView", () => {
 
     expect(await screen.findByText("700,000.00 USD")).toBeInTheDocument();
   });
+
+  it("debounces rapid age changes into a single request", async () => {
+    const fetchMock = stubApi();
+    renderView();
+    await screen.findByText("610,000.00 USD");
+
+    const ageInput = screen.getByLabelText("owner age");
+    await userEvent.clear(ageInput);
+    await userEvent.type(ageInput, "65");
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls
+        .map(([input]) => String(input))
+        .filter((url) => url.includes("/api/v1/networth?"));
+      expect(calls[calls.length - 1]).toContain("owner_age=65");
+    });
+
+    const calls = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => url.includes("/api/v1/networth?"));
+    // The intermediate "6" keystroke never triggered its own request.
+    expect(calls.some((url) => /[?&]owner_age=6(&|$)/.test(url))).toBe(false);
+  });
 });

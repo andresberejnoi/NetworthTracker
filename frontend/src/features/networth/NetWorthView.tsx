@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   keepPreviousData,
   useMutation,
@@ -35,6 +35,18 @@ const GROUP_LABELS: Record<GroupBy, string> = {
   by_asset_class: "Asset class",
   by_account_type: "Account type",
 };
+
+/** Delay a rapidly changing value so it only settles once the user pauses. */
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
+}
 
 /**
  * Format for display only. The exact decimal string returned by the API stays
@@ -92,7 +104,12 @@ function HistoryChart({
 
 export default function NetWorthView() {
   const queryClient = useQueryClient();
-  const [ownerAge, setOwnerAge] = useState(35);
+  const [ownerAgeInput, setOwnerAgeInput] = useState("35");
+  const parsedAge = ownerAgeInput.trim() === "" ? 35 : Number(ownerAgeInput);
+  const ownerAge = useDebouncedValue(
+    Number.isFinite(parsedAge) ? parsedAge : 35,
+    350,
+  );
   const [kind, setKind] = useState<Kind>("total");
   const [groupBy, setGroupBy] = useState<GroupBy>("by_asset_class");
 
@@ -159,8 +176,8 @@ export default function NetWorthView() {
               aria-label="owner age"
               type="number"
               min={0}
-              value={ownerAge}
-              onChange={(event) => setOwnerAge(Number(event.target.value))}
+              value={ownerAgeInput}
+              onChange={(event) => setOwnerAgeInput(event.target.value)}
             />
           </label>
           <button
