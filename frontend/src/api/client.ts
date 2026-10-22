@@ -159,3 +159,59 @@ export function recordBalancesBatch(
     body: JSON.stringify({ rows, mode }),
   });
 }
+
+export type ImportReport = components["schemas"]["ImportReport"];
+
+async function readFileBytes(file: File): Promise<ArrayBuffer> {
+  if (typeof file.arrayBuffer === "function") {
+    return file.arrayBuffer();
+  }
+  // Some DOM implementations (notably in tests) lack Blob.arrayBuffer.
+  return await new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("could not read the file"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/** Upload a CSV or XLSX file; the format is inferred from the extension. */
+export async function importSpreadsheet(file: File): Promise<ImportReport> {
+  const isXlsx = file.name.toLowerCase().endsWith(".xlsx");
+  const format = isXlsx ? "xlsx" : "csv";
+  const contentType = isXlsx
+    ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    : "text/csv";
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/import?format=${format}`, {
+    method: "POST",
+    headers: { "content-type": contentType },
+    // Read the bytes explicitly: this works identically in browsers and in
+    // Node-based tests, where a DOM File is not a valid BodyInit.
+    body: await readFileBytes(file),
+  });
+
+  if (!response.ok) {
+    let message = `backend returned ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body?.error) {
+        message = body.error;
+      }
+    } catch {
+      // keep the status-based message
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as ImportReport;
+}
+
+export function exportUrl(format: "csv" | "xlsx"): string {
+  return `${API_BASE_URL}/api/v1/export?format=${format}`;
+}
+
+export function templateUrl(format: "csv" | "xlsx"): string {
+  return `${API_BASE_URL}/api/v1/template?format=${format}`;
+}

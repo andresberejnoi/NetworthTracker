@@ -5,6 +5,7 @@
 //! backend code; it consumes these endpoints over HTTP.
 
 mod accounts;
+mod data;
 mod dto;
 mod error;
 mod networth;
@@ -17,12 +18,13 @@ pub use dto::{
 use std::sync::Arc;
 
 use axum::{
+    extract::DefaultBodyLimit,
     http::{HeaderValue, Method},
     routing::{get, post},
     Json, Router,
 };
 use networth_application::{
-    AccountRepository, AccountService, NetWorthRepository, NetWorthService,
+    AccountRepository, AccountService, ImportService, NetWorthRepository, NetWorthService,
 };
 use serde::Serialize;
 use tower_http::{
@@ -43,6 +45,8 @@ pub struct AppState {
     pub accounts: Arc<AccountService>,
     /// Net worth use cases.
     pub networth: Arc<NetWorthService>,
+    /// Import/export use cases.
+    pub data: Arc<ImportService>,
 }
 
 impl AppState {
@@ -53,7 +57,8 @@ impl AppState {
     ) -> Self {
         Self {
             accounts: Arc::new(AccountService::new(accounts.clone())),
-            networth: Arc::new(NetWorthService::new(accounts, networth)),
+            networth: Arc::new(NetWorthService::new(accounts.clone(), networth)),
+            data: Arc::new(ImportService::new(accounts)),
         }
     }
 }
@@ -108,6 +113,12 @@ pub fn app(state: AppState) -> Router {
             "/api/v1/networth/snapshots",
             get(list_snapshots).post(create_snapshot),
         )
+        .route(
+            "/api/v1/import",
+            post(data::import).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
+        )
+        .route("/api/v1/export", get(data::export))
+        .route("/api/v1/template", get(data::template))
         .layer(TraceLayer::new_for_http())
         .layer(cors_layer())
         .with_state(state)

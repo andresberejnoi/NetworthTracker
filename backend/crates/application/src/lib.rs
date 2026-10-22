@@ -5,12 +5,16 @@
 //! persistence details. It must not depend on Axum or on a specific database.
 
 pub mod accounts;
+pub mod data_exchange;
 pub mod networth;
 pub mod ports;
 
 pub use accounts::{
     AccountError, AccountService, BatchMode, BatchRow, BatchSave, CreateAccount, RecordBalance,
     RowError,
+};
+pub use data_exchange::{
+    ImportError, ImportReport, ImportRowError, ImportService, Table, COLUMNS, SCHEMA_VERSION,
 };
 pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
 pub use ports::{AccountRepository, NetWorthRepository, RepositoryError};

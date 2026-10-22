@@ -7,6 +7,8 @@
 
 pub mod memory;
 pub mod postgres;
+pub mod spreadsheet;
 
 pub use memory::InMemoryAccountRepository;
 pub use postgres::PostgresAccountRepository;
+pub use spreadsheet::{read_table, write_table, SpreadsheetError, SpreadsheetFormat};

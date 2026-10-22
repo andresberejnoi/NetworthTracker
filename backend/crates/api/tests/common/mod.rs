@@ -70,6 +70,45 @@ pub async fn post_json(
     send(app, request).await
 }
 
+/// `POST path` with raw bytes and an explicit content type.
+pub async fn post_bytes(
+    app: &Router,
+    path: &str,
+    content_type: &str,
+    body: Vec<u8>,
+) -> (StatusCode, serde_json::Value) {
+    let request = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", content_type)
+        .body(Body::from(body))
+        .expect("build request");
+    send(app, request).await
+}
+
+/// `GET path`, returning the raw bytes and content type.
+pub async fn get_raw(app: &Router, path: &str) -> (StatusCode, Vec<u8>, Option<String>) {
+    let request = Request::builder()
+        .uri(path)
+        .body(Body::empty())
+        .expect("build request");
+    let response = app.clone().oneshot(request).await.expect("send request");
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_string());
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("collect body")
+        .to_bytes()
+        .to_vec();
+    (status, bytes, content_type)
+}
+
 /// Create an account and return its id.
 pub async fn create_account(app: &Router, name: &str, account_type: &str) -> String {
     let (status, body) = post_json(

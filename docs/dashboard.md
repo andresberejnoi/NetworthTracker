@@ -11,6 +11,7 @@ HTTP API. It never imports backend code.
 | Net worth | Summary cards, history chart, breakdown |
 | Accounts | Create, list, and archive accounts |
 | Bulk entry | Spreadsheet-like grid with paste and per-row results |
+| Data | Import/export CSV/XLSX and download templates |
 
 ## Net worth
 

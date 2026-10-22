@@ -69,3 +69,18 @@ impl From<NetWorthError> for ApiError {
         }
     }
 }
+
+impl From<networth_application::ImportError> for ApiError {
+    fn from(error: networth_application::ImportError) -> Self {
+        use networth_application::ImportError;
+        match error {
+            ImportError::Validation(message) => ApiError::BadRequest(message),
+            ImportError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            ImportError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}

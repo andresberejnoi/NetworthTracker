@@ -9,10 +9,15 @@ networth-domain = { workspace = true }
 networth-application = { workspace = true }
 async-trait = { workspace = true }
 bigdecimal = { workspace = true }
+calamine = { workspace = true }
+csv = { workspace = true }
+rust_xlsxwriter = { workspace = true }
 sqlx = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }
 uuid = { workspace = true }
+zip = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

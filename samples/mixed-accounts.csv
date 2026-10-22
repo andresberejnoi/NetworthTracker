@@ -1,0 +1,18 @@
+schema_version,record_type,account_name,account_type,institution,currency,ownership_scope,archived,as_of,amount,source
+1,account,Everyday Checking,checking,Local Bank,USD,household,false,,,
+1,account,High-Yield Savings,savings,Ally,USD,household,false,,,
+1,account,Fidelity 401k,401k,Fidelity,USD,household,false,,,
+1,account,Vanguard Roth IRA,roth_ira,Vanguard,USD,household,false,,,
+1,account,Vanguard Brokerage,taxable_brokerage,Vanguard,USD,household,false,,,
+1,account,Primary Residence,real_estate,,USD,household,false,,,
+1,account,Home Mortgage,mortgage,Local Bank,USD,household,false,,,
+1,account,Bitcoin Wallet,other_asset,,USD,household,false,,,
+1,balance,Everyday Checking,,,,,,2026-06-17,18000.00,manual
+1,balance,Everyday Checking,,,,,,2026-10-17,25000.00,manual
+1,balance,High-Yield Savings,,,,,,2026-10-17,40000.00,manual
+1,balance,Fidelity 401k,,,,,,2026-10-17,150000.00,manual
+1,balance,Vanguard Roth IRA,,,,,,2026-10-17,65000.00,manual
+1,balance,Vanguard Brokerage,,,,,,2026-10-17,42000.00,manual
+1,balance,Primary Residence,,,,,,2026-10-17,520000.00,manual
+1,balance,Home Mortgage,,,,,,2026-10-17,320000.00,manual
+1,balance,Bitcoin Wallet,,,,,,2026-10-17,12500.00,manual

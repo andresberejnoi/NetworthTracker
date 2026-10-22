@@ -1,0 +1,11 @@
+schema_version,record_type,account_name,account_type,institution,currency,ownership_scope,archived,as_of,amount,source
+1,account,Primary Residence,real_estate,,USD,household,false,,,
+1,account,Rental Property,real_estate,,USD,household,false,,,
+1,account,Primary Mortgage,mortgage,Local Bank,USD,household,false,,,
+1,account,Rental Mortgage,mortgage,Local Bank,USD,household,false,,,
+1,account,Home Equity Line,loan,Local Credit Union,USD,household,false,,,
+1,balance,Primary Residence,,,,,,2026-10-17,520000.00,manual
+1,balance,Rental Property,,,,,,2026-10-17,310000.00,manual
+1,balance,Primary Mortgage,,,,,,2026-10-17,320000.00,manual
+1,balance,Rental Mortgage,,,,,,2026-10-17,210000.00,manual
+1,balance,Home Equity Line,,,,,,2026-10-17,25000.00,manual

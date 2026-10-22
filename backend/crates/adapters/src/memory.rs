@@ -58,6 +58,15 @@ impl AccountRepository for InMemoryAccountRepository {
         Ok(inner.accounts.iter().find(|a| a.id == id).cloned())
     }
 
+    async fn find_account_by_name(&self, name: &str) -> Result<Option<Account>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .accounts
+            .iter()
+            .find(|a| a.name.eq_ignore_ascii_case(name))
+            .cloned())
+    }
+
     async fn list_accounts(&self, include_archived: bool) -> Result<Vec<Account>, RepositoryError> {
         let inner = self.inner.lock().expect("lock");
         let mut accounts: Vec<Account> = inner

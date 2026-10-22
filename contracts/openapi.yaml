@@ -22,6 +22,8 @@ tags:
     description: Accounts and their dated balances
   - name: networth
     description: Net worth computation and history snapshots
+  - name: data
+    description: Spreadsheet import/export and templates
 paths:
   /health:
     get:
@@ -178,6 +180,83 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/import:
+    post:
+      tags: [data]
+      operationId: importSpreadsheet
+      summary: Import accounts and balances from CSV or XLSX
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, xlsx]
+      requestBody:
+        required: true
+        content:
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Import report. If errors are present, nothing was written.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/export:
+    get:
+      tags: [data]
+      operationId: exportSpreadsheet
+      summary: Export accounts and balances
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, xlsx]
+      responses:
+        "200":
+          description: The exported file.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+  /api/v1/template:
+    get:
+      tags: [data]
+      operationId: getImportTemplate
+      summary: Download an import template
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, xlsx]
+      responses:
+        "200":
+          description: A template file with the expected headers.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
   /api/v1/networth:
     get:
       tags: [networth]
@@ -481,6 +560,28 @@ components:
         mode:
           type: string
           enum: [atomic, partial]
+    ImportRowError:
+      type: object
+      additionalProperties: false
+      required: [row, error]
+      properties:
+        row:
+          type: integer
+        error:
+          type: string
+    ImportReport:
+      type: object
+      additionalProperties: false
+      required: [accounts_created, balances_saved, errors]
+      properties:
+        accounts_created:
+          type: integer
+        balances_saved:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRowError"
     BreakdownRow:
       type: object
       additionalProperties: false

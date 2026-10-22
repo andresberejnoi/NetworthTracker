@@ -219,6 +219,19 @@ impl AccountRepository for PostgresAccountRepository {
         row.map(TryInto::try_into).transpose()
     }
 
+    async fn find_account_by_name(&self, name: &str) -> Result<Option<Account>, RepositoryError> {
+        let sql = format!(
+            "SELECT {ACCOUNT_COLUMNS} FROM accounts \
+             WHERE lower(name) = lower($1) ORDER BY created_at LIMIT 1"
+        );
+        let row: Option<AccountRow> = sqlx::query_as(&sql)
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        row.map(TryInto::try_into).transpose()
+    }
+
     async fn list_accounts(&self, include_archived: bool) -> Result<Vec<Account>, RepositoryError> {
         let sql = format!(
             "SELECT {ACCOUNT_COLUMNS} FROM accounts WHERE ($1 OR NOT archived) ORDER BY name"

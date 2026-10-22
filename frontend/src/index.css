@@ -342,3 +342,18 @@ body {
   margin: 0.25rem 0 0;
   color: var(--danger);
 }
+
+.button-link {
+  display: inline-block;
+  background: var(--accent);
+  color: #06281c;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.field input[type="file"] {
+  color: var(--text);
+  font: inherit;
+}

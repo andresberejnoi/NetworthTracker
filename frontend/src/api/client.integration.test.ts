@@ -11,6 +11,7 @@ import {
   listAccounts,
   listBalances,
   listSnapshots,
+  importSpreadsheet,
   recordBalance,
   recordBalancesBatch,
 } from "./client";
@@ -115,6 +116,27 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
 
     const balances = await listBalances(account.id);
     expect(balances).toHaveLength(2);
+  });
+
+  it("imports a spreadsheet over HTTP and reports bad rows", async () => {
+    const name = `Imported ${Date.now()}`;
+    const header =
+      "schema_version,record_type,account_name,account_type,institution,currency,ownership_scope,archived,as_of,amount,source";
+    const csv = `${header}\n1,account,${name},checking,,USD,household,false,,,\n1,balance,${name},,,,,,2026-05-01,321.00,manual\n`;
+
+    const report = await importSpreadsheet(
+      new File([csv], "integration.csv", { type: "text/csv" }),
+    );
+    expect(report.errors).toHaveLength(0);
+    expect(report.accounts_created).toBe(1);
+    expect(report.balances_saved).toBe(1);
+
+    const bad = `${header}\n1,balance,${name},,,,,,2026-05-02,oops,manual\n`;
+    const badReport = await importSpreadsheet(
+      new File([bad], "bad.csv", { type: "text/csv" }),
+    );
+    expect(badReport.balances_saved).toBe(0);
+    expect(badReport.errors).toHaveLength(1);
   });
 
   it("matches the shared OpenAPI contract for GET endpoints", async () => {

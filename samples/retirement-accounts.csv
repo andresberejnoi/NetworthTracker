@@ -1,0 +1,8 @@
+schema_version,record_type,account_name,account_type,institution,currency,ownership_scope,archived,as_of,amount,source
+1,account,Employer 401k,401k,Fidelity,USD,household,false,,,
+1,account,Traditional IRA,traditional_ira,Vanguard,USD,household,false,,,
+1,account,Roth IRA,roth_ira,Vanguard,USD,household,false,,,
+1,balance,Employer 401k,,,,,,2026-01-01,120000.00,manual
+1,balance,Employer 401k,,,,,,2026-10-17,150000.00,manual
+1,balance,Traditional IRA,,,,,,2026-10-17,48000.00,manual
+1,balance,Roth IRA,,,,,,2026-10-17,65000.00,manual

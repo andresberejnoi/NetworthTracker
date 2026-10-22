@@ -27,6 +27,9 @@ pub trait AccountRepository: Send + Sync {
     /// Find an account by id.
     async fn find_account(&self, id: Uuid) -> Result<Option<Account>, RepositoryError>;
 
+    /// Find an account by name (case-insensitive).
+    async fn find_account_by_name(&self, name: &str) -> Result<Option<Account>, RepositoryError>;
+
     /// List accounts, optionally including archived ones, ordered by name.
     async fn list_accounts(&self, include_archived: bool) -> Result<Vec<Account>, RepositoryError>;
 
