@@ -319,3 +319,71 @@ pub struct SnapshotListQuery {
     #[serde(default)]
     pub owner_user_id: Option<uuid::Uuid>,
 }
+
+/// One row in a bulk balance request.
+#[derive(Debug, Deserialize)]
+pub struct BatchBalanceRow {
+    /// ISO date (`YYYY-MM-DD`).
+    pub as_of: String,
+    /// Exact amount as a decimal string.
+    pub amount: String,
+    /// Currency code; defaults to the account's currency.
+    #[serde(default)]
+    pub currency: Option<String>,
+    /// `manual`, `import`, or `provider`; defaults to `manual`.
+    #[serde(default)]
+    pub source: Option<String>,
+}
+
+/// Request body for a bulk balance save.
+#[derive(Debug, Deserialize)]
+pub struct RecordBalancesRequest {
+    /// The rows to save, in grid order.
+    pub rows: Vec<BatchBalanceRow>,
+    /// `atomic` (default) or `partial`.
+    #[serde(default)]
+    pub mode: Option<String>,
+}
+
+/// A row-level error in a bulk save.
+#[derive(Debug, Serialize)]
+pub struct RowErrorDto {
+    /// Zero-based position in the submitted grid.
+    pub index: usize,
+    /// Why the row was not saved.
+    pub error: String,
+}
+
+/// Response body for a bulk save.
+#[derive(Debug, Serialize)]
+pub struct BatchSaveDto {
+    /// Rows that were saved.
+    pub saved: Vec<BalanceDto>,
+    /// Rows that were skipped.
+    pub errors: Vec<RowErrorDto>,
+    /// The mode that was applied.
+    pub mode: String,
+}
+
+impl From<networth_application::BatchSave> for BatchSaveDto {
+    fn from(value: networth_application::BatchSave) -> Self {
+        let mode = match value.mode {
+            networth_application::BatchMode::Atomic => "atomic",
+            networth_application::BatchMode::Partial => "partial",
+        }
+        .to_string();
+
+        Self {
+            saved: value.saved.into_iter().map(BalanceDto::from).collect(),
+            errors: value
+                .errors
+                .into_iter()
+                .map(|error| RowErrorDto {
+                    index: error.index,
+                    error: error.message,
+                })
+                .collect(),
+            mode,
+        }
+    }
+}

@@ -10,6 +10,7 @@ HTTP API. It never imports backend code.
 | Overview | Backend service and version (liveness) |
 | Net worth | Summary cards, history chart, breakdown |
 | Accounts | Create, list, and archive accounts |
+| Bulk entry | Spreadsheet-like grid with paste and per-row results |
 
 ## Net worth
 

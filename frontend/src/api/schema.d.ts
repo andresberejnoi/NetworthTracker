@@ -114,6 +114,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/accounts/{id}/balances/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save a grid of balances in one action */
+        post: operations["recordBalancesBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/networth": {
         parameters: {
             query?: never;
@@ -219,6 +238,31 @@ export interface components {
             amount: string;
             currency?: string | null;
             source?: components["schemas"]["BalanceSource"];
+        };
+        BatchBalanceRow: {
+            /** Format: date */
+            as_of: string;
+            amount: string;
+            currency?: string | null;
+            source?: components["schemas"]["BalanceSource"];
+        };
+        RecordBalancesRequest: {
+            rows: components["schemas"]["BatchBalanceRow"][];
+            /**
+             * @default atomic
+             * @enum {string}
+             */
+            mode?: "atomic" | "partial";
+        };
+        RowError: {
+            index: number;
+            error: string;
+        };
+        BatchSave: {
+            saved: components["schemas"]["Balance"][];
+            errors: components["schemas"]["RowError"][];
+            /** @enum {string} */
+            mode: "atomic" | "partial";
         };
         BreakdownRow: {
             key: string;
@@ -481,6 +525,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Balance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordBalancesBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordBalancesRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-row result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchSave"];
                 };
             };
             400: components["responses"]["BadRequest"];

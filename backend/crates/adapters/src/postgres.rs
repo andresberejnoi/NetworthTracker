@@ -167,6 +167,17 @@ fn parse_decimal(value: &str) -> Result<BigDecimal, RepositoryError> {
     BigDecimal::from_str(value).map_err(|error| RepositoryError::Storage(error.to_string()))
 }
 
+fn upsert_balance_sql() -> String {
+    format!(
+        "INSERT INTO account_balances (account_id, as_of, amount, currency, source) \
+         VALUES ($1, $2, CAST($3 AS numeric), $4, $5) \
+         ON CONFLICT (account_id, as_of) DO UPDATE \
+         SET amount = EXCLUDED.amount, currency = EXCLUDED.currency, \
+             source = EXCLUDED.source, updated_at = now() \
+         RETURNING {BALANCE_COLUMNS}"
+    )
+}
+
 fn map_sqlx_error(error: sqlx::Error) -> RepositoryError {
     if let sqlx::Error::Database(db) = &error {
         if matches!(db.code().as_deref(), Some("23505") | Some("23503")) {
@@ -231,16 +242,7 @@ impl AccountRepository for PostgresAccountRepository {
     }
 
     async fn upsert_balance(&self, new: &NewBalance) -> Result<Balance, RepositoryError> {
-        let sql = format!(
-            "INSERT INTO account_balances (account_id, as_of, amount, currency, source) \
-             VALUES ($1, $2, CAST($3 AS numeric), $4, $5) \
-             ON CONFLICT (account_id, as_of) DO UPDATE \
-             SET amount = EXCLUDED.amount, currency = EXCLUDED.currency, \
-                 source = EXCLUDED.source, updated_at = now() \
-             RETURNING {BALANCE_COLUMNS}"
-        );
-
-        let row: BalanceRow = sqlx::query_as(&sql)
+        let row: BalanceRow = sqlx::query_as(&upsert_balance_sql())
             .bind(new.account_id)
             .bind(new.as_of)
             .bind(new.amount.amount_string())
@@ -251,6 +253,31 @@ impl AccountRepository for PostgresAccountRepository {
             .map_err(map_sqlx_error)?;
 
         row.try_into()
+    }
+
+    async fn upsert_balances(
+        &self,
+        balances: &[NewBalance],
+    ) -> Result<Vec<Balance>, RepositoryError> {
+        let sql = upsert_balance_sql();
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
+        let mut saved = Vec::with_capacity(balances.len());
+
+        for balance in balances {
+            let row: BalanceRow = sqlx::query_as(&sql)
+                .bind(balance.account_id)
+                .bind(balance.as_of)
+                .bind(balance.amount.amount_string())
+                .bind(balance.amount.currency().as_str())
+                .bind(balance.source.as_str())
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+            saved.push(row.try_into()?);
+        }
+
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(saved)
     }
 
     async fn list_balances(&self, account_id: Uuid) -> Result<Vec<Balance>, RepositoryError> {

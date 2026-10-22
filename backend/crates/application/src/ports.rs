@@ -36,6 +36,15 @@ pub trait AccountRepository: Send + Sync {
     /// Insert or replace the balance for an account and date.
     async fn upsert_balance(&self, new: &NewBalance) -> Result<Balance, RepositoryError>;
 
+    /// Insert or replace several balances in one operation.
+    ///
+    /// Implementations should apply the batch atomically where the store
+    /// supports it, so a failure does not leave a half-written batch.
+    async fn upsert_balances(
+        &self,
+        balances: &[NewBalance],
+    ) -> Result<Vec<Balance>, RepositoryError>;
+
     /// List an account's balances, newest first.
     async fn list_balances(&self, account_id: Uuid) -> Result<Vec<Balance>, RepositoryError>;
 }

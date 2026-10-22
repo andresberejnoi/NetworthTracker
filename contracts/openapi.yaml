@@ -154,6 +154,30 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{id}/balances/batch:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    post:
+      tags: [accounts]
+      operationId: recordBalancesBatch
+      summary: Save a grid of balances in one action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordBalancesRequest"
+      responses:
+        "200":
+          description: Per-row result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchSave"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/networth:
     get:
       tags: [networth]
@@ -405,6 +429,58 @@ components:
           type: [string, "null"]
         source:
           $ref: "#/components/schemas/BalanceSource"
+    BatchBalanceRow:
+      type: object
+      additionalProperties: false
+      required: [as_of, amount]
+      properties:
+        as_of:
+          type: string
+          format: date
+        amount:
+          type: string
+        currency:
+          type: [string, "null"]
+        source:
+          $ref: "#/components/schemas/BalanceSource"
+    RecordBalancesRequest:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/BatchBalanceRow"
+        mode:
+          type: string
+          enum: [atomic, partial]
+          default: atomic
+    RowError:
+      type: object
+      additionalProperties: false
+      required: [index, error]
+      properties:
+        index:
+          type: integer
+        error:
+          type: string
+    BatchSave:
+      type: object
+      additionalProperties: false
+      required: [saved, errors, mode]
+      properties:
+        saved:
+          type: array
+          items:
+            $ref: "#/components/schemas/Balance"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/RowError"
+        mode:
+          type: string
+          enum: [atomic, partial]
     BreakdownRow:
       type: object
       additionalProperties: false

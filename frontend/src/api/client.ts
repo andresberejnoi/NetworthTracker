@@ -145,3 +145,17 @@ export function listSnapshots(
 ): Promise<Snapshot[]> {
   return request<Snapshot[]>(`/api/v1/networth/snapshots${toQuery(params)}`);
 }
+
+export type BatchSave = components["schemas"]["BatchSave"];
+export type BatchBalanceRow = components["schemas"]["BatchBalanceRow"];
+
+export function recordBalancesBatch(
+  id: string,
+  rows: BatchBalanceRow[],
+  mode: "atomic" | "partial" = "partial",
+): Promise<BatchSave> {
+  return request<BatchSave>(`/api/v1/accounts/${id}/balances/batch`, {
+    method: "POST",
+    body: JSON.stringify({ rows, mode }),
+  });
+}

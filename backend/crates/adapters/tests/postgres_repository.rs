@@ -204,6 +204,29 @@ async fn latest_balances_picks_the_most_recent_on_or_before(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn upserts_a_batch_in_one_transaction(pool: PgPool) {
+    let repo = PostgresAccountRepository::new(pool);
+    let account = repo
+        .insert_account(&account("Checking", AccountType::Checking))
+        .await
+        .unwrap();
+
+    let saved = repo
+        .upsert_balances(&[
+            balance(account.id, date!(2026 - 01 - 01), "10.00"),
+            balance(account.id, date!(2026 - 02 - 01), "20.00"),
+            balance(account.id, date!(2026 - 03 - 01), "30.00"),
+        ])
+        .await
+        .unwrap();
+
+    assert_eq!(saved.len(), 3);
+    let listed = repo.list_balances(account.id).await.unwrap();
+    assert_eq!(listed.len(), 3);
+    assert_eq!(listed[0].as_of, date!(2026 - 03 - 01));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn persists_and_lists_snapshots(pool: PgPool) {
     let repo = PostgresAccountRepository::new(pool);
     let policy = RedemptionPolicy::default();

@@ -10,8 +10,8 @@ mod error;
 mod networth;
 
 pub use dto::{
-    AccountDto, BalanceDto, BreakdownRowDto, CreateAccountRequest, NetWorthDto, PolicyDto,
-    RecordBalanceRequest, SnapshotDto,
+    AccountDto, BalanceDto, BatchSaveDto, BreakdownRowDto, CreateAccountRequest, NetWorthDto,
+    PolicyDto, RecordBalanceRequest, RecordBalancesRequest, RowErrorDto, SnapshotDto,
 };
 
 use std::sync::Arc;
@@ -32,6 +32,7 @@ use tower_http::{
 
 use crate::accounts::{
     archive_account, create_account, get_account, list_accounts, list_balances, record_balance,
+    record_balances,
 };
 use crate::networth::{create_snapshot, get_net_worth, list_snapshots};
 
@@ -97,6 +98,10 @@ pub fn app(state: AppState) -> Router {
         .route(
             "/api/v1/accounts/{id}/balances",
             get(list_balances).post(record_balance),
+        )
+        .route(
+            "/api/v1/accounts/{id}/balances/batch",
+            post(record_balances),
         )
         .route("/api/v1/networth", get(get_net_worth))
         .route(

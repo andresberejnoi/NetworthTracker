@@ -105,6 +105,17 @@ impl AccountRepository for InMemoryAccountRepository {
         Ok(balance)
     }
 
+    async fn upsert_balances(
+        &self,
+        balances: &[NewBalance],
+    ) -> Result<Vec<Balance>, RepositoryError> {
+        let mut saved = Vec::with_capacity(balances.len());
+        for balance in balances {
+            saved.push(self.upsert_balance(balance).await?);
+        }
+        Ok(saved)
+    }
+
     async fn list_balances(&self, account_id: Uuid) -> Result<Vec<Balance>, RepositoryError> {
         let inner = self.inner.lock().expect("lock");
         let mut balances: Vec<Balance> = inner

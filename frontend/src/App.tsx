@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, getPing } from "./api/client";
 import AccountsView from "./features/accounts/AccountsView";
+import BulkEntryView from "./features/bulk-entry/BulkEntryView";
 import NetWorthView from "./features/networth/NetWorthView";
 
-type View = "overview" | "networth" | "accounts";
+type View = "overview" | "networth" | "accounts" | "bulk";
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
@@ -41,6 +42,13 @@ export default function App() {
           >
             Accounts
           </button>
+          <button
+            type="button"
+            aria-pressed={view === "bulk"}
+            onClick={() => setView("bulk")}
+          >
+            Bulk entry
+          </button>
         </nav>
       </header>
 
@@ -48,6 +56,8 @@ export default function App() {
         <AccountsView />
       ) : view === "networth" ? (
         <NetWorthView />
+      ) : view === "bulk" ? (
+        <BulkEntryView />
       ) : (
         <section className="card" aria-label="backend status">
           <h2>Backend</h2>

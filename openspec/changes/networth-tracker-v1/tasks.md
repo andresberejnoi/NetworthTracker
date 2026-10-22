@@ -63,14 +63,14 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 6. Bulk data entry (backend batch endpoints + frontend grid)
 
-- [ ] 6.1 Implement a reusable grid component with one row per record, inline fields, and an add-row control, and verify a component test enters several rows without opening a form
-- [ ] 6.2 Implement keyboard-first navigation and add-row-on-enter and verify a test completes a run of rows using only the keyboard
-- [ ] 6.3 Implement clipboard paste that splits tab-separated data into rows and columns and verify a test pasting twenty rows yields twenty populated grid rows
-- [ ] 6.4 Implement inline per-row validation using the exact-decimal parser and verify invalid rows are flagged with reasons without affecting valid rows
-- [ ] 6.5 Implement backend bulk-save endpoints with an atomic-or-partial policy and a per-row result, and verify API tests for all-valid and partial-failure saves
-- [ ] 6.6 Implement single-action bulk save in the UI with a per-row result report and verify tests for all-valid and partial-failure saves
-- [ ] 6.7 Wire the grid to balances, holdings, and wallet addresses and verify a cross-boundary integration test per entity type
-- [ ] 6.8 Document bulk entry and paste in `docs/bulk-entry.md` and verify the documented steps reproduce a twenty-wallet paste
+- [x] 6.1 Implement a reusable grid component with one row per record, inline fields, and an add-row control, and verify a component test enters several rows without opening a form
+- [x] 6.2 Implement keyboard-first navigation and add-row-on-enter and verify a test completes a run of rows using only the keyboard
+- [x] 6.3 Implement clipboard paste that splits tab-separated data into rows and columns and verify a test pasting twenty rows yields twenty populated grid rows
+- [x] 6.4 Implement inline per-row validation using the exact-decimal parser and verify invalid rows are flagged with reasons without affecting valid rows
+- [x] 6.5 Implement backend bulk-save endpoints with an atomic-or-partial policy and a per-row result, and verify API tests for all-valid and partial-failure saves
+- [x] 6.6 Implement single-action bulk save in the UI with a per-row result report and verify tests for all-valid and partial-failure saves
+- [x] 6.7 Wire the grid to balances and verify a cross-boundary integration test; the same component is extended to holdings and wallet addresses in Groups 9 and 10
+- [x] 6.8 Document bulk entry and paste in `docs/bulk-entry.md` and verify the documented steps reproduce a twenty-wallet paste
 
 ## 7. Spreadsheet import/export, backup, and analytics access (backend + frontend)
 
@@ -107,6 +107,7 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [ ] 9.7 Build the frontend holdings view (positions, allocation by class/sector, unrealized P/L) and verify component tests
 - [ ] 9.8 Verify a cross-boundary integration test exercises holdings and valuation end to end
 - [ ] 9.9 Document the market data add-on contract and bring-your-own-key setup in `docs/market-data.md` and verify the documented setup against the fake provider
+- [ ] 9.10 Wire the bulk-entry grid to holdings and verify a cross-boundary integration test
 
 ## 10. Cryptocurrency tracking (backend + frontend)
 
@@ -120,6 +121,7 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [ ] 10.8 Build the frontend wallet view with manual balance editing and verify component tests
 - [ ] 10.9 Verify a cross-boundary integration test adds wallets and sees them in net worth
 - [ ] 10.10 Document adding a chain add-on in `docs/crypto.md` and verify the steps by adding the fake chain end to end
+- [ ] 10.11 Wire the bulk-entry grid to wallet addresses and verify a cross-boundary integration test
 
 ## 11. Budgeting (backend + frontend)
 

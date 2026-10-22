@@ -8,7 +8,10 @@ pub mod accounts;
 pub mod networth;
 pub mod ports;
 
-pub use accounts::{AccountError, AccountService, CreateAccount, RecordBalance};
+pub use accounts::{
+    AccountError, AccountService, BatchMode, BatchRow, BatchSave, CreateAccount, RecordBalance,
+    RowError,
+};
 pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
 pub use ports::{AccountRepository, NetWorthRepository, RepositoryError};
 

@@ -63,6 +63,47 @@ pub struct RecordBalance {
     pub source: BalanceSource,
 }
 
+/// The largest batch accepted in one request.
+pub const MAX_BATCH_ROWS: usize = 5000;
+
+/// How a batch behaves when some rows are invalid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BatchMode {
+    /// Reject the whole batch if any row is invalid.
+    Atomic,
+    /// Save the valid rows and report the rest.
+    Partial,
+}
+
+/// A parseable row, carrying its original position in the submitted grid.
+#[derive(Debug, Clone)]
+pub struct BatchRow {
+    /// Zero-based position in the submitted grid.
+    pub index: usize,
+    /// The balance to record.
+    pub balance: RecordBalance,
+}
+
+/// A row that could not be saved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RowError {
+    /// Zero-based position in the submitted grid.
+    pub index: usize,
+    /// Why the row was skipped.
+    pub message: String,
+}
+
+/// The outcome of a bulk save.
+#[derive(Debug)]
+pub struct BatchSave {
+    /// Rows that were persisted.
+    pub saved: Vec<Balance>,
+    /// Rows that were not persisted, with reasons.
+    pub errors: Vec<RowError>,
+    /// The mode that was applied.
+    pub mode: BatchMode,
+}
+
 /// Account use cases: create, read, archive, and record balances.
 pub struct AccountService {
     repo: Arc<dyn AccountRepository>,
@@ -150,5 +191,71 @@ impl AccountService {
     pub async fn list_balances(&self, account_id: Uuid) -> Result<Vec<Balance>, AccountError> {
         self.get_account(account_id).await?;
         Ok(self.repo.list_balances(account_id).await?)
+    }
+
+    /// Record several balances in one action.
+    ///
+    /// `parse_errors` carries rows the transport could not parse, so they are
+    /// reported with their original indices. In atomic mode any error rejects
+    /// the whole batch; in partial mode the valid rows are saved.
+    pub async fn record_balances(
+        &self,
+        account_id: Uuid,
+        rows: Vec<BatchRow>,
+        parse_errors: Vec<RowError>,
+        mode: BatchMode,
+    ) -> Result<BatchSave, AccountError> {
+        if rows.len() + parse_errors.len() > MAX_BATCH_ROWS {
+            return Err(AccountError::Validation(format!(
+                "batch exceeds {MAX_BATCH_ROWS} rows"
+            )));
+        }
+
+        let account = self.get_account(account_id).await?;
+        let mut errors = parse_errors;
+        let mut valid = Vec::new();
+
+        for row in rows {
+            if account.currency != *row.balance.amount.currency() {
+                errors.push(RowError {
+                    index: row.index,
+                    message: format!(
+                        "currency mismatch: account uses {}, row uses {}",
+                        account.currency,
+                        row.balance.amount.currency()
+                    ),
+                });
+                continue;
+            }
+
+            valid.push(NewBalance {
+                account_id,
+                as_of: row.balance.as_of,
+                amount: row.balance.amount,
+                source: row.balance.source,
+            });
+        }
+
+        errors.sort_by_key(|error| error.index);
+
+        if mode == BatchMode::Atomic && !errors.is_empty() {
+            return Ok(BatchSave {
+                saved: Vec::new(),
+                errors,
+                mode,
+            });
+        }
+
+        let saved = if valid.is_empty() {
+            Vec::new()
+        } else {
+            self.repo.upsert_balances(&valid).await?
+        };
+
+        Ok(BatchSave {
+            saved,
+            errors,
+            mode,
+        })
     }
 }

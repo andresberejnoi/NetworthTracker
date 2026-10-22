@@ -12,6 +12,7 @@ import {
   listBalances,
   listSnapshots,
   recordBalance,
+  recordBalancesBatch,
 } from "./client";
 
 /**
@@ -89,6 +90,31 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     const snapshots = await listSnapshots();
     expect(snapshots.some((item) => item.id === snapshot.id)).toBe(true);
     expect(snapshots[snapshots.length - 1].id).toBe(snapshot.id);
+  });
+
+  it("saves a grid of balances in one request", async () => {
+    const account = await createAccount({
+      name: `Bulk ${Date.now()}`,
+      account_type: "checking",
+    });
+
+    const result = await recordBalancesBatch(
+      account.id,
+      [
+        { as_of: "2026-01-01", amount: "10.00" },
+        { as_of: "2026-02-01", amount: "20.00" },
+        { as_of: "2026-03-01", amount: "oops" },
+      ],
+      "partial",
+    );
+
+    expect(result.mode).toBe("partial");
+    expect(result.saved).toHaveLength(2);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].index).toBe(2);
+
+    const balances = await listBalances(account.id);
+    expect(balances).toHaveLength(2);
   });
 
   it("matches the shared OpenAPI contract for GET endpoints", async () => {
