@@ -89,12 +89,24 @@ spreadsheet line number:
 
 ## Backups
 
-`export` covers accounts and balances. For a complete backup **including
-snapshot history**, use the database dump for now:
+`GET /api/v1/backup` produces a complete JSON backup **including snapshot
+history and the redemption policy used**. `POST /api/v1/backup/restore` restores
+it (owner only):
+
+```bash
+curl -s localhost:8080/api/v1/backup -H "Authorization: Bearer $TOKEN" > backup.json
+curl -s -X POST localhost:8080/api/v1/backup/restore \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  --data-binary @backup.json
+```
+
+Restore is idempotent: accounts match by name, balances upsert per day, and
+identical snapshots are skipped. Validation runs before anything is written.
+Private accounts carry their owner's **username**, so the same household members
+must exist on the target installation.
+
+For a raw database dump instead:
 
 ```bash
 docker compose exec db pg_dump -U networth networth > networth-backup.sql
 ```
-
-A first-class JSON backup/restore endpoint is tracked as the remaining part of
-this change.

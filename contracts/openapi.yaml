@@ -196,6 +196,42 @@ paths:
                 $ref: "#/components/schemas/User"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/backup:
+    get:
+      tags: [data]
+      operationId: exportBackup
+      summary: Full JSON backup including snapshot history (owner only)
+      responses:
+        "200":
+          description: The complete backup.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backup"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/backup/restore:
+    post:
+      tags: [data]
+      operationId: restoreBackup
+      summary: Restore a JSON backup (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Backup"
+      responses:
+        "200":
+          description: Restore report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/accounts:
     get:
       tags: [accounts]
@@ -649,6 +685,122 @@ components:
       properties:
         role:
           $ref: "#/components/schemas/UserRole"
+    BackupAccount:
+      type: object
+      additionalProperties: false
+      required: [name, account_type, institution, currency, ownership_scope, archived, owner_username]
+      properties:
+        name:
+          type: string
+        account_type:
+          type: string
+        institution:
+          type: [string, "null"]
+        currency:
+          type: string
+        ownership_scope:
+          type: string
+        archived:
+          type: boolean
+        owner_username:
+          type: [string, "null"]
+    BackupBalance:
+      type: object
+      additionalProperties: false
+      required: [account_name, as_of, amount, currency, source]
+      properties:
+        account_name:
+          type: string
+        as_of:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+        source:
+          type: string
+    BackupSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - as_of
+        - scope
+        - owner_user_id
+        - owner_age
+        - currency
+        - total
+        - liquid
+        - liquidity
+        - accessible
+        - tax_rate
+        - penalty_rate
+        - penalty_age
+        - selling_rate
+        - fixed_costs
+      properties:
+        as_of:
+          type: string
+        scope:
+          type: string
+        owner_user_id:
+          type: [string, "null"]
+          format: uuid
+        owner_age:
+          type: [integer, "null"]
+        currency:
+          type: string
+        total:
+          type: string
+        liquid:
+          type: string
+        liquidity:
+          type: string
+        accessible:
+          type: string
+        tax_rate:
+          type: string
+        penalty_rate:
+          type: string
+        penalty_age:
+          type: integer
+        selling_rate:
+          type: string
+        fixed_costs:
+          type: string
+    Backup:
+      type: object
+      additionalProperties: false
+      required: [version, exported_at, accounts, balances, snapshots]
+      properties:
+        version:
+          type: string
+        exported_at:
+          type: string
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupAccount"
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupBalance"
+        snapshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupSnapshot"
+    RestoreReport:
+      type: object
+      additionalProperties: false
+      required: [accounts_created, balances_saved, snapshots_restored, snapshots_skipped]
+      properties:
+        accounts_created:
+          type: integer
+        balances_saved:
+          type: integer
+        snapshots_restored:
+          type: integer
+        snapshots_skipped:
+          type: integer
     AccountType:
       type: string
       enum:

@@ -78,7 +78,7 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [x] 7.2 Implement idempotent apply keyed on a stable column and verify a test importing the same file twice produces no duplicates
 - [x] 7.3 Implement XLSX read and write for the same schema and verify an XLSX round-trip test matches the CSV result
 - [x] 7.4 Implement full export of accounts, balances, holdings, and configuration and verify exported files re-import without change
-- [ ] 7.5 Implement local backup and restore and verify restoring on a clean instance with networking disabled reproduces all data and history
+- [x] 7.5 Implement local backup and restore and verify restoring on a clean instance with networking disabled reproduces all data and history
 - [x] 7.6 Verify exact-decimal round-trip through import/export/backup with a test using many-decimal and very large values
 - [x] 7.7 Add the import/export/backup endpoints to the OpenAPI contract and verify the contract test passes
 - [x] 7.8 Build the frontend import/export UI with row-level error display and verify a cross-boundary integration test imports a file and surfaces errors

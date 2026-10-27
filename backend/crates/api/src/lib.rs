@@ -6,6 +6,7 @@
 
 mod accounts;
 mod auth;
+mod backup;
 mod data;
 mod dto;
 mod error;
@@ -26,8 +27,8 @@ use axum::{
     Json, Router,
 };
 use networth_application::{
-    AccountRepository, AccountService, AuthService, IdentityRepository, ImportService,
-    NetWorthRepository, NetWorthService,
+    AccountRepository, AccountService, AuthService, BackupService, IdentityRepository,
+    ImportService, NetWorthRepository, NetWorthService,
 };
 use serde::Serialize;
 use tower_http::{
@@ -52,6 +53,8 @@ pub struct AppState {
     pub data: Arc<ImportService>,
     /// Authentication and user management.
     pub auth: Arc<AuthService>,
+    /// Full backup and restore.
+    pub backup: Arc<BackupService>,
 }
 
 impl AppState {
@@ -64,9 +67,10 @@ impl AppState {
     ) -> Self {
         Self {
             accounts: Arc::new(AccountService::new(accounts.clone())),
-            networth: Arc::new(NetWorthService::new(accounts.clone(), networth)),
-            data: Arc::new(ImportService::new(accounts)),
-            auth: Arc::new(AuthService::new(identity, auth_enabled)),
+            networth: Arc::new(NetWorthService::new(accounts.clone(), networth.clone())),
+            data: Arc::new(ImportService::new(accounts.clone())),
+            auth: Arc::new(AuthService::new(identity.clone(), auth_enabled)),
+            backup: Arc::new(BackupService::new(accounts, networth, identity)),
         }
     }
 }
@@ -137,6 +141,8 @@ pub fn app(state: AppState) -> Router {
         )
         .route("/api/v1/export", get(data::export))
         .route("/api/v1/template", get(data::template))
+        .route("/api/v1/backup", get(backup::export))
+        .route("/api/v1/backup/restore", post(backup::restore))
         .layer(TraceLayer::new_for_http())
         .layer(cors_layer())
         .with_state(state)

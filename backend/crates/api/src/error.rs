@@ -112,3 +112,18 @@ impl From<networth_application::AuthError> for ApiError {
         }
     }
 }
+
+impl From<networth_application::BackupError> for ApiError {
+    fn from(error: networth_application::BackupError) -> Self {
+        use networth_application::BackupError;
+        match error {
+            BackupError::Validation(message) => ApiError::BadRequest(message),
+            BackupError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            BackupError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}

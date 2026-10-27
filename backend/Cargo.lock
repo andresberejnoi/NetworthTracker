@@ -1218,7 +1218,9 @@ version = "0.1.20261017"
 dependencies = [
  "argon2",
  "async-trait",
+ "bigdecimal",
  "networth-domain",
+ "serde",
  "sha2",
  "thiserror 2.0.21",
  "time",

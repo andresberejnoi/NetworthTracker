@@ -6,6 +6,7 @@
 
 pub mod accounts;
 pub mod auth;
+pub mod backup;
 pub mod data_exchange;
 pub mod networth;
 pub mod ports;
@@ -15,6 +16,10 @@ pub use accounts::{
     RowError,
 };
 pub use auth::{implicit_user, AuthError, AuthService, AuthStatus, Session};
+pub use backup::{
+    Backup, BackupAccount, BackupBalance, BackupError, BackupService, BackupSnapshot,
+    RestoreReport, BACKUP_VERSION,
+};
 pub use data_exchange::{
     ImportError, ImportReport, ImportRowError, ImportService, Table, COLUMNS, SCHEMA_VERSION,
 };

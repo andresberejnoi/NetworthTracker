@@ -160,6 +160,40 @@ export interface paths {
         patch: operations["updateUserRole"];
         trace?: never;
     };
+    "/api/v1/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Full JSON backup including snapshot history (owner only) */
+        get: operations["exportBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a JSON backup (owner only) */
+        post: operations["restoreBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts": {
         parameters: {
             query?: never;
@@ -394,6 +428,52 @@ export interface components {
         };
         UpdateRoleRequest: {
             role: components["schemas"]["UserRole"];
+        };
+        BackupAccount: {
+            name: string;
+            account_type: string;
+            institution: string | null;
+            currency: string;
+            ownership_scope: string;
+            archived: boolean;
+            owner_username: string | null;
+        };
+        BackupBalance: {
+            account_name: string;
+            as_of: string;
+            amount: string;
+            currency: string;
+            source: string;
+        };
+        BackupSnapshot: {
+            as_of: string;
+            scope: string;
+            /** Format: uuid */
+            owner_user_id: string | null;
+            owner_age: number | null;
+            currency: string;
+            total: string;
+            liquid: string;
+            liquidity: string;
+            accessible: string;
+            tax_rate: string;
+            penalty_rate: string;
+            penalty_age: number;
+            selling_rate: string;
+            fixed_costs: string;
+        };
+        Backup: {
+            version: string;
+            exported_at: string;
+            accounts: components["schemas"]["BackupAccount"][];
+            balances: components["schemas"]["BackupBalance"][];
+            snapshots: components["schemas"]["BackupSnapshot"][];
+        };
+        RestoreReport: {
+            accounts_created: number;
+            balances_saved: number;
+            snapshots_restored: number;
+            snapshots_skipped: number;
         };
         /** @enum {string} */
         AccountType: "401k" | "traditional_ira" | "roth_ira" | "taxable_brokerage" | "checking" | "savings" | "cash" | "real_estate" | "other_asset" | "mortgage" | "loan";
@@ -813,6 +893,53 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The complete backup. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backup"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    restoreBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Backup"];
+            };
+        };
+        responses: {
+            /** @description Restore report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
         };
     };
