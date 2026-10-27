@@ -8,9 +8,9 @@
 useDefault = true
 
 [allowlist]
-description = "Historic fake test fixtures and the pre-.env local DB default only"
+description = "Exact historic fake values only; anchored so a real secret containing these strings is still reported"
 regexes = [
-  '''password123''',
-  '''postgres://networth:networth@''',
-  '''POSTGRES_PASSWORD:[[:space:]]*networth''',
+  '''^password123$''',
+  '''^postgres://networth:networth@.*$''',
+  '''^POSTGRES_PASSWORD:[[:space:]]*networth$''',
 ]

@@ -50,16 +50,25 @@ make secrets                                  # fast scan + full history
 ### Allowlist policy
 
 `.gitleaks.toml` extends the default rules and allowlists **only** these
-pre-release, fake values:
+pre-release, fake values, each anchored to an exact match:
 
 - `password123` — an old test fixture
 - the old local Compose default that used `networth` as both the database user
   and password
 - the same default in YAML form
 
-Nothing else may be allowlisted. Never allowlist a real credential; rotate it
-instead. If a new false positive appears, prefer changing the value to an
-obvious placeholder over widening the allowlist.
+The anchors matter: a real secret that merely *contains* `password123` is still
+reported. Nothing else may be allowlisted. Never allowlist a real credential;
+rotate it instead. If a new false positive appears, prefer changing the value to
+an obvious placeholder over widening the allowlist.
+
+For zero allowlist, rewrite history before the first release tag to remove the
+historic values entirely. The repository is pre-release, so that is still
+possible.
+
+No scanner is exhaustive. gitleaks catches known token formats and
+high-entropy strings; it cannot catch every possible password. The allowlist is
+a narrow, documented exception, not a guarantee.
 
 ### CI
 
