@@ -44,7 +44,7 @@ function stubApi(ping: "ok" | "error") {
         return jsonResponse({
           message: "pong",
           service: "NetworthTracker",
-          version: "0.1.20261017",
+          version: "0.1.20261027",
         });
       }
       return jsonResponse({});

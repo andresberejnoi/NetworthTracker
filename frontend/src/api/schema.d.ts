@@ -388,7 +388,7 @@ export interface components {
             message: string;
             /** @example NetworthTracker */
             service: string;
-            /** @example 0.1.20261017 */
+            /** @example 0.1.20261027 */
             version: string;
         };
         ApiError: {

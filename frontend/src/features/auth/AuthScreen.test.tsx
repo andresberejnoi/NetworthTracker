@@ -33,7 +33,7 @@ describe("AuthScreen", () => {
 
     render(<AuthScreen mode="login" onAuthenticated={onAuthenticated} />);
     await userEvent.type(screen.getByLabelText("username"), "owner");
-    await userEvent.type(screen.getByLabelText("password"), "password123");
+    await userEvent.type(screen.getByLabelText("password"), "test-only-password");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() =>

@@ -2,6 +2,7 @@
 
 mod common;
 
+const TEST_PASSWORD: &str = "test-only-not-a-secret";
 use axum::http::StatusCode;
 use serde_json::{json, Value};
 
@@ -9,7 +10,7 @@ async fn setup_owner(app: &axum::Router) -> (String, Value) {
     let (status, body) = common::post_json(
         app,
         "/api/v1/auth/setup",
-        json!({ "username": "owner", "password": "password123", "display_name": "Owner" }),
+        json!({ "username": "owner", "password": TEST_PASSWORD, "display_name": "Owner" }),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "setup: {body}");
@@ -23,7 +24,7 @@ async fn login(app: &axum::Router, username: &str) -> String {
     let (status, body) = common::post_json(
         app,
         "/api/v1/auth/login",
-        json!({ "username": username, "password": "password123" }),
+        json!({ "username": username, "password": TEST_PASSWORD }),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "login {username}: {body}");
@@ -52,7 +53,7 @@ async fn setup_then_login_and_me() {
     let (status, session) = common::post_json(
         &app,
         "/api/v1/auth/login",
-        json!({ "username": "owner", "password": "password123" }),
+        json!({ "username": "owner", "password": TEST_PASSWORD }),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -75,7 +76,7 @@ async fn setup_cannot_run_twice() {
     let (status, _) = common::post_json(
         &app,
         "/api/v1/auth/setup",
-        json!({ "username": "other", "password": "password123" }),
+        json!({ "username": "other", "password": TEST_PASSWORD }),
     )
     .await;
     assert_eq!(status, StatusCode::CONFLICT);
@@ -96,7 +97,7 @@ async fn viewer_cannot_modify_but_can_read() {
     let (status, viewer) = common::post_json_auth(
         &app,
         "/api/v1/users",
-        json!({ "username": "viewer", "password": "password123", "role": "viewer" }),
+        json!({ "username": "viewer", "password": TEST_PASSWORD, "role": "viewer" }),
         &owner_token,
     )
     .await;
@@ -130,7 +131,7 @@ async fn private_accounts_are_hidden_from_other_members() {
     let (_, viewer) = common::post_json_auth(
         &app,
         "/api/v1/users",
-        json!({ "username": "viewer", "password": "password123", "role": "viewer" }),
+        json!({ "username": "viewer", "password": TEST_PASSWORD, "role": "viewer" }),
         &owner_token,
     )
     .await;
@@ -139,7 +140,7 @@ async fn private_accounts_are_hidden_from_other_members() {
     common::post_json_auth(
         &app,
         "/api/v1/users",
-        json!({ "username": "editor", "password": "password123", "role": "editor" }),
+        json!({ "username": "editor", "password": TEST_PASSWORD, "role": "editor" }),
         &owner_token,
     )
     .await;
@@ -198,7 +199,7 @@ async fn non_owners_cannot_manage_users() {
     common::post_json_auth(
         &app,
         "/api/v1/users",
-        json!({ "username": "editor", "password": "password123", "role": "editor" }),
+        json!({ "username": "editor", "password": TEST_PASSWORD, "role": "editor" }),
         &owner_token,
     )
     .await;
@@ -210,7 +211,7 @@ async fn non_owners_cannot_manage_users() {
     let (status, _) = common::post_json_auth(
         &app,
         "/api/v1/users",
-        json!({ "username": "sneaky", "password": "password123", "role": "owner" }),
+        json!({ "username": "sneaky", "password": TEST_PASSWORD, "role": "owner" }),
         &editor_token,
     )
     .await;

@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: help version backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
-        integration-test boundaries validate test build up down clean
+        integration-test boundaries secrets validate test build up down clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -44,10 +44,13 @@ integration-test: ## Run the cross-boundary integration test (live backend + fro
 boundaries: ## Verify there are no cross-project imports
 	./scripts/check-boundaries.sh
 
+secrets: ## Scan tracked files for committed credentials
+	./scripts/check-secrets.sh
+
 validate: ## Validate the OpenSpec change strictly
 	openspec validate networth-tracker-v1 --strict
 
-test: backend-test frontend-test boundaries ## Run all tests and boundary checks
+test: secrets backend-test frontend-test boundaries ## Run all tests and checks
 
 build: backend-build frontend-build ## Build both projects
 

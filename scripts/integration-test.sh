@@ -8,6 +8,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 port="${INTEGRATION_PORT:-18080}"
 db_port="${INTEGRATION_DB_PORT:-15433}"
 db_container="networth-integration-db-$$"
+db_password="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
 url="http://127.0.0.1:${port}"
 
 cleanup() {
@@ -19,7 +20,7 @@ trap cleanup EXIT
 echo "Starting throwaway Postgres on 127.0.0.1:${db_port} ..."
 docker run -d --rm --name "$db_container" \
   -e POSTGRES_USER=networth \
-  -e POSTGRES_PASSWORD=networth \
+  -e POSTGRES_PASSWORD="$db_password" \
   -e POSTGRES_DB=networth \
   -p "127.0.0.1:${db_port}:5432" \
   postgres:17-alpine >/dev/null
@@ -35,7 +36,7 @@ echo "Building backend ..."
 (cd "$root/backend" && cargo build -p networth-api)
 
 echo "Starting backend on ${url} ..."
-DATABASE_URL="postgres://networth:networth@127.0.0.1:${db_port}/networth" \
+DATABASE_URL="postgres://networth:${db_password}@127.0.0.1:${db_port}/networth" \
   BACKEND_ADDR="127.0.0.1:${port}" \
   AUTH_DISABLED=true \
   "$root/backend/target/debug/networth-api" &

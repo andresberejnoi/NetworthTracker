@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: NetworthTracker API
-  version: 0.1.20261017
+  version: 0.1.20261027
   description: |
     JSON API for the local-first NetworthTracker backend.
 
@@ -602,7 +602,7 @@ components:
           examples: [NetworthTracker]
         version:
           type: string
-          examples: ["0.1.20261017"]
+          examples: ["0.1.20261027"]
     ApiError:
       type: object
       additionalProperties: false

@@ -1,71 +1,161 @@
 # NetworthTracker
 
-A local-first, offline-capable personal and family net worth tracker. It keeps
-your data on your own machine, works without a network connection for manual
-entry, and reports net worth in *useful* forms: total, liquid, and accessible.
+A local-first, offline-capable personal and family net worth tracker. Your
+financial data stays on your machine, manual entry works with no network, and
+net worth is reported in the forms that actually matter: **total**, **liquid**,
+**liquidity** (cash on hand), and **accessible** (after taxes, penalties, and
+selling costs).
 
-This repository is a **monorepo** with two decoupled projects:
+![Net worth dashboard](docs/screenshots/networth.png)
 
-```
-backend/     Rust API (Axum + SQLx + Postgres)      -> its own Dockerfile
-frontend/    TypeScript web app (Vite + React)      -> its own Dockerfile
-contracts/   Shared OpenAPI contract (the only integration surface)
-docs/        Shared documentation
-openspec/    Spec-driven change proposals and specs
-scripts/     Root tooling (boundary checks, etc.)
-docker-compose.yml / Makefile / .github  -> root orchestration
-```
+| Mobile | Tablet |
+|--------|--------|
+| <img src="docs/screenshots/mobile-networth.png" alt="Mobile net worth" width="320" /> | <img src="docs/screenshots/tablet-networth.png" alt="Tablet net worth" width="520" /> |
 
-## Decoupling rule
+## What it does
 
-The frontend is only a consumer of the backend HTTP API. The two projects share
-no code:
+- **Accounts across everything** — 401(k), Traditional/Roth IRA, taxable
+  brokerage, checking, savings, cash, real estate, other assets, mortgages, and
+  loans.
+- **Exact money** — arbitrary-precision decimals, never binary floats. Crypto
+  amounts keep at least 18 decimal places.
+- **Four net worth figures** — total, liquid (cash + brokerage + retirement),
+  liquidity (cash available now), and accessible (net proceeds after estimated
+  taxes, penalties, and selling costs).
+- **History** — immutable snapshots and a chart; changing assumptions never
+  rewrites the past.
+- **Fast bulk entry** — a spreadsheet-like grid with keyboard-first entry and
+  clipboard paste. Paste twenty rows instead of opening twenty forms.
+- **Spreadsheet import/export** — versioned CSV/XLSX with validation before any
+  write, idempotent re-imports, and sample files in `samples/`.
+- **Full backup/restore** — JSON with accounts, balances, and snapshot history.
+- **Family accounts** — local login, owner/editor/viewer roles, private
+  accounts, and per-user visibility.
+- **Offline first** — the core app needs no internet. External providers are
+  optional, user-funded add-ons behind read-only interfaces.
 
-- `backend/` must not reference `frontend/`, and `frontend/` must not reference
-  `backend/`.
-- Integration happens exclusively over the HTTP API described in
-  `contracts/openapi.yaml`.
-- Shared, non-runtime assets (docs, container orchestration, CI, the contract)
-  live at the repository root.
+| Accounts | Bulk entry |
+|----------|------------|
+| <img src="docs/screenshots/accounts.png" alt="Accounts" width="520" /> | <img src="docs/screenshots/bulk-entry.png" alt="Bulk entry" width="520" /> |
 
-`make boundaries` enforces this in CI.
+| Import / export | Login |
+|-----------------|-------|
+| <img src="docs/screenshots/data.png" alt="Data import and export" width="520" /> | <img src="docs/screenshots/login.png" alt="Login" width="320" /> |
 
-## Quickstart
-
-Everything, in containers:
-
-```bash
-make up        # db + backend + frontend, then open http://localhost:3000
-```
-
-Or run the pieces separately for development — see `docs/development.md`.
-
-| Service  | URL                     |
-|----------|-------------------------|
-| Frontend | http://localhost:3000   |
-| Backend  | http://localhost:8080   |
-| Postgres | internal (`db:5432`)    |
-
-Host ports are overridable, e.g. `FRONTEND_PORT=8081 docker compose up`.
-
-## Development
+## Quick start (containers)
 
 ```bash
-make help             # list targets
-make backend-test     # cargo test
-make frontend-test    # vitest
-make boundaries       # no cross-project imports
-make validate         # openspec validate --strict
-make test             # all of the above
+git clone git@github.com:andresberejnoi/NetworthTracker.git
+cd NetworthTracker
+
+cp .env.example .env
+# edit .env and set a strong POSTGRES_PASSWORD
+
+docker compose up --build
 ```
 
-## Design
+Open **http://localhost:3000**. On first run, create the household owner
+(username + password). The backend runs on `http://localhost:8080`.
 
-The v1 design lives in OpenSpec:
+If port 3000 is already in use:
 
+```bash
+FRONTEND_PORT=8081 docker compose up --build
+```
+
+Stop the stack:
+
+```bash
+docker compose down       # keep data
+docker compose down -v    # also delete the database volume
+```
+
+### Single-user offline mode
+
+Set `AUTH_DISABLED=true` in `.env` to skip the login screen. Everything runs as
+an implicit local owner. Do not use this on a shared machine.
+
+## Local development
+
+Prerequisites: Rust stable, Node 22+, and Docker or Podman with Compose.
+
+```bash
+# database
+docker compose up -d db
+
+# backend (reads DATABASE_URL and AUTH_DISABLED)
+cd backend
+DATABASE_URL='postgres://networth:YOUR_DB_PASSWORD@localhost:5432/networth' \
+  AUTH_DISABLED=true cargo run -p networth-api
+
+# frontend (separate terminal)
+cd frontend
+npm ci
+npm run dev        # http://localhost:5173
+```
+
+Common checks:
+
+```bash
+make help
+make test              # backend + frontend + secret + boundary checks
+make backend-test-db   # Postgres repository tests (throwaway container)
+make integration-test  # real backend + frontend client over HTTP
+make secrets           # no credentials in tracked files
+make validate          # openspec validate --strict
+```
+
+## Architecture
+
+```
+backend/     Rust API (Axum + SQLx)         -> own Dockerfile
+frontend/    TypeScript app (Vite + React)  -> own Dockerfile
+contracts/   openapi.yaml: the only integration surface
+docs/        guides and screenshots
+samples/     importable CSV/XLSX examples
+openspec/    spec-driven change proposals and specs
+```
+
+The two projects are **decoupled**: the frontend is a pure HTTP consumer and
+neither side imports the other's code. `contracts/openapi.yaml` is shared at the
+root; the backend is validated against it and the frontend's typed client is
+generated from it. `make boundaries` enforces this.
+
+## Data, privacy, and security
+
+- Data lives in a local PostgreSQL database in a Docker volume.
+- Passwords are hashed with **Argon2id**; session tokens are stored only as
+  SHA-256 hashes and expire after 30 days.
+- Local secrets live in `.env`, which is gitignored. There is no committed
+  database password. `make secrets` scans tracked files for credentials and
+  runs in CI.
+- Provider API keys (prices, chains, aggregation) are supplied by the individual
+  user and stored locally; the product bundles none and runs no central relay.
+- For a shared or portable machine, use full-disk encryption.
+
+## Versioning
+
+Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
+The current version is `0.1.20261027`. The authoritative value lives in
+`backend/Cargo.toml`; `make version` prints it. See `AGENTS.md`.
+
+## Documentation
+
+- `docs/access-control.md` — users, roles, sessions, scoping
+- `docs/api.md` — HTTP API examples
+- `docs/import-export.md` — spreadsheet format, samples, backups
+- `docs/bulk-entry.md` — grid, paste, batch saves
+- `docs/dashboard.md` — frontend views
+- `docs/analytics.md` — read-only SQL/Python analysis
 - `openspec/changes/networth-tracker-v1/` — proposal, specs, design, tasks
 
-Key decisions: PostgreSQL with exact `NUMERIC` money (`bigdecimal`), a
-hexagonal backend, liquidity and accessibility as separate axes, immutable net
-worth snapshots, a spreadsheet-like bulk-entry grid, and user-funded
-bring-your-own-key data add-ons.
+## Roadmap
+
+The v1 design also covers investment holdings and sectors, cryptocurrency wallet
+tracking, budgeting, and read-only aggregation adapters. These are specified in
+OpenSpec and land as their own slices; the current release covers the accounts,
+net worth, history, bulk entry, import/export, backups, and family access.
+
+## License
+
+MIT

@@ -61,7 +61,7 @@ describe("UsersView", () => {
 
     await userEvent.type(screen.getByLabelText("new username"), "kid");
     await userEvent.type(screen.getByLabelText("new display name"), "Kid");
-    await userEvent.type(screen.getByLabelText("new password"), "password123");
+    await userEvent.type(screen.getByLabelText("new password"), "test-only-password");
     await userEvent.selectOptions(screen.getByLabelText("new role"), "viewer");
     await userEvent.click(screen.getByRole("button", { name: /add member/i }));
 

@@ -16,7 +16,7 @@ curl -s localhost:8080/health
 # {"status":"ok"}
 
 curl -s localhost:8080/api/v1/ping
-# {"message":"pong","service":"NetworthTracker","version":"0.1.20261017"}
+# {"message":"pong","service":"NetworthTracker","version":"0.1.20261027"}
 ```
 
 ## Accounts

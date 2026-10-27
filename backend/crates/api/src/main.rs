@@ -17,7 +17,7 @@ async fn main() {
         .init();
 
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-        panic!("DATABASE_URL must be set (for example postgres://networth:networth@localhost:5432/networth)")
+        panic!("DATABASE_URL must be set (for example postgres://USER:PASSWORD@localhost:5432/networth)")
     });
 
     let pool = PgPoolOptions::new()

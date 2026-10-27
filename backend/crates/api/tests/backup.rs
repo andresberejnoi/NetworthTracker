@@ -2,6 +2,7 @@
 
 mod common;
 
+const TEST_PASSWORD: &str = "test-only-not-a-secret";
 use axum::http::StatusCode;
 use serde_json::json;
 
@@ -75,7 +76,7 @@ async fn only_an_owner_can_back_up() {
     let (status, setup) = common::post_json(
         &app,
         "/api/v1/auth/setup",
-        json!({ "username": "owner", "password": "password123" }),
+        json!({ "username": "owner", "password": TEST_PASSWORD }),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -84,7 +85,7 @@ async fn only_an_owner_can_back_up() {
     common::post_json_auth(
         &app,
         "/api/v1/users",
-        json!({ "username": "viewer", "password": "password123", "role": "viewer" }),
+        json!({ "username": "viewer", "password": TEST_PASSWORD, "role": "viewer" }),
         &owner_token,
     )
     .await;
@@ -92,7 +93,7 @@ async fn only_an_owner_can_back_up() {
     let (_, session) = common::post_json(
         &app,
         "/api/v1/auth/login",
-        json!({ "username": "viewer", "password": "password123" }),
+        json!({ "username": "viewer", "password": TEST_PASSWORD }),
     )
     .await;
     let viewer_token = session["token"].as_str().expect("token");

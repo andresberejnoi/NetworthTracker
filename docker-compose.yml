@@ -4,13 +4,13 @@ services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: networth
-      POSTGRES_PASSWORD: networth
-      POSTGRES_DB: networth
+      POSTGRES_USER: ${POSTGRES_USER:-networth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required; copy .env.example to .env and change it}
+      POSTGRES_DB: ${POSTGRES_DB:-networth}
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U networth -d networth"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-networth} -d ${POSTGRES_DB:-networth}"]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -23,9 +23,8 @@ services:
     environment:
       BACKEND_ADDR: 0.0.0.0:8080
       CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-3000},http://localhost:5173
-      DATABASE_URL: postgres://networth:networth@db:5432/networth
-      # Set to "true" for single-user offline mode without a login.
-      AUTH_DISABLED: "false"
+      DATABASE_URL: postgres://${POSTGRES_USER:-networth}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required; copy .env.example to .env and change it}@db:5432/${POSTGRES_DB:-networth}
+      AUTH_DISABLED: ${AUTH_DISABLED:-false}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

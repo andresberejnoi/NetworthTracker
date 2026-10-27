@@ -41,6 +41,23 @@ openspec/    spec-driven change proposals and specs
 6. **Verify before claiming done.** Run the relevant checks (`make test`,
    `make integration-test`, `make validate`) and report what actually passed.
 
+## Secrets and credentials
+
+- **Never commit real passwords, API keys, tokens, private keys, or `.env`
+  files.** Local secrets live in `.env`, which is gitignored; `.env.example`
+  documents the required keys with placeholders.
+- Use obvious placeholders in docs (`change-me`, `your-api-key`) and clearly fake
+  values in tests (`test-only-not-a-secret`). Never paste a credential from a
+  real account into the repository.
+- Run `make secrets` before every commit. It scans tracked files for private
+  keys, cloud/API tokens, and database URLs that contain a password.
+- If a credential is ever committed, treat it as compromised: rotate it first,
+  then remove it from history. Deleting the file is not enough.
+- Provider credentials (market data, aggregation, chains) are supplied by the
+  individual user and stored locally; the product bundles none and runs no
+  central service.
+- The database password comes from `.env`; there is no committed default.
+
 ## Versioning
 
 The product uses **date-based semantic versioning** in the format
@@ -64,7 +81,8 @@ container images are tagged `v<version>`.
 
 ```bash
 make help              # list targets
-make test              # backend + frontend tests + boundary check
+make test              # backend + frontend tests + secret + boundary checks
+make secrets           # scan tracked files for credentials
 make integration-test  # boot the backend, drive it through the frontend client
 make validate          # openspec validate --strict
 make up                # full local stack (db, backend, frontend)
