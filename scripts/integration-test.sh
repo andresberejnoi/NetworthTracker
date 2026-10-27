@@ -37,6 +37,7 @@ echo "Building backend ..."
 echo "Starting backend on ${url} ..."
 DATABASE_URL="postgres://networth:networth@127.0.0.1:${db_port}/networth" \
   BACKEND_ADDR="127.0.0.1:${port}" \
+  AUTH_DISABLED=true \
   "$root/backend/target/debug/networth-api" &
 backend_pid=$!
 

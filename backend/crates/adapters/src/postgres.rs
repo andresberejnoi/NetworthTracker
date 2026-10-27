@@ -4,13 +4,16 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
-use networth_application::ports::{AccountRepository, NetWorthRepository, RepositoryError};
+use networth_application::ports::{
+    AccountRepository, IdentityRepository, NetWorthRepository, RepositoryError, UserWithHash,
+};
 use networth_domain::{
     Account, AggregationScope, Balance, BalanceSource, Currency, Money, NewAccount, NewBalance,
-    NewSnapshot, OwnershipScope, RedemptionPolicy, Snapshot, SnapshotFilter,
+    NewSnapshot, NewUser, OwnershipScope, RedemptionPolicy, Snapshot, SnapshotFilter, User,
+    UserRole,
 };
 use sqlx::PgPool;
-use time::Date;
+use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 /// Account and net worth persistence backed by PostgreSQL.
@@ -375,5 +378,206 @@ impl NetWorthRepository for PostgresAccountRepository {
             .map_err(map_sqlx_error)?;
 
         rows.into_iter().map(TryInto::try_into).collect()
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct UserRow {
+    id: Uuid,
+    username: String,
+    display_name: String,
+    role: String,
+}
+
+fn parse_role(value: &str) -> Result<UserRole, RepositoryError> {
+    value
+        .parse::<UserRole>()
+        .map_err(|e: networth_domain::identity::UserRoleParseError| {
+            RepositoryError::Storage(e.to_string())
+        })
+}
+
+impl TryFrom<UserRow> for User {
+    type Error = RepositoryError;
+
+    fn try_from(row: UserRow) -> Result<Self, Self::Error> {
+        Ok(User {
+            id: row.id,
+            username: row.username,
+            display_name: row.display_name,
+            role: parse_role(&row.role)?,
+        })
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct UserWithHashRow {
+    id: Uuid,
+    username: String,
+    display_name: String,
+    role: String,
+    password_hash: String,
+}
+
+impl TryFrom<UserWithHashRow> for UserWithHash {
+    type Error = RepositoryError;
+
+    fn try_from(row: UserWithHashRow) -> Result<Self, Self::Error> {
+        Ok(UserWithHash {
+            user: User {
+                id: row.id,
+                username: row.username,
+                display_name: row.display_name,
+                role: parse_role(&row.role)?,
+            },
+            password_hash: row.password_hash,
+        })
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct SessionRow {
+    id: Uuid,
+    username: String,
+    display_name: String,
+    role: String,
+    expires_at: OffsetDateTime,
+}
+
+impl TryFrom<SessionRow> for (User, OffsetDateTime) {
+    type Error = RepositoryError;
+
+    fn try_from(row: SessionRow) -> Result<Self, Self::Error> {
+        Ok((
+            User {
+                id: row.id,
+                username: row.username,
+                display_name: row.display_name,
+                role: parse_role(&row.role)?,
+            },
+            row.expires_at,
+        ))
+    }
+}
+
+#[async_trait]
+impl IdentityRepository for PostgresAccountRepository {
+    async fn count_users(&self) -> Result<i64, RepositoryError> {
+        sqlx::query_scalar("SELECT COUNT(*) FROM users")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error)
+    }
+
+    async fn create_user(&self, new: &NewUser) -> Result<User, RepositoryError> {
+        let row: UserRow = sqlx::query_as(
+            "INSERT INTO users (username, display_name, password_hash, role) \
+             VALUES ($1, $2, $3, $4) \
+             RETURNING id, username, display_name, role",
+        )
+        .bind(&new.username)
+        .bind(&new.display_name)
+        .bind(&new.password_hash)
+        .bind(new.role.as_str())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        row.try_into()
+    }
+
+    async fn find_user_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<UserWithHash>, RepositoryError> {
+        let row: Option<UserWithHashRow> = sqlx::query_as(
+            "SELECT id, username, display_name, role, password_hash \
+             FROM users WHERE lower(username) = lower($1)",
+        )
+        .bind(username)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        row.map(TryInto::try_into).transpose()
+    }
+
+    async fn find_user(&self, id: Uuid) -> Result<Option<User>, RepositoryError> {
+        let row: Option<UserRow> =
+            sqlx::query_as("SELECT id, username, display_name, role FROM users WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(map_sqlx_error)?;
+
+        row.map(TryInto::try_into).transpose()
+    }
+
+    async fn list_users(&self) -> Result<Vec<User>, RepositoryError> {
+        let rows: Vec<UserRow> = sqlx::query_as(
+            "SELECT id, username, display_name, role FROM users ORDER BY display_name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn update_user_role(&self, id: Uuid, role: UserRole) -> Result<User, RepositoryError> {
+        let row: UserRow = sqlx::query_as(
+            "UPDATE users SET role = $2 WHERE id = $1 \
+             RETURNING id, username, display_name, role",
+        )
+        .bind(id)
+        .bind(role.as_str())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        row.try_into()
+    }
+
+    async fn create_session(
+        &self,
+        user_id: Uuid,
+        token_hash: &str,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query("INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)")
+            .bind(user_id)
+            .bind(token_hash)
+            .bind(expires_at)
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        Ok(())
+    }
+
+    async fn find_session(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<(User, OffsetDateTime)>, RepositoryError> {
+        let row: Option<SessionRow> = sqlx::query_as(
+            "SELECT u.id, u.username, u.display_name, u.role, s.expires_at \
+             FROM sessions s JOIN users u ON u.id = s.user_id \
+             WHERE s.token_hash = $1",
+        )
+        .bind(token_hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        row.map(TryInto::try_into).transpose()
+    }
+
+    async fn delete_session(&self, token_hash: &str) -> Result<(), RepositoryError> {
+        sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
+            .bind(token_hash)
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(())
     }
 }

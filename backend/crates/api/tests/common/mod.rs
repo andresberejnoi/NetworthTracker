@@ -14,15 +14,25 @@ use axum::{
 use http_body_util::BodyExt;
 use networth_adapters::InMemoryAccountRepository;
 use networth_api::{app, AppState};
-use networth_application::{AccountRepository, NetWorthRepository};
+use networth_application::{AccountRepository, IdentityRepository, NetWorthRepository};
 use tower::ServiceExt;
 
-/// Build an app over a fresh in-memory repository.
+/// Build an app over a fresh in-memory repository, with auth disabled.
 pub fn router() -> Router {
+    build(false)
+}
+
+/// Build an app over a fresh in-memory repository, with auth enabled.
+pub fn router_with_auth() -> Router {
+    build(true)
+}
+
+fn build(auth_enabled: bool) -> Router {
     let repository = Arc::new(InMemoryAccountRepository::new());
     let accounts: Arc<dyn AccountRepository> = repository.clone();
-    let networth: Arc<dyn NetWorthRepository> = repository;
-    app(AppState::new(accounts, networth))
+    let networth: Arc<dyn NetWorthRepository> = repository.clone();
+    let identity: Arc<dyn IdentityRepository> = repository;
+    app(AppState::new(accounts, networth, identity, auth_enabled))
 }
 
 /// Send a request and decode any JSON body.
@@ -107,6 +117,33 @@ pub async fn get_raw(app: &Router, path: &str) -> (StatusCode, Vec<u8>, Option<S
         .to_bytes()
         .to_vec();
     (status, bytes, content_type)
+}
+
+/// `GET path` with a bearer token.
+pub async fn get_auth(app: &Router, path: &str, token: &str) -> (StatusCode, serde_json::Value) {
+    let request = Request::builder()
+        .uri(path)
+        .header("authorization", format!("Bearer {token}"))
+        .body(Body::empty())
+        .expect("build request");
+    send(app, request).await
+}
+
+/// `POST path` with a JSON body and a bearer token.
+pub async fn post_json_auth(
+    app: &Router,
+    path: &str,
+    body: serde_json::Value,
+    token: &str,
+) -> (StatusCode, serde_json::Value) {
+    let request = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/json")
+        .header("authorization", format!("Bearer {token}"))
+        .body(Body::from(body.to_string()))
+        .expect("build request");
+    send(app, request).await
 }
 
 /// Create an account and return its id.

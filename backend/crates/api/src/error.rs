@@ -13,6 +13,10 @@ use serde::Serialize;
 pub enum ApiError {
     /// The request was malformed or failed validation.
     BadRequest(String),
+    /// Authentication is required or credentials are invalid.
+    Unauthorized(String),
+    /// Authenticated but not allowed.
+    Forbidden(String),
     /// The resource does not exist.
     NotFound(String),
     /// The request conflicts with existing state.
@@ -30,6 +34,8 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             ApiError::BadRequest(message) => (StatusCode::BAD_REQUEST, message),
+            ApiError::Unauthorized(message) => (StatusCode::UNAUTHORIZED, message),
+            ApiError::Forbidden(message) => (StatusCode::FORBIDDEN, message),
             ApiError::NotFound(message) => (StatusCode::NOT_FOUND, message),
             ApiError::Conflict(message) => (StatusCode::CONFLICT, message),
             ApiError::Internal(message) => (StatusCode::INTERNAL_SERVER_ERROR, message),
@@ -81,6 +87,28 @@ impl From<networth_application::ImportError> for ApiError {
             ImportError::Repository(RepositoryError::Storage(message)) => {
                 ApiError::Internal(message)
             }
+        }
+    }
+}
+
+impl From<networth_application::AuthError> for ApiError {
+    fn from(error: networth_application::AuthError) -> Self {
+        use networth_application::AuthError;
+        match error {
+            AuthError::Disabled => ApiError::BadRequest("authentication is disabled".to_string()),
+            AuthError::Unauthorized => {
+                ApiError::Unauthorized("invalid or missing session".to_string())
+            }
+            AuthError::Forbidden => {
+                ApiError::Forbidden("you do not have permission to do that".to_string())
+            }
+            AuthError::Validation(message) => ApiError::BadRequest(message),
+            AuthError::Conflict(message) => ApiError::Conflict(message),
+            AuthError::Internal(message) => ApiError::Internal(message),
+            AuthError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            AuthError::Repository(RepositoryError::Storage(message)) => ApiError::Internal(message),
         }
     }
 }

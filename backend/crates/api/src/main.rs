@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use networth_adapters::PostgresAccountRepository;
 use networth_api::{app, AppState};
-use networth_application::{AccountRepository, NetWorthRepository};
+use networth_application::{AccountRepository, IdentityRepository, NetWorthRepository};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
 
@@ -30,11 +30,21 @@ async fn main() {
         .await
         .unwrap_or_else(|error| panic!("failed to run migrations: {error}"));
 
+    let auth_enabled = std::env::var("AUTH_DISABLED")
+        .map(|value| {
+            !matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            )
+        })
+        .unwrap_or(true);
+
     let repository = Arc::new(PostgresAccountRepository::new(pool));
     let accounts: Arc<dyn AccountRepository> = repository.clone();
-    let networth: Arc<dyn NetWorthRepository> = repository;
+    let networth: Arc<dyn NetWorthRepository> = repository.clone();
+    let identity: Arc<dyn IdentityRepository> = repository;
 
-    let state = AppState::new(accounts, networth);
+    let state = AppState::new(accounts, networth, identity, auth_enabled);
 
     let addr = std::env::var("BACKEND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = tokio::net::TcpListener::bind(&addr)

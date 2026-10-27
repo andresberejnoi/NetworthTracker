@@ -123,15 +123,17 @@ async fn snapshots_are_persisted_and_immutable() {
 }
 
 #[tokio::test]
-async fn personal_scope_requires_an_owner() {
+async fn personal_scope_defaults_to_the_current_user() {
     let app = common::router();
+    seed(&app).await;
     let (status, body) = common::get(
         &app,
         &format!("/api/v1/networth?as_of={AS_OF}&scope=personal"),
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body["error"].as_str().unwrap().contains("owner_user_id"));
+    assert_eq!(status, StatusCode::OK, "net worth: {body}");
+    // Every seeded account is household-shared, so the personal view sees them.
+    assert_eq!(body["total"], "610000.00");
 }
 
 #[tokio::test]

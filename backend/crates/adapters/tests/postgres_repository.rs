@@ -6,10 +6,10 @@
 //! database via `#[sqlx::test]`.
 
 use networth_adapters::PostgresAccountRepository;
-use networth_application::ports::{AccountRepository, NetWorthRepository};
+use networth_application::ports::{AccountRepository, IdentityRepository, NetWorthRepository};
 use networth_domain::{
     AccountType, AggregationScope, BalanceSource, Currency, Money, NewAccount, NewBalance,
-    NewSnapshot, OwnershipScope, RedemptionPolicy, SnapshotFilter,
+    NewSnapshot, NewUser, OwnershipScope, RedemptionPolicy, SnapshotFilter, UserRole,
 };
 use sqlx::PgPool;
 use time::macros::date;
@@ -255,4 +255,67 @@ async fn persists_and_lists_snapshots(pool: PgPool) {
     assert_eq!(listed[0].id, snapshot.id);
     assert_eq!(listed[0].accessible.amount_string(), "40.00");
     assert_eq!(listed[0].policy, policy);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_users_and_sessions(pool: PgPool) {
+    let repo = PostgresAccountRepository::new(pool);
+
+    assert_eq!(repo.count_users().await.unwrap(), 0);
+
+    let user = repo
+        .create_user(&NewUser {
+            username: "alice".to_string(),
+            display_name: "Alice".to_string(),
+            password_hash: "hash".to_string(),
+            role: UserRole::Owner,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(user.role, UserRole::Owner);
+    assert_eq!(repo.count_users().await.unwrap(), 1);
+
+    let found = repo
+        .find_user_by_username("ALICE")
+        .await
+        .unwrap()
+        .expect("user");
+    assert_eq!(found.user.id, user.id);
+    assert_eq!(found.password_hash, "hash");
+
+    let expires_at = time::OffsetDateTime::now_utc() + time::Duration::days(1);
+    repo.create_session(user.id, "token-hash", expires_at)
+        .await
+        .unwrap();
+
+    let (session_user, session_expiry) = repo
+        .find_session("token-hash")
+        .await
+        .unwrap()
+        .expect("session");
+    assert_eq!(session_user.id, user.id);
+    assert!(session_expiry > time::OffsetDateTime::now_utc());
+
+    repo.delete_session("token-hash").await.unwrap();
+    assert!(repo.find_session("token-hash").await.unwrap().is_none());
+
+    let updated = repo
+        .update_user_role(user.id, UserRole::Viewer)
+        .await
+        .unwrap();
+    assert_eq!(updated.role, UserRole::Viewer);
+
+    let duplicate = repo
+        .create_user(&NewUser {
+            username: "Alice".to_string(),
+            display_name: "Alice again".to_string(),
+            password_hash: "hash".to_string(),
+            role: UserRole::Editor,
+        })
+        .await;
+    assert!(
+        duplicate.is_err(),
+        "usernames are unique (case-insensitive)"
+    );
 }

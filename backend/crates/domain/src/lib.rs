@@ -11,6 +11,7 @@
 
 pub mod accounts;
 pub mod currency;
+pub mod identity;
 pub mod money;
 pub mod networth;
 pub mod quantity;
@@ -22,6 +23,7 @@ pub use accounts::{
     NewBalance, OwnershipScope,
 };
 pub use currency::Currency;
+pub use identity::{NewUser, User, UserRole};
 pub use money::{Money, MoneyError};
 pub use networth::{
     compute_net_worth, AggregationScope, AssetClass, BreakdownRow, ComputeParams,

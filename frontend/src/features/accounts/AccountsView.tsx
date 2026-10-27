@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCurrentUser } from "../../auth/AuthContext";
 import {
   ACCOUNT_TYPES,
   archiveAccount,
@@ -10,6 +11,8 @@ import {
 
 export default function AccountsView() {
   const queryClient = useQueryClient();
+  const currentUser = useCurrentUser();
+  const canWrite = currentUser?.role !== "viewer";
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("checking");
   const [institution, setInstitution] = useState("");
@@ -41,6 +44,10 @@ export default function AccountsView() {
   return (
     <section className="card" aria-label="accounts">
       <h2>Accounts</h2>
+
+      {!canWrite && (
+        <p className="muted">Your role is read-only, so changes are disabled.</p>
+      )}
 
       <form
         className="row"
@@ -84,7 +91,7 @@ export default function AccountsView() {
           />
         </label>
 
-        <button type="submit" disabled={create.isPending || name.trim() === ""}>
+        <button type="submit" disabled={create.isPending || name.trim() === "" || !canWrite}>
           Add account
         </button>
       </form>
@@ -127,6 +134,7 @@ export default function AccountsView() {
                     type="button"
                     onClick={() => archive.mutate(account.id)}
                     aria-label={`archive ${account.name}`}
+                    disabled={!canWrite}
                   >
                     Archive
                   </button>

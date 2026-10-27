@@ -15,9 +15,13 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local backend
+security:
+  - bearerAuth: []
 tags:
   - name: system
     description: Liveness and service metadata
+  - name: auth
+    description: Local authentication and household members
   - name: accounts
     description: Accounts and their dated balances
   - name: networth
@@ -30,6 +34,7 @@ paths:
       tags: [system]
       operationId: getHealth
       summary: Liveness probe
+      security: []
       responses:
         "200":
           description: The service is up.
@@ -42,6 +47,7 @@ paths:
       tags: [system]
       operationId: getPing
       summary: Service metadata reply
+      security: []
       responses:
         "200":
           description: Service name and version.
@@ -49,6 +55,147 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ping"
+  /api/v1/auth/status:
+    get:
+      tags: [auth]
+      operationId: getAuthStatus
+      summary: Whether auth is enabled and first-run setup is needed
+      security: []
+      responses:
+        "200":
+          description: Authentication status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthStatus"
+  /api/v1/auth/setup:
+    post:
+      tags: [auth]
+      operationId: setupOwner
+      summary: Create the first owner
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupRequest"
+      responses:
+        "200":
+          description: A session for the new owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Sign in with a username and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: A session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Invalidate the current session
+      responses:
+        "204":
+          description: Signed out.
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: The current user
+      responses:
+        "200":
+          description: The authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/users:
+    get:
+      tags: [auth]
+      operationId: listUsers
+      summary: List household members (owner only)
+      responses:
+        "200":
+          description: Users.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [auth]
+      operationId: createUser
+      summary: Add a household member (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: The created user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [auth]
+      operationId: updateUserRole
+      summary: Change a member's role (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequest"
+      responses:
+        "200":
+          description: The updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/accounts:
     get:
       tags: [accounts]
@@ -354,6 +501,10 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
   parameters:
     AccountId:
       name: id
@@ -365,6 +516,24 @@ components:
   responses:
     BadRequest:
       description: The request was malformed or failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: Authentication is required or credentials are invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: Authenticated but not allowed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: The request conflicts with existing state.
       content:
         application/json:
           schema:
@@ -405,6 +574,81 @@ components:
       properties:
         error:
           type: string
+    UserRole:
+      type: string
+      enum: [owner, editor, viewer]
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        display_name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+    AuthStatus:
+      type: object
+      additionalProperties: false
+      required: [auth_enabled, needs_setup]
+      properties:
+        auth_enabled:
+          type: boolean
+        needs_setup:
+          type: boolean
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    SetupRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        display_name:
+          type: [string, "null"]
+    Session:
+      type: object
+      additionalProperties: false
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+    CreateUserRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, role]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        display_name:
+          type: [string, "null"]
+        role:
+          $ref: "#/components/schemas/UserRole"
+    UpdateRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/UserRole"
     AccountType:
       type: string
       enum:

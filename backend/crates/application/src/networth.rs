@@ -37,6 +37,10 @@ pub struct NetWorthRequest {
     pub policy: RedemptionPolicy,
     /// The reporting currency.
     pub currency: Currency,
+    /// The user viewing the result.
+    pub viewer_user_id: Option<Uuid>,
+    /// Whether the viewer is a household owner.
+    pub viewer_is_owner: bool,
 }
 
 /// Net worth computation and snapshot persistence.
@@ -71,6 +75,8 @@ impl NetWorthService {
             owner_age: request.owner_age,
             policy: request.policy,
             currency: request.currency,
+            viewer_user_id: request.viewer_user_id,
+            viewer_is_owner: request.viewer_is_owner,
         };
 
         Ok(compute_net_worth(&accounts, &balances, &params))

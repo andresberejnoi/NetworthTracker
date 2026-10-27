@@ -12,6 +12,10 @@ HTTP API. It never imports backend code.
 | Accounts | Create, list, and archive accounts |
 | Bulk entry | Spreadsheet-like grid with paste and per-row results |
 | Data | Import/export CSV/XLSX and download templates |
+| Users | Household members (owners only) |
+
+When authentication is enabled, the app shows a first-run setup screen or a
+login screen before any of these views. See `docs/access-control.md`.
 
 ## Net worth
 

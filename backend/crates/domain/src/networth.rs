@@ -154,6 +154,10 @@ pub struct ComputeParams {
     pub policy: RedemptionPolicy,
     /// The reporting currency.
     pub currency: Currency,
+    /// The user viewing the result.
+    pub viewer_user_id: Option<Uuid>,
+    /// Whether the viewer is a household owner (sees every account).
+    pub viewer_is_owner: bool,
 }
 
 /// One row of a breakdown, in the reporting currency.
@@ -380,12 +384,13 @@ pub fn compute_net_worth(
 }
 
 fn scope_includes(account: &Account, params: &ComputeParams) -> bool {
+    let shared = account.ownership_scope == OwnershipScope::Household;
+    let owned_by_viewer =
+        params.viewer_user_id.is_some() && account.owner_user_id == params.viewer_user_id;
+
     match params.scope {
-        AggregationScope::Household => true,
-        AggregationScope::Personal => {
-            account.ownership_scope == OwnershipScope::Household
-                || (params.owner_user_id.is_some() && account.owner_user_id == params.owner_user_id)
-        }
+        AggregationScope::Household => params.viewer_is_owner || shared || owned_by_viewer,
+        AggregationScope::Personal => shared || owned_by_viewer,
     }
 }
 
@@ -484,6 +489,8 @@ mod tests {
             owner_age: Some(35),
             policy: RedemptionPolicy::default(),
             currency: Currency::usd(),
+            viewer_user_id: None,
+            viewer_is_owner: true,
         }
     }
 
@@ -687,7 +694,8 @@ mod tests {
 
         let mut p = params();
         p.scope = AggregationScope::Personal;
-        p.owner_user_id = Some(owner_a);
+        p.viewer_user_id = Some(owner_a);
+        p.viewer_is_owner = false;
 
         let result = compute_net_worth(&accounts, &balances, &p);
         // Shared once + A private, never B private.

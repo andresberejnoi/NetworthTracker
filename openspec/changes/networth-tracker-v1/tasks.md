@@ -87,14 +87,14 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 8. Identity, authentication, and access control (backend + frontend)
 
-- [ ] 8.1 Implement household and user models with ownership scoping and verify migrations plus model tests
-- [ ] 8.2 Implement Argon2id password auth with local sessions and a documented auth-disabled single-user mode and verify tests for both modes
-- [ ] 8.3 Enforce owner/editor/viewer roles in the application layer and verify a test that a viewer cannot modify data
-- [ ] 8.4 Enforce per-user data scoping so private accounts are hidden from other members and verify tests for the shared and private scenarios
-- [ ] 8.5 Add the auth endpoints to the OpenAPI contract and verify the contract test passes
-- [ ] 8.6 Build the frontend login, session handling, and protected routes and verify component tests for signed-in and signed-out states
-- [ ] 8.7 Verify an integration test shows a viewer is blocked from modifying data through the UI
-- [ ] 8.8 Document authentication and role setup in `docs/access-control.md` and verify the documented flow works against a running instance
+- [x] 8.1 Implement household and user models with ownership scoping and verify migrations plus model tests
+- [x] 8.2 Implement Argon2id password auth with local sessions and a documented auth-disabled single-user mode and verify tests for both modes
+- [x] 8.3 Enforce owner/editor/viewer roles in the application layer and verify a test that a viewer cannot modify data
+- [x] 8.4 Enforce per-user data scoping so private accounts are hidden from other members and verify tests for the shared and private scenarios
+- [x] 8.5 Add the auth endpoints to the OpenAPI contract and verify the contract test passes
+- [x] 8.6 Build the frontend login, session handling, and protected routes and verify component tests for signed-in and signed-out states
+- [x] 8.7 Verify an integration test shows a viewer is blocked from modifying data through the UI
+- [x] 8.8 Document authentication and role setup in `docs/access-control.md` and verify the documented flow works against a running instance
 
 ## 9. Investments and market data (backend + frontend)
 

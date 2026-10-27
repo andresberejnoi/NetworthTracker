@@ -13,6 +13,10 @@ export const API_BASE_URL =
 
 /** All types below are generated from `contracts/openapi.yaml`. */
 export type PingResponse = components["schemas"]["Ping"];
+export type AuthStatus = components["schemas"]["AuthStatus"];
+export type User = components["schemas"]["User"];
+export type UserRole = components["schemas"]["UserRole"];
+export type Session = components["schemas"]["Session"];
 export type Account = components["schemas"]["Account"];
 export type AccountType = components["schemas"]["AccountType"];
 export type OwnershipScope = components["schemas"]["OwnershipScope"];
@@ -20,6 +24,37 @@ export type Balance = components["schemas"]["Balance"];
 export type BalanceSource = components["schemas"]["BalanceSource"];
 export type CreateAccountRequest = components["schemas"]["CreateAccountRequest"];
 export type RecordBalanceRequest = components["schemas"]["RecordBalanceRequest"];
+
+const TOKEN_KEY = "networth.token";
+let authToken: string | null = null;
+try {
+  authToken = localStorage.getItem(TOKEN_KEY);
+} catch {
+  authToken = null;
+}
+
+/** Store or clear the bearer token used for authenticated requests. */
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // ignore storage failures (private mode, tests)
+  }
+}
+
+/** The current bearer token, if any. */
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+function authHeaders(): Record<string, string> {
+  return authToken ? { authorization: `Bearer ${authToken}` } : {};
+}
 
 /** Every account type the backend accepts, for form controls. */
 export const ACCOUNT_TYPES: AccountType[] = [
@@ -38,9 +73,14 @@ export const ACCOUNT_TYPES: AccountType[] = [
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...authHeaders() },
     ...init,
   });
+
+  if (response.status === 401) {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("networth:unauthorized"));
+  }
 
   if (!response.ok) {
     let message = `backend returned ${response.status}`;
@@ -186,11 +226,16 @@ export async function importSpreadsheet(file: File): Promise<ImportReport> {
 
   const response = await fetch(`${API_BASE_URL}/api/v1/import?format=${format}`, {
     method: "POST",
-    headers: { "content-type": contentType },
+    headers: { "content-type": contentType, ...authHeaders() },
     // Read the bytes explicitly: this works identically in browsers and in
     // Node-based tests, where a DOM File is not a valid BodyInit.
     body: await readFileBytes(file),
   });
+
+  if (response.status === 401) {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("networth:unauthorized"));
+  }
 
   if (!response.ok) {
     let message = `backend returned ${response.status}`;
@@ -214,4 +259,53 @@ export function exportUrl(format: "csv" | "xlsx"): string {
 
 export function templateUrl(format: "csv" | "xlsx"): string {
   return `${API_BASE_URL}/api/v1/template?format=${format}`;
+}
+
+export async function getAuthStatus(): Promise<AuthStatus> {
+  return request<AuthStatus>("/api/v1/auth/status");
+}
+
+export async function setupOwner(body: {
+  username: string;
+  password: string;
+  display_name?: string;
+}): Promise<Session> {
+  return request<Session>("/api/v1/auth/setup", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function login(body: {
+  username: string;
+  password: string;
+}): Promise<Session> {
+  return request<Session>("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function logout(): Promise<void> {
+  return request<void>("/api/v1/auth/logout", { method: "POST" });
+}
+
+export async function getMe(): Promise<User> {
+  return request<User>("/api/v1/auth/me");
+}
+
+export async function listUsers(): Promise<User[]> {
+  return request<User[]>("/api/v1/users");
+}
+
+export async function createUser(body: {
+  username: string;
+  password: string;
+  display_name?: string | null;
+  role: UserRole;
+}): Promise<User> {
+  return request<User>("/api/v1/users", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }

@@ -14,6 +14,44 @@ function renderApp() {
   );
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function stubApi(ping: "ok" | "error") {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/api/v1/auth/status")) {
+        return jsonResponse({ auth_enabled: false, needs_setup: false });
+      }
+      if (url.includes("/api/v1/auth/me")) {
+        return jsonResponse({
+          id: "11111111-1111-1111-1111-111111111111",
+          username: "local",
+          display_name: "Local User",
+          role: "owner",
+        });
+      }
+      if (url.includes("/api/v1/ping")) {
+        if (ping === "error") {
+          throw new Error("connection refused");
+        }
+        return jsonResponse({
+          message: "pong",
+          service: "NetworthTracker",
+          version: "0.1.20261017",
+        });
+      }
+      return jsonResponse({});
+    }),
+  );
+}
+
 describe("App", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -21,21 +59,7 @@ describe("App", () => {
   });
 
   it("renders backend metadata returned by the API", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              message: "pong",
-              service: "NetworthTracker",
-              version: "0.1.20261017",
-            }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          ),
-      ),
-    );
-
+    stubApi("ok");
     renderApp();
 
     expect(await screen.findByText("NetworthTracker")).toBeInTheDocument();
@@ -43,13 +67,7 @@ describe("App", () => {
   });
 
   it("shows an error state when the backend is unreachable", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error("connection refused");
-      }),
-    );
-
+    stubApi("error");
     renderApp();
 
     expect(await screen.findByText(/unreachable/i)).toBeInTheDocument();

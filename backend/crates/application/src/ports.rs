@@ -2,9 +2,10 @@
 
 use async_trait::async_trait;
 use networth_domain::{
-    Account, Balance, NewAccount, NewBalance, NewSnapshot, Snapshot, SnapshotFilter,
+    Account, Balance, NewAccount, NewBalance, NewSnapshot, NewUser, Snapshot, SnapshotFilter, User,
+    UserRole,
 };
-use time::Date;
+use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 /// Errors a repository can raise.
@@ -66,4 +67,55 @@ pub trait NetWorthRepository: Send + Sync {
         &self,
         filter: &SnapshotFilter,
     ) -> Result<Vec<Snapshot>, RepositoryError>;
+}
+
+/// A user together with the stored password hash.
+#[derive(Debug, Clone)]
+pub struct UserWithHash {
+    /// The user.
+    pub user: User,
+    /// Argon2 hash.
+    pub password_hash: String,
+}
+
+/// Persistence for users and sessions.
+#[async_trait]
+pub trait IdentityRepository: Send + Sync {
+    /// Number of users (used to detect first-run setup).
+    async fn count_users(&self) -> Result<i64, RepositoryError>;
+
+    /// Insert a user.
+    async fn create_user(&self, new: &NewUser) -> Result<User, RepositoryError>;
+
+    /// Find a user by username (case-insensitive), with the password hash.
+    async fn find_user_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<UserWithHash>, RepositoryError>;
+
+    /// Find a user by id.
+    async fn find_user(&self, id: Uuid) -> Result<Option<User>, RepositoryError>;
+
+    /// List all users, ordered by display name.
+    async fn list_users(&self) -> Result<Vec<User>, RepositoryError>;
+
+    /// Change a user's role.
+    async fn update_user_role(&self, id: Uuid, role: UserRole) -> Result<User, RepositoryError>;
+
+    /// Store a session keyed by the token hash.
+    async fn create_session(
+        &self,
+        user_id: Uuid,
+        token_hash: &str,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError>;
+
+    /// Look up a session, returning the user and expiry.
+    async fn find_session(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<(User, OffsetDateTime)>, RepositoryError>;
+
+    /// Delete a session.
+    async fn delete_session(&self, token_hash: &str) -> Result<(), RepositoryError>;
 }

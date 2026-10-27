@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCurrentUser } from "../../auth/AuthContext";
 import {
   exportUrl,
   importSpreadsheet,
@@ -9,6 +10,8 @@ import {
 
 export default function DataView() {
   const queryClient = useQueryClient();
+  const currentUser = useCurrentUser();
+  const canWrite = currentUser?.role !== "viewer";
   const [report, setReport] = useState<ImportReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,10 +51,14 @@ export default function DataView() {
           aria-label="spreadsheet file"
           type="file"
           accept=".csv,.xlsx"
-          disabled={busy}
+          disabled={busy || !canWrite}
           onChange={(event) => handleFile(event.target.files?.[0])}
         />
       </label>
+
+      {!canWrite && (
+        <p className="muted">Your role is read-only, so imports are disabled.</p>
+      )}
 
       {busy && <p className="muted">Importing …</p>}
       {error && (

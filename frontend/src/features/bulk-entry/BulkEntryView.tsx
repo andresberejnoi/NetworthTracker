@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCurrentUser } from "../../auth/AuthContext";
 import { listAccounts, recordBalancesBatch } from "../../api/client";
 import BulkGrid, {
   type GridColumn,
@@ -40,6 +41,8 @@ export default function BulkEntryView() {
     queryKey: ["accounts"],
     queryFn: () => listAccounts(),
   });
+  const currentUser = useCurrentUser();
+  const readOnly = currentUser?.role === "viewer";
   const [accountId, setAccountId] = useState("");
 
   const selected = accountId || accounts.data?.[0]?.id || "";
@@ -104,6 +107,7 @@ export default function BulkEntryView() {
             minRows={1}
             onSave={handleSave}
             saveLabel="Save balances"
+            readOnly={readOnly}
           />
         </>
       )}

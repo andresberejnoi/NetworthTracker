@@ -8,11 +8,14 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use networth_application::ports::{AccountRepository, NetWorthRepository, RepositoryError};
-use networth_domain::{
-    Account, Balance, NewAccount, NewBalance, NewSnapshot, Snapshot, SnapshotFilter,
+use networth_application::ports::{
+    AccountRepository, IdentityRepository, NetWorthRepository, RepositoryError, UserWithHash,
 };
-use time::Date;
+use networth_domain::{
+    Account, Balance, NewAccount, NewBalance, NewSnapshot, NewUser, Snapshot, SnapshotFilter, User,
+    UserRole,
+};
+use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 /// A non-persistent account repository and net worth store.
@@ -26,6 +29,14 @@ struct Inner {
     accounts: Vec<Account>,
     balances: Vec<Balance>,
     snapshots: Vec<Snapshot>,
+    users: Vec<UserWithHash>,
+    sessions: Vec<SessionEntry>,
+}
+
+struct SessionEntry {
+    user_id: Uuid,
+    token_hash: String,
+    expires_at: OffsetDateTime,
 }
 
 impl InMemoryAccountRepository {
@@ -196,5 +207,120 @@ impl NetWorthRepository for InMemoryAccountRepository {
             .collect();
         snapshots.sort_by_key(|snapshot| snapshot.as_of);
         Ok(snapshots)
+    }
+}
+
+#[async_trait]
+impl IdentityRepository for InMemoryAccountRepository {
+    async fn count_users(&self) -> Result<i64, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner.users.len() as i64)
+    }
+
+    async fn create_user(&self, new: &NewUser) -> Result<User, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if inner
+            .users
+            .iter()
+            .any(|entry| entry.user.username.eq_ignore_ascii_case(&new.username))
+        {
+            return Err(RepositoryError::Conflict(
+                "username already exists".to_string(),
+            ));
+        }
+
+        let user = User {
+            id: Uuid::new_v4(),
+            username: new.username.clone(),
+            display_name: new.display_name.clone(),
+            role: new.role,
+        };
+        inner.users.push(UserWithHash {
+            user: user.clone(),
+            password_hash: new.password_hash.clone(),
+        });
+        Ok(user)
+    }
+
+    async fn find_user_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<UserWithHash>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .users
+            .iter()
+            .find(|entry| entry.user.username.eq_ignore_ascii_case(username))
+            .cloned())
+    }
+
+    async fn find_user(&self, id: Uuid) -> Result<Option<User>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .users
+            .iter()
+            .find(|entry| entry.user.id == id)
+            .map(|entry| entry.user.clone()))
+    }
+
+    async fn list_users(&self) -> Result<Vec<User>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut users: Vec<User> = inner.users.iter().map(|entry| entry.user.clone()).collect();
+        users.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+        Ok(users)
+    }
+
+    async fn update_user_role(&self, id: Uuid, role: UserRole) -> Result<User, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        match inner.users.iter_mut().find(|entry| entry.user.id == id) {
+            Some(entry) => {
+                entry.user.role = role;
+                Ok(entry.user.clone())
+            }
+            None => Err(RepositoryError::Storage(format!("user not found: {id}"))),
+        }
+    }
+
+    async fn create_session(
+        &self,
+        user_id: Uuid,
+        token_hash: &str,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.sessions.push(SessionEntry {
+            user_id,
+            token_hash: token_hash.to_string(),
+            expires_at,
+        });
+        Ok(())
+    }
+
+    async fn find_session(
+        &self,
+        token_hash: &str,
+    ) -> Result<Option<(User, OffsetDateTime)>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let Some(session) = inner
+            .sessions
+            .iter()
+            .find(|session| session.token_hash == token_hash)
+        else {
+            return Ok(None);
+        };
+        let user = inner
+            .users
+            .iter()
+            .find(|entry| entry.user.id == session.user_id)
+            .map(|entry| entry.user.clone());
+        Ok(user.map(|user| (user, session.expires_at)))
+    }
+
+    async fn delete_session(&self, token_hash: &str) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner
+            .sessions
+            .retain(|session| session.token_hash != token_hash);
+        Ok(())
     }
 }

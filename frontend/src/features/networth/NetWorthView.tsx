@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useCurrentUser } from "../../auth/AuthContext";
 import {
   createSnapshot,
   getNetWorth,
@@ -104,6 +105,8 @@ function HistoryChart({
 
 export default function NetWorthView() {
   const queryClient = useQueryClient();
+  const currentUser = useCurrentUser();
+  const canWrite = currentUser?.role !== "viewer";
   const [ownerAgeInput, setOwnerAgeInput] = useState("35");
   const parsedAge = ownerAgeInput.trim() === "" ? 35 : Number(ownerAgeInput);
   const ownerAge = useDebouncedValue(
@@ -183,7 +186,7 @@ export default function NetWorthView() {
           <button
             type="button"
             onClick={() => takeSnapshot.mutate()}
-            disabled={takeSnapshot.isPending}
+            disabled={takeSnapshot.isPending || !canWrite}
           >
             Take snapshot
           </button>

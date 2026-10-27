@@ -11,6 +11,7 @@ use networth_adapters::{read_table, write_table, SpreadsheetFormat};
 use networth_application::ImportReport;
 use serde::{Deserialize, Serialize};
 
+use crate::auth::CurrentUser;
 use crate::error::ApiError;
 use crate::AppState;
 
@@ -56,9 +57,16 @@ impl From<ImportReport> for ImportReportDto {
 pub async fn import(
     State(state): State<AppState>,
     Query(query): Query<FormatQuery>,
+    current: CurrentUser,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<ImportReportDto>, ApiError> {
+    if !current.user.role.can_write() {
+        return Err(ApiError::Forbidden(
+            "you do not have permission to import".to_string(),
+        ));
+    }
+
     let format = resolve_format(query.format.as_deref(), &headers)?;
     let table =
         read_table(&body, format).map_err(|error| ApiError::BadRequest(error.to_string()))?;
@@ -70,6 +78,7 @@ pub async fn import(
 pub async fn export(
     State(state): State<AppState>,
     Query(query): Query<FormatQuery>,
+    _current: CurrentUser,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let format = resolve_format(query.format.as_deref(), &headers)?;
@@ -82,6 +91,7 @@ pub async fn export(
 /// `GET /api/v1/template?format=csv|xlsx`
 pub async fn template(
     Query(query): Query<FormatQuery>,
+    _current: CurrentUser,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let format = resolve_format(query.format.as_deref(), &headers)?;

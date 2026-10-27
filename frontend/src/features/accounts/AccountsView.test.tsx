@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AuthProvider } from "../../auth/AuthContext";
 import AccountsView from "./AccountsView";
 
 function renderView() {
@@ -104,5 +105,33 @@ describe("AccountsView", () => {
     expect(
       await screen.findByText(/unknown account type/i),
     ).toBeInTheDocument();
+  });
+
+  it("disables mutations for viewers", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([checking])));
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <AuthProvider
+        user={{
+          id: "33333333-3333-3333-3333-333333333333",
+          username: "viewer",
+          display_name: "Viewer",
+          role: "viewer",
+        }}
+      >
+        <QueryClientProvider client={client}>
+          <AccountsView />
+        </QueryClientProvider>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText("Everyday Checking")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add account/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /archive everyday checking/i }),
+    ).toBeDisabled();
   });
 });

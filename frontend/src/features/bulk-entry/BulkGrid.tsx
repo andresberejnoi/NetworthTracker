@@ -19,6 +19,7 @@ interface BulkGridProps {
   columns: GridColumn[];
   minRows?: number;
   saveLabel?: string;
+  readOnly?: boolean;
   onSave: (rows: GridRow[]) => Promise<SaveResult>;
 }
 
@@ -35,6 +36,7 @@ export default function BulkGrid({
   columns,
   minRows = 1,
   saveLabel = "Save all",
+  readOnly = false,
   onSave,
 }: BulkGridProps) {
   const [rows, setRows] = useState<GridRow[]>(() =>
@@ -214,6 +216,7 @@ export default function BulkGrid({
                       aria-label={`${column.label} row ${rowIndex + 1}`}
                       data-row={rowIndex}
                       data-col={colIndex}
+                      disabled={readOnly}
                       ref={(element) => {
                         refs.current[key] = element;
                       }}
@@ -240,6 +243,7 @@ export default function BulkGrid({
                   type="button"
                   aria-label={`remove row ${rowIndex + 1}`}
                   onClick={() => removeRow(rowIndex)}
+                  disabled={readOnly}
                 >
                   ×
                 </button>
@@ -250,10 +254,10 @@ export default function BulkGrid({
       </table>
 
       <div className="bulk-actions">
-        <button type="button" onClick={addRow}>
+        <button type="button" onClick={addRow} disabled={readOnly}>
           Add row
         </button>
-        <button type="button" onClick={save} disabled={isSaving}>
+        <button type="button" onClick={save} disabled={isSaving || readOnly}>
           {isSaving ? "Saving…" : saveLabel}
         </button>
       </div>

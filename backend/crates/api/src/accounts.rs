@@ -11,6 +11,7 @@ use serde::Deserialize;
 use time::{format_description::well_known::Iso8601, Date};
 use uuid::Uuid;
 
+use crate::auth::CurrentUser;
 use crate::dto::{
     AccountDto, BalanceDto, BatchBalanceRow, BatchSaveDto, CreateAccountRequest,
     RecordBalanceRequest, RecordBalancesRequest,
@@ -30,19 +31,38 @@ pub struct ListAccountsQuery {
 pub async fn list_accounts(
     State(state): State<AppState>,
     Query(query): Query<ListAccountsQuery>,
+    current: CurrentUser,
 ) -> Result<Json<Vec<AccountDto>>, ApiError> {
     let accounts = state
         .accounts
         .list_accounts(query.include_archived.unwrap_or(false))
         .await?;
-    Ok(Json(accounts.into_iter().map(AccountDto::from).collect()))
+
+    let visible = accounts
+        .into_iter()
+        .filter(|account| {
+            current
+                .user
+                .can_see(account.ownership_scope, account.owner_user_id)
+        })
+        .map(AccountDto::from)
+        .collect();
+
+    Ok(Json(visible))
 }
 
 /// `POST /api/v1/accounts`
 pub async fn create_account(
     State(state): State<AppState>,
+    current: CurrentUser,
     Json(request): Json<CreateAccountRequest>,
 ) -> Result<(StatusCode, Json<AccountDto>), ApiError> {
+    if !current.user.role.can_write() {
+        return Err(ApiError::Forbidden(
+            "you do not have permission to create accounts".to_string(),
+        ));
+    }
+
     let account_type: AccountType = request.account_type.parse().map_err(
         |error: networth_domain::accounts::AccountTypeParseError| {
             ApiError::BadRequest(error.to_string())
@@ -56,6 +76,18 @@ pub async fn create_account(
         },
     )?;
 
+    // Private accounts belong to the caller unless an owner explicitly assigns
+    // them to someone else.
+    let owner_user_id = if ownership_scope == OwnershipScope::User {
+        if current.user.role.is_owner() {
+            request.owner_user_id.or(Some(current.user.id))
+        } else {
+            Some(current.user.id)
+        }
+    } else {
+        None
+    };
+
     let account = state
         .accounts
         .create_account(CreateAccount {
@@ -64,7 +96,7 @@ pub async fn create_account(
             institution: request.institution,
             currency,
             ownership_scope,
-            owner_user_id: request.owner_user_id,
+            owner_user_id,
         })
         .await?;
 
@@ -75,8 +107,15 @@ pub async fn create_account(
 pub async fn get_account(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    current: CurrentUser,
 ) -> Result<Json<AccountDto>, ApiError> {
     let account = state.accounts.get_account(id).await?;
+    if !current
+        .user
+        .can_see(account.ownership_scope, account.owner_user_id)
+    {
+        return Err(ApiError::NotFound(format!("account not found: {id}")));
+    }
     Ok(Json(AccountDto::from(account)))
 }
 
@@ -84,7 +123,17 @@ pub async fn get_account(
 pub async fn archive_account(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    current: CurrentUser,
 ) -> Result<StatusCode, ApiError> {
+    let account = state.accounts.get_account(id).await?;
+    if !current
+        .user
+        .can_modify(account.ownership_scope, account.owner_user_id)
+    {
+        return Err(ApiError::Forbidden(
+            "you cannot modify this account".to_string(),
+        ));
+    }
     state.accounts.archive_account(id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -93,7 +142,15 @@ pub async fn archive_account(
 pub async fn list_balances(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    current: CurrentUser,
 ) -> Result<Json<Vec<BalanceDto>>, ApiError> {
+    let account = state.accounts.get_account(id).await?;
+    if !current
+        .user
+        .can_see(account.ownership_scope, account.owner_user_id)
+    {
+        return Err(ApiError::NotFound(format!("account not found: {id}")));
+    }
     let balances = state.accounts.list_balances(id).await?;
     Ok(Json(balances.into_iter().map(BalanceDto::from).collect()))
 }
@@ -102,11 +159,20 @@ pub async fn list_balances(
 pub async fn record_balance(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    current: CurrentUser,
     Json(request): Json<RecordBalanceRequest>,
 ) -> Result<(StatusCode, Json<BalanceDto>), ApiError> {
     let as_of = parse_date(&request.as_of)?;
 
     let account = state.accounts.get_account(id).await?;
+    if !current
+        .user
+        .can_modify(account.ownership_scope, account.owner_user_id)
+    {
+        return Err(ApiError::Forbidden(
+            "you cannot modify this account".to_string(),
+        ));
+    }
     let currency = match request.currency {
         Some(code) => Currency::new(code).map_err(|e| ApiError::BadRequest(e.to_string()))?,
         None => account.currency.clone(),
@@ -150,9 +216,18 @@ pub(crate) fn parse_date(value: &str) -> Result<Date, ApiError> {
 pub async fn record_balances(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    current: CurrentUser,
     Json(request): Json<RecordBalancesRequest>,
 ) -> Result<Json<BatchSaveDto>, ApiError> {
     let account = state.accounts.get_account(id).await?;
+    if !current
+        .user
+        .can_modify(account.ownership_scope, account.owner_user_id)
+    {
+        return Err(ApiError::Forbidden(
+            "you cannot modify this account".to_string(),
+        ));
+    }
     let mut rows = Vec::new();
     let mut errors = Vec::new();
 

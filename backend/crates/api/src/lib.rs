@@ -5,11 +5,13 @@
 //! backend code; it consumes these endpoints over HTTP.
 
 mod accounts;
+mod auth;
 mod data;
 mod dto;
 mod error;
 mod networth;
 
+pub use auth::{AuthStatusDto, CurrentUser, SessionDto, UserDto};
 pub use dto::{
     AccountDto, BalanceDto, BatchSaveDto, BreakdownRowDto, CreateAccountRequest, NetWorthDto,
     PolicyDto, RecordBalanceRequest, RecordBalancesRequest, RowErrorDto, SnapshotDto,
@@ -20,11 +22,12 @@ use std::sync::Arc;
 use axum::{
     extract::DefaultBodyLimit,
     http::{HeaderValue, Method},
-    routing::{get, post},
+    routing::{get, patch, post},
     Json, Router,
 };
 use networth_application::{
-    AccountRepository, AccountService, ImportService, NetWorthRepository, NetWorthService,
+    AccountRepository, AccountService, AuthService, IdentityRepository, ImportService,
+    NetWorthRepository, NetWorthService,
 };
 use serde::Serialize;
 use tower_http::{
@@ -47,18 +50,23 @@ pub struct AppState {
     pub networth: Arc<NetWorthService>,
     /// Import/export use cases.
     pub data: Arc<ImportService>,
+    /// Authentication and user management.
+    pub auth: Arc<AuthService>,
 }
 
 impl AppState {
-    /// Build state over the account and net worth repositories.
+    /// Build state over the account, net worth, and identity repositories.
     pub fn new(
         accounts: Arc<dyn AccountRepository>,
         networth: Arc<dyn NetWorthRepository>,
+        identity: Arc<dyn IdentityRepository>,
+        auth_enabled: bool,
     ) -> Self {
         Self {
             accounts: Arc::new(AccountService::new(accounts.clone())),
             networth: Arc::new(NetWorthService::new(accounts.clone(), networth)),
             data: Arc::new(ImportService::new(accounts)),
+            auth: Arc::new(AuthService::new(identity, auth_enabled)),
         }
     }
 }
@@ -97,6 +105,16 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/api/v1/ping", get(ping))
+        .route("/api/v1/auth/status", get(auth::status))
+        .route("/api/v1/auth/setup", post(auth::setup))
+        .route("/api/v1/auth/login", post(auth::login))
+        .route("/api/v1/auth/logout", post(auth::logout))
+        .route("/api/v1/auth/me", get(auth::me))
+        .route(
+            "/api/v1/users",
+            get(auth::list_users).post(auth::create_user),
+        )
+        .route("/api/v1/users/{id}", patch(auth::update_role))
         .route("/api/v1/accounts", get(list_accounts).post(create_account))
         .route("/api/v1/accounts/{id}", get(get_account))
         .route("/api/v1/accounts/{id}/archive", post(archive_account))
