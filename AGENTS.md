@@ -54,6 +54,10 @@ openspec/    spec-driven change proposals and specs
 - The release pipeline also runs **gitleaks** over the full git history. Its
   allowlist must be narrow and justified: fake test fixtures and historical dev
   defaults only, never a real credential. See task 14.1.
+- The pre-commit hook (`.githooks/pre-commit`, enabled with `make hooks`) runs
+  the fast scan and `gitleaks git --staged` before every commit. `make secrets`
+  also scans the full history. The allowlist lives in `.gitleaks.toml` and is
+  documented in `docs/security.md`.
 - If a credential is ever committed, treat it as compromised: rotate it first,
   then remove it from history. Deleting the file is not enough.
 - Provider credentials (market data, aggregation, chains) are supplied by the

@@ -77,11 +77,15 @@ an implicit local owner. Do not use this on a shared machine.
 
 ## Local development
 
-Prerequisites: Rust stable, Node 22+, and Docker or Podman with Compose.
+Prerequisites: Rust stable, Node 22+, Docker or Podman with Compose, and
+[gitleaks](https://github.com/gitleaks/gitleaks) for the pre-commit secret gate.
 
 ```bash
 # database
 docker compose up -d db
+
+# enable the pre-commit secret scan (once per clone)
+make hooks
 
 # backend (reads DATABASE_URL and AUTH_DISABLED)
 cd backend
@@ -101,7 +105,8 @@ make help
 make test              # backend + frontend + secret + boundary checks
 make backend-test-db   # Postgres repository tests (throwaway container)
 make integration-test  # real backend + frontend client over HTTP
-make secrets           # no credentials in tracked files
+make hooks             # enable the gitleaks pre-commit hook (once per clone)
+make secrets           # fast scan + full-history gitleaks scan
 make validate          # openspec validate --strict
 ```
 
@@ -143,6 +148,7 @@ The current version is `0.1.20261027`. The authoritative value lives in
 
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
+- `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions
 - `docs/import-export.md` — spreadsheet format, samples, backups
 - `docs/bulk-entry.md` — grid, paste, batch saves
 - `docs/dashboard.md` — frontend views

@@ -9,7 +9,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 fail=0
 
-mapfile -t files < <(git ls-files | grep -vE '\.(png|jpg|jpeg|gif|ico|xlsx|woff2?)$' || true)
+mapfile -t files < <(git ls-files | grep -vE '\.(png|jpg|jpeg|gif|ico|xlsx|woff2?)$|^\.gitleaks\.toml$' || true)
 if [[ ${#files[@]} -eq 0 ]]; then
   echo "Secret scan passed: no tracked files."
   exit 0

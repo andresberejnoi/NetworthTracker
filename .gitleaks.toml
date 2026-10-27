@@ -1,0 +1,16 @@
+# Gitleaks configuration.
+#
+# Extend the built-in rules. The allowlist is intentionally narrow: it covers
+# ONLY values that appeared in this repository's pre-release history and were
+# never real credentials. Do not add anything else without a written reason.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Historic fake test fixtures and the pre-.env local DB default only"
+regexes = [
+  '''password123''',
+  '''postgres://networth:networth@''',
+  '''POSTGRES_PASSWORD:[[:space:]]*networth''',
+]

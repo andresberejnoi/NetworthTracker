@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# Pre-commit secret gate. Runs before anything is committed:
+#   1. fast scan of tracked/staged files
+#   2. gitleaks scan of the staged diff, with the narrow allowlist
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+./scripts/check-secrets.sh
+./scripts/run-gitleaks.sh git --staged --redact --no-banner --config .gitleaks.toml
