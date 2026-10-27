@@ -51,6 +51,9 @@ openspec/    spec-driven change proposals and specs
   real account into the repository.
 - Run `make secrets` before every commit. It scans tracked files for private
   keys, cloud/API tokens, and database URLs that contain a password.
+- The release pipeline also runs **gitleaks** over the full git history. Its
+  allowlist must be narrow and justified: fake test fixtures and historical dev
+  defaults only, never a real credential. See task 14.1.
 - If a credential is ever committed, treat it as compromised: rotate it first,
   then remove it from history. Deleting the file is not enough.
 - Provider credentials (market data, aggregation, chains) are supplied by the
