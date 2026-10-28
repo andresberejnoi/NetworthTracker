@@ -78,6 +78,18 @@ jobs:
         run: cargo test -p networth-adapters --features db-tests
       - run: cargo build --workspace
 
+  upgrade:
+    name: Upgrade, backup, restore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Schema upgrade, version, encrypted backup, restore
+        run: ./scripts/test-upgrade.sh
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest

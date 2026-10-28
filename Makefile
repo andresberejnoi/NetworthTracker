@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
-        integration-test boundaries secrets validate test build up down \
+        integration-test upgrade-test boundaries secrets validate test build up down \
         backup restore upgrade destroy clean
 
 help: ## Show this help
@@ -42,6 +42,9 @@ frontend-api: ## Regenerate the frontend typed client from the OpenAPI contract
 integration-test: ## Run the cross-boundary integration test (live backend + frontend)
 	./scripts/integration-test.sh
 
+upgrade-test: ## Verify schema upgrade, version, encrypted backup, and restore
+	./scripts/test-upgrade.sh
+
 boundaries: ## Verify there are no cross-project imports
 	./scripts/check-boundaries.sh
 
@@ -68,7 +71,7 @@ down: ## Stop the local stack (keeps the database volume)
 backup: ## Back up the database to ./backups
 	./scripts/backup.sh
 
-restore: ## Restore a backup: make restore FILE=backups/networth-....sql.gz
+restore: ## Restore a backup: make restore FILE=backups/networth-....sql.gz.gpg
 	./scripts/restore.sh "$(FILE)"
 
 upgrade: ## Back up, rebuild, and restart without losing data
