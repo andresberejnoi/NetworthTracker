@@ -42,7 +42,7 @@ describe("AccountsView", () => {
 
     renderView();
 
-    expect(await screen.findByText("Everyday Checking")).toBeInTheDocument();
+    expect((await screen.findAllByText("Everyday Checking")).length).toBeGreaterThan(0);
     expect(screen.getByText("Test Bank")).toBeInTheDocument();
   });
 
@@ -107,6 +107,45 @@ describe("AccountsView", () => {
     ).toBeInTheDocument();
   });
 
+  it("records a balance for simple tracking", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "POST" && String(input).includes("/balances")) {
+          return jsonResponse(
+            {
+              id: "55555555-5555-5555-5555-555555555555",
+              account_id: checking.id,
+              as_of: "2026-10-28",
+              amount: "100.00",
+              currency: "USD",
+              source: "manual",
+            },
+            201,
+          );
+        }
+        return jsonResponse([checking]);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderView();
+    await screen.findAllByText("Everyday Checking");
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("balance account"),
+      checking.id,
+    );
+    await userEvent.type(screen.getByLabelText("balance amount"), "100.00");
+    await userEvent.click(screen.getByRole("button", { name: /save balance/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/api/v1/accounts/${checking.id}/balances`),
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
   it("disables mutations for viewers", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([checking])));
     const client = new QueryClient({
@@ -128,7 +167,7 @@ describe("AccountsView", () => {
       </AuthProvider>,
     );
 
-    expect(await screen.findByText("Everyday Checking")).toBeInTheDocument();
+    expect((await screen.findAllByText("Everyday Checking")).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /add account/i })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: /archive everyday checking/i }),

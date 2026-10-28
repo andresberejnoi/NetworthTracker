@@ -6,6 +6,7 @@ import {
   archiveAccount,
   createAccount,
   listAccounts,
+  recordBalance,
   type AccountType,
 } from "../../api/client";
 
@@ -39,6 +40,25 @@ export default function AccountsView() {
   const archive = useMutation({
     mutationFn: (id: string) => archiveAccount(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const [balanceAccount, setBalanceAccount] = useState("");
+  const [balanceDate, setBalanceDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [balanceAmount, setBalanceAmount] = useState("");
+
+  const addBalance = useMutation({
+    mutationFn: () =>
+      recordBalance(balanceAccount, {
+        as_of: balanceDate,
+        amount: balanceAmount,
+      }),
+    onSuccess: () => {
+      setBalanceAmount("");
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["networth"] });
+    },
   });
 
   return (
@@ -143,6 +163,75 @@ export default function AccountsView() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {accounts.data && accounts.data.length > 0 && (
+        <>
+          <h3>Record a balance</h3>
+          <p className="muted">
+            For simple tracking, create one account per category (for example
+            “Stocks (total)” or “Real estate (total)”) and record its total
+            value here. No per-instrument data is required.
+          </p>
+          <form
+            className="row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              addBalance.mutate();
+            }}
+          >
+            <label>
+              <span>Account</span>
+              <select
+                aria-label="balance account"
+                value={balanceAccount}
+                onChange={(event) => setBalanceAccount(event.target.value)}
+              >
+                <option value="">Select …</option>
+                {accounts.data.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Date</span>
+              <input
+                aria-label="balance date"
+                type="date"
+                value={balanceDate}
+                onChange={(event) => setBalanceDate(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Amount</span>
+              <input
+                aria-label="balance amount"
+                value={balanceAmount}
+                onChange={(event) => setBalanceAmount(event.target.value)}
+                placeholder="0.00"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={
+                !canWrite ||
+                addBalance.isPending ||
+                balanceAccount === "" ||
+                balanceAmount.trim() === ""
+              }
+            >
+              Save balance
+            </button>
+          </form>
+          {addBalance.isError && (
+            <p className="error" role="alert">
+              {(addBalance.error as Error).message}
+            </p>
+          )}
+          {addBalance.isSuccess && <p className="muted">Balance saved.</p>}
+        </>
       )}
     </section>
   );
