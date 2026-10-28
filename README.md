@@ -42,6 +42,18 @@ selling costs).
 |-----------------|-------|
 | <img src="docs/screenshots/data.png" alt="Data import and export" width="520" /> | <img src="docs/screenshots/login.png" alt="Login" width="320" /> |
 
+## Simple net worth (no per-instrument tracking)
+
+You do not need holdings. Create one account per category and record its total
+value:
+
+1. **Accounts** → add e.g. `Stocks (total)` as `taxable_brokerage`,
+   `Real estate (total)` as `real_estate`, `Bonds (total)` as `other_asset`.
+2. **Accounts → Record a balance** → enter the date and total value.
+
+Net worth, history, filters, and accessible value work the same. Add securities
+and tax lots later only if you want per-instrument detail.
+
 ## Quick start (containers)
 
 ```bash
@@ -138,6 +150,21 @@ generated from it. `make boundaries` enforces this.
   user and stored locally; the product bundles none and runs no central relay.
 - For a shared or portable machine, use full-disk encryption.
 
+## Data safety and upgrades
+
+Your data lives in the `db-data` volume. **Never run `docker compose down -v`**
+unless you intend to delete it.
+
+```bash
+make backup                  # ./backups/networth-<timestamp>.sql.gz
+make upgrade                 # backup + rebuild + restart + health check
+make restore FILE=backups/…  # replace the database from a backup
+make destroy                 # wipe the volume (confirmation required)
+```
+
+See `docs/upgrades.md` for the full procedure, migration policy, and what is
+still planned.
+
 ## Versioning
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
@@ -149,6 +176,7 @@ The current version is `0.1.20261027`. The authoritative value lives in
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
 - `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions
+- `docs/upgrades.md` — backups, upgrades, restore, migration policy
 - `docs/import-export.md` — spreadsheet format, samples, backups
 - `docs/bulk-entry.md` — grid, paste, batch saves
 - `docs/dashboard.md` — frontend views

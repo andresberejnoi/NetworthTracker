@@ -2,7 +2,8 @@ SHELL := /bin/bash
 
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
-        integration-test boundaries secrets validate test build up down clean
+        integration-test boundaries secrets validate test build up down \
+        backup restore upgrade destroy clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -61,8 +62,20 @@ build: backend-build frontend-build ## Build both projects
 up: ## Start the full local stack (db, backend, frontend)
 	docker compose up --build
 
-down: ## Stop the local stack
+down: ## Stop the local stack (keeps the database volume)
 	docker compose down
+
+backup: ## Back up the database to ./backups
+	./scripts/backup.sh
+
+restore: ## Restore a backup: make restore FILE=backups/networth-....sql.gz
+	./scripts/restore.sh "$(FILE)"
+
+upgrade: ## Back up, rebuild, and restart without losing data
+	./scripts/upgrade.sh
+
+destroy: ## Permanently delete the database volume (confirmation required)
+	./scripts/destroy.sh
 
 clean: ## Remove build artifacts
 	cd backend && cargo clean

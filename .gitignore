@@ -11,6 +11,9 @@ npm-debug.log*
 .env
 .env.local
 
+# Backups (contain financial data; never commit)
+/backups/
+
 # Editor / OS
 .DS_Store
 .idea/

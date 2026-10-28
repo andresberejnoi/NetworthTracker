@@ -108,5 +108,8 @@ must exist on the target installation.
 For a raw database dump instead:
 
 ```bash
-docker compose exec db pg_dump -U networth networth > networth-backup.sql
+make backup                                  # → ./backups/networth-<timestamp>.sql.gz
+make restore FILE=backups/networth-....sql.gz
 ```
+
+See `docs/upgrades.md` for the upgrade and restore procedure.
