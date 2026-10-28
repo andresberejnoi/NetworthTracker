@@ -98,16 +98,16 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 9. Investments and market data (backend + frontend)
 
-- [ ] 9.1 Implement securities, positions, and tax lots with asset-class and sector classification and verify model tests including the multi-lot scenario
-- [ ] 9.2 Implement holding and account valuation plus unrealized gain/loss and verify tests for both valuation scenarios
-- [ ] 9.3 Implement the `PriceProvider` trait with caching, timestamped prices, offline fallback marked stale, and manual override, verified by tests using a fake provider
-- [ ] 9.4 Implement the price add-on loader and user-supplied credential configuration (own API key or subscription, stored locally, inert until enabled) and verify a test that with no key configured the system uses stored prices
-- [ ] 9.5 Implement FX rate storage and multi-currency conversion recording the applied rate and verify conversion tests
-- [ ] 9.6 Add the holdings and price endpoints to the OpenAPI contract and verify the contract test passes
-- [ ] 9.7 Build the frontend holdings view (positions, allocation by class/sector, unrealized P/L) and verify component tests
-- [ ] 9.8 Verify a cross-boundary integration test exercises holdings and valuation end to end
-- [ ] 9.9 Document the market data add-on contract and bring-your-own-key setup in `docs/market-data.md` and verify the documented setup against the fake provider
-- [ ] 9.10 Wire the bulk-entry grid to holdings and verify a cross-boundary integration test
+- [x] 9.1 Implement securities, positions, and tax lots with asset-class and sector classification and verify model tests including the multi-lot scenario
+- [x] 9.2 Implement holding and account valuation plus unrealized gain/loss and verify tests for both valuation scenarios
+- [x] 9.3 Implement the `PriceProvider` trait with caching, timestamped prices, offline fallback marked stale, and manual override, verified by tests using a fake provider
+- [x] 9.4 Implement the price add-on loader and user-supplied credential configuration (own API key or subscription, stored locally, inert until enabled) and verify a test that with no key configured the system uses stored prices
+- [x] 9.5 Implement FX rate storage and multi-currency conversion recording the applied rate and verify conversion tests
+- [x] 9.6 Add the holdings and price endpoints to the OpenAPI contract and verify the contract test passes
+- [x] 9.7 Build the frontend holdings view (positions, allocation by class/sector, unrealized P/L) and verify component tests
+- [x] 9.8 Verify a cross-boundary integration test exercises holdings and valuation end to end
+- [x] 9.9 Document the market data add-on contract and bring-your-own-key setup in `docs/market-data.md` and verify the documented setup against the fake provider
+- [x] 9.10 Wire the bulk-entry grid to holdings and verify a cross-boundary integration test
 
 ## 10. Cryptocurrency tracking (backend + frontend)
 
