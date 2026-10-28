@@ -67,7 +67,7 @@ make upgrade
 If it fails, the backup path is printed. Restore it with:
 
 ```bash
-make restore FILE=backups/networth-....sql.gz
+make restore FILE=backups/networth-....sql.gz.gpg
 ```
 
 ## Restore
@@ -113,7 +113,7 @@ These are planned for the post-tag **robust upgrades** change:
 ## Commands
 
 ```bash
-make backup     # ./backups/networth-<timestamp>.sql.gz
+make backup     # ./backups/networth-<timestamp>.sql.gz.gpg (encrypted)
 make upgrade    # backup + rebuild + restart + health check
 make restore    # FILE=backups/... (confirmation required)
 make destroy    # delete the volume (confirmation required)

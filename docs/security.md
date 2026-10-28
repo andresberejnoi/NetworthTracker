@@ -92,7 +92,10 @@ config, and uploads the SARIF report. A finding fails the job.
 - The container listens on the Compose network only. Do not publish Postgres to
   the host or the internet.
 - Use `pg_dump` or the JSON backup endpoint for backups, and protect the backup
-  files like any other secret.
+  files like any other secret. `make backup` encrypts dumps with GPG AES-256
+  using `BACKUP_PASSPHRASE`; keep that passphrase out of the backup directory
+  and store a copy somewhere safe, because a lost passphrase means an
+  unrecoverable backup.
 
 ## Reporting a leak
 
