@@ -5,15 +5,19 @@ import { parse } from "yaml";
 import {
   API_BASE_URL,
   createAccount,
+  createHolding,
+  createSecurity,
   createSnapshot,
   getNetWorth,
   getPing,
   listAccounts,
   listBalances,
+  listHoldings,
   listSnapshots,
   importSpreadsheet,
   recordBalance,
   recordBalancesBatch,
+  setPrice,
 } from "./client";
 
 /**
@@ -139,6 +143,37 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     expect(badReport.errors).toHaveLength(1);
   });
 
+  it("values investment holdings over HTTP", async () => {
+    const stamp = Date.now();
+    const account = await createAccount({
+      name: `Brokerage ${stamp}`,
+      account_type: "taxable_brokerage",
+    });
+    const symbol = `T${stamp}`.slice(0, 12);
+
+    await createSecurity({
+      symbol,
+      name: "Integration Security",
+      asset_class: "equity",
+      sector: "other",
+    });
+    await createHolding(account.id, {
+      symbol,
+      lots: [
+        { acquired_on: "2026-01-01", quantity: "10", cost_basis: "1000.00" },
+        { acquired_on: "2026-02-01", quantity: "5", cost_basis: "600.00" },
+      ],
+    });
+    await setPrice({ symbol, price: "150.00" });
+
+    const holdings = await listHoldings(account.id);
+    const holding = holdings.find((item) => item.symbol === symbol);
+    expect(holding).toBeDefined();
+    expect(holding?.quantity).toBe("15");
+    expect(holding?.market_value).toBe("2250.00");
+    expect(holding?.unrealized_gain).toBe("650.00");
+  });
+
   it("matches the shared OpenAPI contract for GET endpoints", async () => {
     const contract = parse(readFileSync(contractPath, "utf8")) as Contract;
 
@@ -147,13 +182,34 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
       account_type: "savings",
     });
 
+    // Values for the dynamic GET endpoints.
+    const symbol = `C${Date.now()}`.slice(0, 12);
+    await createSecurity({
+      symbol,
+      name: "Contract Security",
+      asset_class: "equity",
+      sector: "other",
+    });
+    await setPrice({ symbol, price: "100.00" });
+    await fetch(`${API_BASE_URL}/api/v1/fx-rates`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ base: "USD", quote: "EUR", rate: "0.92" }),
+    });
+
     for (const [path, methods] of Object.entries(contract.paths)) {
       const operation = methods.get;
       const schema =
         operation?.responses?.["200"]?.content?.["application/json"]?.schema;
       if (!operation || !schema) continue;
 
-      const concretePath = path.replace("{id}", account.id);
+      let concretePath = path
+        .replace("{id}", account.id)
+        .replace("{symbol}", symbol);
+      if (concretePath === "/api/v1/fx-rates") {
+        concretePath += "?base=USD&quote=EUR";
+      }
+
       const response = await fetch(`${API_BASE_URL}${concretePath}`);
       expect(response.status, `GET ${concretePath}`).toBe(200);
 

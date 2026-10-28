@@ -194,6 +194,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/securities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List securities */
+        get: operations["listSecurities"];
+        put?: never;
+        /** Create a security */
+        post: operations["createSecurity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}/holdings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        /** List an account's holdings with valuation */
+        get: operations["listHoldings"];
+        put?: never;
+        /** Create or replace a holding and its lots */
+        post: operations["createHolding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}/holdings/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save a grid of holding lots in one action */
+        post: operations["recordHoldingsBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}/holdings/{holding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+                holding_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a holding */
+        delete: operations["deleteHolding"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prices/provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a price add-on is enabled */
+        get: operations["getPriceProvider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record a manual price override */
+        post: operations["setPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prices/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        /** Latest quote for a symbol */
+        get: operations["getPrice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest FX rate */
+        get: operations["getFxRate"];
+        put?: never;
+        /** Record an FX rate */
+        post: operations["setFxRate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts": {
         parameters: {
             query?: never;
@@ -474,6 +622,112 @@ export interface components {
             balances_saved: number;
             snapshots_restored: number;
             snapshots_skipped: number;
+        };
+        /** @enum {string} */
+        SecurityAssetClass: "equity" | "fixed_income" | "real_estate" | "commodity" | "cash" | "other";
+        /** @enum {string} */
+        Sector: "energy" | "materials" | "industrials" | "consumer_discretionary" | "consumer_staples" | "health_care" | "financials" | "information_technology" | "communication_services" | "utilities" | "real_estate" | "other";
+        Security: {
+            /** Format: uuid */
+            id: string;
+            symbol: string;
+            name: string;
+            asset_class: components["schemas"]["SecurityAssetClass"];
+            sector: components["schemas"]["Sector"] | null;
+            currency: string;
+        };
+        CreateSecurityRequest: {
+            symbol: string;
+            name: string;
+            asset_class: components["schemas"]["SecurityAssetClass"];
+            sector?: components["schemas"]["Sector"] | null;
+            /** @default USD */
+            currency?: string;
+        };
+        Lot: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            acquired_on: string;
+            quantity: string;
+            cost_basis: string;
+        };
+        Holding: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            account_id: string;
+            symbol: string;
+            name: string;
+            asset_class: components["schemas"]["SecurityAssetClass"];
+            sector: components["schemas"]["Sector"] | null;
+            currency: string;
+            quantity: string;
+            cost_basis: string;
+            price: string | null;
+            price_as_of: string | null;
+            price_stale: boolean;
+            price_source: string | null;
+            market_value: string | null;
+            unrealized_gain: string | null;
+            lots: components["schemas"]["Lot"][];
+        };
+        LotRequest: {
+            /** Format: date */
+            acquired_on: string;
+            quantity: string;
+            cost_basis: string;
+            currency?: string | null;
+        };
+        CreateHoldingRequest: {
+            symbol: string;
+            lots: components["schemas"]["LotRequest"][];
+        };
+        HoldingBatchRow: {
+            symbol: string;
+            /** Format: date */
+            acquired_on: string;
+            quantity: string;
+            cost_basis: string;
+        };
+        HoldingBatchRequest: {
+            rows: components["schemas"]["HoldingBatchRow"][];
+        };
+        HoldingRowError: {
+            index: number;
+            error: string;
+        };
+        HoldingBatchResult: {
+            saved: number;
+            errors: components["schemas"]["HoldingRowError"][];
+        };
+        Price: {
+            symbol: string;
+            price: string;
+            currency: string;
+            as_of: string;
+            stale: boolean;
+            /** @enum {string} */
+            source: "provider" | "manual";
+        };
+        SetPriceRequest: {
+            symbol: string;
+            price: string;
+            currency?: string | null;
+        };
+        ProviderStatus: {
+            configured: boolean;
+            name: string | null;
+        };
+        FxRate: {
+            base: string;
+            quote: string;
+            rate: string;
+        };
+        SetFxRateRequest: {
+            base: string;
+            quote: string;
+            rate: string;
         };
         /** @enum {string} */
         AccountType: "401k" | "traditional_ira" | "roth_ira" | "taxable_brokerage" | "checking" | "savings" | "cash" | "real_estate" | "other_asset" | "mortgage" | "loan";
@@ -941,6 +1195,268 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listSecurities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Securities. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Security"][];
+                };
+            };
+        };
+    };
+    createSecurity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSecurityRequest"];
+            };
+        };
+        responses: {
+            /** @description The created security. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Security"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listHoldings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Holdings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holding"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createHolding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHoldingRequest"];
+            };
+        };
+        responses: {
+            /** @description The holding. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holding"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordHoldingsBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-row result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingBatchResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteHolding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+                holding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPriceProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderStatus"];
+                };
+            };
+        };
+    };
+    setPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPriceRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored quote. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Price"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quote. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Price"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFxRate: {
+        parameters: {
+            query: {
+                base: string;
+                quote: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FxRate"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setFxRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetFxRateRequest"];
+            };
+        };
+        responses: {
+            /** @description Rate stored. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
         };
     };
     listAccounts: {

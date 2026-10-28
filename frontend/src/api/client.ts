@@ -309,3 +309,103 @@ export async function createUser(body: {
     body: JSON.stringify(body),
   });
 }
+
+export type Security = components["schemas"]["Security"];
+export type SecurityAssetClass = components["schemas"]["SecurityAssetClass"];
+export type Sector = components["schemas"]["Sector"];
+export type CreateSecurityRequest = components["schemas"]["CreateSecurityRequest"];
+export type Holding = components["schemas"]["Holding"];
+export type CreateHoldingRequest = components["schemas"]["CreateHoldingRequest"];
+export type LotRequest = components["schemas"]["LotRequest"];
+export type HoldingBatchRow = components["schemas"]["HoldingBatchRow"];
+export type HoldingBatchResult = components["schemas"]["HoldingBatchResult"];
+export type Price = components["schemas"]["Price"];
+export type ProviderStatus = components["schemas"]["ProviderStatus"];
+
+export const SECURITY_ASSET_CLASSES: SecurityAssetClass[] = [
+  "equity",
+  "fixed_income",
+  "real_estate",
+  "commodity",
+  "cash",
+  "other",
+];
+
+export const SECTORS: Sector[] = [
+  "energy",
+  "materials",
+  "industrials",
+  "consumer_discretionary",
+  "consumer_staples",
+  "health_care",
+  "financials",
+  "information_technology",
+  "communication_services",
+  "utilities",
+  "real_estate",
+  "other",
+];
+
+export function listSecurities(): Promise<Security[]> {
+  return request<Security[]>("/api/v1/securities");
+}
+
+export function createSecurity(body: CreateSecurityRequest): Promise<Security> {
+  return request<Security>("/api/v1/securities", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listHoldings(accountId: string): Promise<Holding[]> {
+  return request<Holding[]>(`/api/v1/accounts/${accountId}/holdings`);
+}
+
+export function createHolding(
+  accountId: string,
+  body: CreateHoldingRequest,
+): Promise<Holding> {
+  return request<Holding>(`/api/v1/accounts/${accountId}/holdings`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteHolding(
+  accountId: string,
+  holdingId: string,
+): Promise<void> {
+  return request<void>(
+    `/api/v1/accounts/${accountId}/holdings/${holdingId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function recordHoldingsBatch(
+  accountId: string,
+  rows: HoldingBatchRow[],
+): Promise<HoldingBatchResult> {
+  return request<HoldingBatchResult>(
+    `/api/v1/accounts/${accountId}/holdings/batch`,
+    { method: "POST", body: JSON.stringify({ rows }) },
+  );
+}
+
+export function getPriceProvider(): Promise<ProviderStatus> {
+  return request<ProviderStatus>("/api/v1/prices/provider");
+}
+
+export function getPrice(symbol: string): Promise<Price> {
+  return request<Price>(`/api/v1/prices/${encodeURIComponent(symbol)}`);
+}
+
+export function setPrice(body: {
+  symbol: string;
+  price: string;
+  currency?: string | null;
+}): Promise<Price> {
+  return request<Price>("/api/v1/prices", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

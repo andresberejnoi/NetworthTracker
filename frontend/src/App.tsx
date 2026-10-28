@@ -15,10 +15,18 @@ import AccountsView from "./features/accounts/AccountsView";
 import AuthScreen from "./features/auth/AuthScreen";
 import BulkEntryView from "./features/bulk-entry/BulkEntryView";
 import DataView from "./features/data/DataView";
+import HoldingsView from "./features/investments/HoldingsView";
 import NetWorthView from "./features/networth/NetWorthView";
 import UsersView from "./features/users/UsersView";
 
-type View = "overview" | "networth" | "accounts" | "bulk" | "data" | "users";
+type View =
+  | "overview"
+  | "networth"
+  | "accounts"
+  | "bulk"
+  | "data"
+  | "investments"
+  | "users";
 
 export default function App() {
   const [status, setStatus] = useState<AuthStatus | null>(null);
@@ -185,6 +193,13 @@ export default function App() {
             >
               Data
             </button>
+            <button
+              type="button"
+              aria-pressed={view === "investments"}
+              onClick={() => setView("investments")}
+            >
+              Investments
+            </button>
             {user.role === "owner" && (
               <button
                 type="button"
@@ -205,6 +220,8 @@ export default function App() {
           <BulkEntryView />
         ) : view === "data" ? (
           <DataView />
+        ) : view === "investments" ? (
+          <HoldingsView />
         ) : view === "users" ? (
           <UsersView />
         ) : (
