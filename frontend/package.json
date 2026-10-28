@@ -1,7 +1,7 @@
 {
   "name": "networth-tracker-frontend",
   "private": true,
-  "version": "0.1.20261027",
+  "version": "0.1.20261028",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -157,7 +157,7 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [x] 14.2 Wire gitleaks into `make secrets` and CI (SARIF report artifact) while keeping the fast tracked-file scan
 - [x] 14.3 Document the gitleaks setup, allowlist policy, and pre-commit usage in `AGENTS.md` and `docs/security.md`, and verify the documented command runs
 - [ ] 14.4 Run the full release matrix against the final commit (backend, Postgres, frontend, integration, boundaries, secret scan, `openspec validate --strict`)
-- [ ] 14.5 Confirm the README, screenshots, and version are current, then tag `v0.1.20261027` and verify the tag points at the release commit
+- [ ] 14.5 Confirm the README, screenshots, and version are current, then tag `v0.1.20261028` and verify the tag points at the release commit
 
 ## Workflow follow-up
 
