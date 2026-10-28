@@ -32,6 +32,16 @@ POSTGRES_USER="${POSTGRES_USER:-networth}"
 POSTGRES_DB="${POSTGRES_DB:-networth}"
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
+DB_CONTAINER="${DB_CONTAINER:-}"
+RESTORE_SKIP_BACKEND="${RESTORE_SKIP_BACKEND:-0}"
+
+db_psql() {
+  if [[ -n "$DB_CONTAINER" ]]; then
+    docker exec -i "$DB_CONTAINER" psql "$@"
+  else
+    docker compose exec -T db psql "$@"
+  fi
+}
 
 encrypted=0
 if [[ "$file" == *.gpg ]]; then
@@ -46,6 +56,20 @@ if [[ "$file" == *.gpg ]]; then
   fi
 fi
 
+echo "Verifying the backup before changing anything ..."
+if [[ "$encrypted" -eq 1 ]]; then
+  if ! gpg --batch --yes --pinentry-mode loopback --decrypt \
+        --passphrase "$BACKUP_PASSPHRASE" "$file" 2>/dev/null | gzip -t; then
+    echo "Cannot decrypt or verify the backup. The database was not changed." >&2
+    exit 1
+  fi
+else
+  if ! gzip -t "$file"; then
+    echo "Cannot verify the backup. The database was not changed." >&2
+    exit 1
+  fi
+fi
+
 echo "This will REPLACE database '${POSTGRES_DB}' with:"
 echo "  ${file}"
 read -r -p "Type 'restore' to continue: " answer
@@ -54,13 +78,17 @@ if [[ "$answer" != "restore" ]]; then
   exit 1
 fi
 
-echo "Stopping the backend ..."
-docker compose stop backend >/dev/null
+if [[ "$RESTORE_SKIP_BACKEND" == "1" ]]; then
+  echo "Skipping backend stop/start (RESTORE_SKIP_BACKEND=1)."
+else
+  echo "Stopping the backend ..."
+  docker compose stop backend >/dev/null
+fi
 
 echo "Recreating the database ..."
-docker compose exec -T db psql -U "$POSTGRES_USER" -d postgres \
+db_psql -U "$POSTGRES_USER" -d postgres \
   -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\" WITH (FORCE);" >/dev/null
-docker compose exec -T db psql -U "$POSTGRES_USER" -d postgres \
+db_psql -U "$POSTGRES_USER" -d postgres \
   -c "CREATE DATABASE \"$POSTGRES_DB\";" >/dev/null
 
 echo "Restoring ..."
@@ -68,10 +96,15 @@ if [[ "$encrypted" -eq 1 ]]; then
   gpg --batch --yes --pinentry-mode loopback --decrypt \
     --passphrase "$BACKUP_PASSPHRASE" "$file" \
     | gunzip \
-    | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+    | db_psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
 else
   gunzip -c "$file" \
-    | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+    | db_psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+fi
+
+if [[ "$RESTORE_SKIP_BACKEND" == "1" ]]; then
+  echo "Restore complete (backend left stopped)."
+  exit 0
 fi
 
 echo "Starting the backend ..."

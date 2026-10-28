@@ -45,7 +45,7 @@ done
 if ! curl -sf "http://localhost:${BACKEND_PORT}/health" >/dev/null 2>&1; then
   echo "Upgrade failed: the backend did not become healthy." >&2
   echo "Your pre-upgrade backup is in ./backups." >&2
-  echo "Restore it with: ./scripts/restore.sh backups/<file>.sql.gz" >&2
+  echo "Restore it with: ./scripts/restore.sh backups/<file>.sql.gz.gpg" >&2
   exit 1
 fi
 
