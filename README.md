@@ -116,6 +116,7 @@ Common checks:
 make help
 make test              # backend + frontend + secret + boundary checks
 make backend-test-db   # Postgres repository tests (throwaway container)
+make upgrade-test      # schema upgrade + version + encrypted backup/restore
 make integration-test  # real backend + frontend client over HTTP
 make hooks             # enable the gitleaks pre-commit hook (once per clone)
 make secrets           # fast scan + full-history gitleaks scan
@@ -188,7 +189,9 @@ The current version is `0.1.20261028`. The authoritative value lives in
 The v1 design also covers investment holdings and sectors, cryptocurrency wallet
 tracking, budgeting, and read-only aggregation adapters. These are specified in
 OpenSpec and land as their own slices; the current release covers the accounts,
-net worth, history, bulk entry, import/export, backups, and family access.
+net worth, history, bulk entry, import/export, backups, and family access. A
+guided data-migration tool for importing from other trackers is planned as a
+separate deliverable.
 
 ## License
 

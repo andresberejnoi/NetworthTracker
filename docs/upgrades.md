@@ -6,8 +6,8 @@
   Use `make down` (keeps the volume) or `make destroy` (asks for confirmation).
 - **Back up before every upgrade.** `make upgrade` does this automatically.
 - **Never edit a migration that has already been applied.** Add a new one.
-- Treat `./backups` like a wallet: it contains your financial data. Encrypt it
-  and keep it somewhere safe.
+- Treat `./backups` and `BACKUP_PASSPHRASE` like a wallet: together they unlock
+  your financial data. Keep the passphrase somewhere safe.
 
 ## Backup
 
@@ -81,6 +81,9 @@ drops and recreates the database, restores, starts the backend, and waits for
 health. Legacy plain `.sql.gz` dumps are still accepted. The dump includes the
 migration history, so any migrations added since the backup apply on startup.
 
+Before dropping anything, the script decrypts and gzip-verifies the archive. A
+wrong passphrase or corrupt file is rejected and the database is left untouched.
+
 ## Migration policy
 
 - Migrations live in `backend/migrations/`, are versioned by timestamp, and run
@@ -99,6 +102,23 @@ migration history, so any migrations added since the backup apply on startup.
   new schema is writable. It runs in `make backend-test-db`.
 - Test a restore after every release.
 
+## Testing the upgrade path
+
+`make upgrade-test` runs `scripts/test-upgrade.sh`. It builds a throwaway
+Postgres at the previous schema (every migration except the latest), seeds fake
+accounts, balances, snapshots, and users, then starts the current backend so it
+applies the remaining migration. It verifies:
+
+- the fake data and exact `NUMERIC` values survived;
+- the new schema is writable;
+- `GET /api/v1/ping` reports the authoritative version;
+- an encrypted backup can be decrypted and restored;
+- a wrong passphrase is rejected before the database is touched.
+
+The test uses temporary copies of the backup and restore scripts, a throwaway
+container, and a temporary backup directory, so it never touches your real
+database or `./backups`.
+
 ## What is not automated yet
 
 These are planned for the post-tag **robust upgrades** change:
@@ -107,8 +127,10 @@ These are planned for the post-tag **robust upgrades** change:
   `scripts/upgrade.sh`);
 - scheduled backups and retention outside the manual script;
 - published versioned images (today the stack builds from source);
-- an automated upgrade test matrix (previous release → new release);
-- a documented compatibility policy for breaking schema changes.
+- a multi-release upgrade matrix (the current test covers the previous schema
+  → current release);
+- a documented compatibility policy for breaking schema changes;
+- a guided data-migration tool for importing from other trackers.
 
 ## Commands
 
