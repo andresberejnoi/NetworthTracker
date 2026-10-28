@@ -36,7 +36,13 @@ pub async fn get_net_worth(
         &current,
     )?;
 
-    let breakdown = state.networth.compute(request).await?;
+    let breakdown = state
+        .networth
+        .compute_with_holding_values(
+            request,
+            &state.investments.account_values(&Currency::usd()).await?,
+        )
+        .await?;
     Ok(Json(NetWorthDto::from(breakdown)))
 }
 
@@ -61,7 +67,13 @@ pub async fn create_snapshot(
         &current,
     )?;
 
-    let snapshot = state.networth.take_snapshot(request).await?;
+    let snapshot = state
+        .networth
+        .take_snapshot_with_holding_values(
+            request,
+            &state.investments.account_values(&Currency::usd()).await?,
+        )
+        .await?;
     Ok((StatusCode::CREATED, Json(SnapshotDto::from(snapshot))))
 }
 

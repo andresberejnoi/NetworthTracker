@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
 use networth_domain::{NewUser, User, UserRole};
@@ -273,7 +273,8 @@ fn hash_password(password: &str) -> Result<String, AuthError> {
         )));
     }
 
-    let salt = SaltString::generate(&mut OsRng);
+    let salt = SaltString::encode_b64(&Uuid::new_v4().into_bytes())
+        .map_err(|error| AuthError::Internal(error.to_string()))?;
     Argon2::default()
         .hash_password(password.as_bytes(), &salt)
         .map(|hash| hash.to_string())

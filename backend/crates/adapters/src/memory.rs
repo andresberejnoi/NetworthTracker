@@ -8,12 +8,14 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use networth_application::ports::{
-    AccountRepository, IdentityRepository, NetWorthRepository, RepositoryError, UserWithHash,
+    AccountRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
+    PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, Balance, NewAccount, NewBalance, NewSnapshot, NewUser, Snapshot, SnapshotFilter, User,
-    UserRole,
+    Account, Balance, Currency, Holding, Lot, Money, NewAccount, NewBalance, NewLot, NewSecurity,
+    NewSnapshot, NewUser, PriceSource, Security, Snapshot, SnapshotFilter, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -31,12 +33,30 @@ struct Inner {
     snapshots: Vec<Snapshot>,
     users: Vec<UserWithHash>,
     sessions: Vec<SessionEntry>,
+    securities: Vec<Security>,
+    holdings: Vec<Holding>,
+    prices: Vec<PriceRecord>,
+    fx_rates: Vec<FxRateRecord>,
 }
 
 struct SessionEntry {
     user_id: Uuid,
     token_hash: String,
     expires_at: OffsetDateTime,
+}
+
+struct PriceRecord {
+    symbol: String,
+    price: Money,
+    as_of: OffsetDateTime,
+    source: PriceSource,
+}
+
+struct FxRateRecord {
+    base: Currency,
+    quote: Currency,
+    rate: BigDecimal,
+    as_of: OffsetDateTime,
 }
 
 impl InMemoryAccountRepository {
@@ -322,5 +342,194 @@ impl IdentityRepository for InMemoryAccountRepository {
             .sessions
             .retain(|session| session.token_hash != token_hash);
         Ok(())
+    }
+}
+
+#[async_trait]
+impl InvestmentRepository for InMemoryAccountRepository {
+    async fn create_security(&self, new: &NewSecurity) -> Result<Security, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if inner
+            .securities
+            .iter()
+            .any(|security| security.symbol.eq_ignore_ascii_case(&new.symbol))
+        {
+            return Err(RepositoryError::Conflict(format!(
+                "security '{}' already exists",
+                new.symbol
+            )));
+        }
+
+        let security = Security {
+            id: Uuid::new_v4(),
+            symbol: new.symbol.to_ascii_uppercase(),
+            name: new.name.clone(),
+            asset_class: new.asset_class,
+            sector: new.sector,
+            currency: new.currency.clone(),
+        };
+        inner.securities.push(security.clone());
+        Ok(security)
+    }
+
+    async fn find_security_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<Option<Security>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .securities
+            .iter()
+            .find(|security| security.symbol.eq_ignore_ascii_case(symbol))
+            .cloned())
+    }
+
+    async fn list_securities(&self) -> Result<Vec<Security>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut securities = inner.securities.clone();
+        securities.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+        Ok(securities)
+    }
+
+    async fn upsert_holding(
+        &self,
+        account_id: Uuid,
+        security_id: Uuid,
+        lots: &[NewLot],
+    ) -> Result<Holding, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let security = inner
+            .securities
+            .iter()
+            .find(|security| security.id == security_id)
+            .cloned()
+            .ok_or_else(|| RepositoryError::Storage("security not found".to_string()))?;
+
+        if let Some(existing) = inner
+            .holdings
+            .iter_mut()
+            .find(|holding| holding.account_id == account_id && holding.security.id == security_id)
+        {
+            existing.lots = lots
+                .iter()
+                .map(|lot| Lot {
+                    id: Uuid::new_v4(),
+                    acquired_on: lot.acquired_on,
+                    quantity: lot.quantity.clone(),
+                    cost_basis: lot.cost_basis.clone(),
+                })
+                .collect();
+            return Ok(existing.clone());
+        }
+
+        let holding = Holding {
+            id: Uuid::new_v4(),
+            account_id,
+            security,
+            lots: lots
+                .iter()
+                .map(|lot| Lot {
+                    id: Uuid::new_v4(),
+                    acquired_on: lot.acquired_on,
+                    quantity: lot.quantity.clone(),
+                    cost_basis: lot.cost_basis.clone(),
+                })
+                .collect(),
+        };
+        inner.holdings.push(holding.clone());
+        Ok(holding)
+    }
+
+    async fn list_holdings(&self, account_id: Uuid) -> Result<Vec<Holding>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .holdings
+            .iter()
+            .filter(|holding| holding.account_id == account_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn list_all_holdings(&self) -> Result<Vec<Holding>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner.holdings.clone())
+    }
+
+    async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let before = inner.holdings.len();
+        inner.holdings.retain(|holding| holding.id != holding_id);
+        Ok(inner.holdings.len() != before)
+    }
+}
+
+#[async_trait]
+impl PriceRepository for InMemoryAccountRepository {
+    async fn insert_price(
+        &self,
+        symbol: &str,
+        price: &Money,
+        as_of: OffsetDateTime,
+        source: PriceSource,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.prices.push(PriceRecord {
+            symbol: symbol.to_ascii_uppercase(),
+            price: price.clone(),
+            as_of,
+            source,
+        });
+        Ok(())
+    }
+
+    async fn latest_price(&self, symbol: &str) -> Result<Option<StoredPrice>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .prices
+            .iter()
+            .filter(|record| record.symbol.eq_ignore_ascii_case(symbol))
+            .max_by_key(|record| record.as_of)
+            .map(|record| StoredPrice {
+                price: record.price.clone(),
+                as_of: record.as_of,
+                source: record.source,
+            }))
+    }
+}
+
+#[async_trait]
+impl FxRepository for InMemoryAccountRepository {
+    async fn insert_rate(
+        &self,
+        base: &Currency,
+        quote: &Currency,
+        rate: &BigDecimal,
+        as_of: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.fx_rates.push(FxRateRecord {
+            base: base.clone(),
+            quote: quote.clone(),
+            rate: rate.clone(),
+            as_of,
+        });
+        Ok(())
+    }
+
+    async fn latest_rate(
+        &self,
+        base: &Currency,
+        quote: &Currency,
+    ) -> Result<Option<StoredRate>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .fx_rates
+            .iter()
+            .filter(|record| &record.base == base && &record.quote == quote)
+            .max_by_key(|record| record.as_of)
+            .map(|record| StoredRate {
+                rate: record.rate.clone(),
+                as_of: record.as_of,
+            }))
     }
 }

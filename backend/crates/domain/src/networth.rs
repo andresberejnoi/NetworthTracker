@@ -269,6 +269,17 @@ pub fn compute_net_worth(
     balances: &[Balance],
     params: &ComputeParams,
 ) -> NetWorthBreakdown {
+    compute_net_worth_with_holdings(accounts, balances, &HashMap::new(), params)
+}
+
+/// Like [`compute_net_worth`], but accounts with a fully priced holdings value
+/// use that value instead of their recorded balance.
+pub fn compute_net_worth_with_holdings(
+    accounts: &[Account],
+    balances: &[Balance],
+    holding_values: &HashMap<Uuid, Money>,
+    params: &ComputeParams,
+) -> NetWorthBreakdown {
     let mut latest: HashMap<Uuid, &Balance> = HashMap::new();
     for balance in balances {
         if balance.as_of > params.as_of {
@@ -298,24 +309,42 @@ pub fn compute_net_worth(
             continue;
         }
 
-        let Some(balance) = latest.get(&account.id) else {
+        let balance = latest.get(&account.id);
+        let holding_value = holding_values.get(&account.id);
+
+        if balance.is_none() && holding_value.is_none() {
             continue;
+        }
+
+        let (amount, currency) = match holding_value {
+            Some(value) => (value.amount().clone(), value.currency().clone()),
+            None => {
+                let balance = balance.expect("checked above");
+                (
+                    balance.amount.amount().clone(),
+                    balance.amount.currency().clone(),
+                )
+            }
         };
 
-        if account.currency != params.currency {
+        if currency != params.currency {
             // FX conversion arrives later; skip rather than mix currencies.
             continue;
         }
 
         account_count += 1;
-        if balance.source == BalanceSource::Manual {
+        if let Some(balance) = balance {
+            if balance.source == BalanceSource::Manual {
+                has_manual_data = true;
+            }
+            if (params.as_of - balance.as_of).whole_days() > STALE_AFTER_DAYS {
+                has_stale_data = true;
+            }
+        }
+        if holding_value.is_some() {
             has_manual_data = true;
         }
-        if (params.as_of - balance.as_of).whole_days() > STALE_AFTER_DAYS {
-            has_stale_data = true;
-        }
 
-        let amount = balance.amount.amount();
         let (signed_total, signed_liquid, signed_liquidity, signed_accessible) =
             match account.classification() {
                 AccountClassification::Asset => {
@@ -333,11 +362,11 @@ pub fn compute_net_worth(
                         amount.clone(),
                         liquid_part,
                         cash_part,
-                        accessible_amount(account.account_type, amount, params),
+                        accessible_amount(account.account_type, &amount, params),
                     )
                 }
                 AccountClassification::Liability => {
-                    let owed = -amount;
+                    let owed = -&amount;
                     // Only liquid liabilities reduce liquid net worth, and only
                     // immediate ones reduce liquidity. A mortgage secured by an
                     // excluded property does neither.
@@ -766,6 +795,27 @@ mod tests {
         let result = compute_net_worth(&[cash], &[old_balance], &params());
         assert!(result.has_manual_data);
         assert!(result.has_stale_data);
+    }
+
+    #[test]
+    fn holdings_value_overrides_the_recorded_balance() {
+        let brokerage = account(
+            "Brokerage",
+            AccountType::TaxableBrokerage,
+            OwnershipScope::Household,
+            None,
+        );
+        let balance = balance(&brokerage, "1000.00");
+
+        let mut holding_values = HashMap::new();
+        holding_values.insert(brokerage.id, money("2500.00"));
+
+        let result =
+            compute_net_worth_with_holdings(&[brokerage], &[balance], &holding_values, &params());
+
+        assert_eq!(result.total, money("2500.00"));
+        assert_eq!(result.liquid, money("2500.00"));
+        assert!(result.has_manual_data);
     }
 
     #[test]

@@ -28,6 +28,8 @@ tags:
     description: Net worth computation and history snapshots
   - name: data
     description: Spreadsheet import/export and templates
+  - name: investments
+    description: Securities, holdings, prices, and FX
 paths:
   /health:
     get:
@@ -232,6 +234,214 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/securities:
+    get:
+      tags: [investments]
+      operationId: listSecurities
+      summary: List securities
+      responses:
+        "200":
+          description: Securities.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Security"
+    post:
+      tags: [investments]
+      operationId: createSecurity
+      summary: Create a security
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSecurityRequest"
+      responses:
+        "201":
+          description: The created security.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Security"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/accounts/{id}/holdings:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [investments]
+      operationId: listHoldings
+      summary: List an account's holdings with valuation
+      responses:
+        "200":
+          description: Holdings.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Holding"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [investments]
+      operationId: createHolding
+      summary: Create or replace a holding and its lots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHoldingRequest"
+      responses:
+        "201":
+          description: The holding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holding"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{id}/holdings/batch:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    post:
+      tags: [investments]
+      operationId: recordHoldingsBatch
+      summary: Save a grid of holding lots in one action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HoldingBatchRequest"
+      responses:
+        "200":
+          description: Per-row result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HoldingBatchResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{id}/holdings/{holding_id}:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+      - name: holding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [investments]
+      operationId: deleteHolding
+      summary: Delete a holding
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/prices/provider:
+    get:
+      tags: [investments]
+      operationId: getPriceProvider
+      summary: Whether a price add-on is enabled
+      responses:
+        "200":
+          description: Provider status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderStatus"
+  /api/v1/prices:
+    post:
+      tags: [investments]
+      operationId: setPrice
+      summary: Record a manual price override
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPriceRequest"
+      responses:
+        "201":
+          description: The stored quote.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/prices/{symbol}:
+    parameters:
+      - name: symbol
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [investments]
+      operationId: getPrice
+      summary: Latest quote for a symbol
+      responses:
+        "200":
+          description: The quote.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/fx-rates:
+    get:
+      tags: [investments]
+      operationId: getFxRate
+      summary: Latest FX rate
+      parameters:
+        - name: base
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: quote
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The rate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FxRate"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [investments]
+      operationId: setFxRate
+      summary: Record an FX rate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetFxRateRequest"
+      responses:
+        "204":
+          description: Rate stored.
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/accounts:
     get:
       tags: [accounts]
@@ -801,6 +1011,264 @@ components:
           type: integer
         snapshots_skipped:
           type: integer
+    SecurityAssetClass:
+      type: string
+      enum: [equity, fixed_income, real_estate, commodity, cash, other]
+    Sector:
+      type: string
+      enum:
+        - energy
+        - materials
+        - industrials
+        - consumer_discretionary
+        - consumer_staples
+        - health_care
+        - financials
+        - information_technology
+        - communication_services
+        - utilities
+        - real_estate
+        - other
+    Security:
+      type: object
+      additionalProperties: false
+      required: [id, symbol, name, asset_class, sector, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        name:
+          type: string
+        asset_class:
+          $ref: "#/components/schemas/SecurityAssetClass"
+        sector:
+          oneOf:
+            - $ref: "#/components/schemas/Sector"
+            - type: "null"
+        currency:
+          type: string
+    CreateSecurityRequest:
+      type: object
+      additionalProperties: false
+      required: [symbol, name, asset_class]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        asset_class:
+          $ref: "#/components/schemas/SecurityAssetClass"
+        sector:
+          oneOf:
+            - $ref: "#/components/schemas/Sector"
+            - type: "null"
+        currency:
+          type: string
+          default: USD
+    Lot:
+      type: object
+      additionalProperties: false
+      required: [id, acquired_on, quantity, cost_basis]
+      properties:
+        id:
+          type: string
+          format: uuid
+        acquired_on:
+          type: string
+          format: date
+        quantity:
+          type: string
+        cost_basis:
+          type: string
+    Holding:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - account_id
+        - symbol
+        - name
+        - asset_class
+        - sector
+        - currency
+        - quantity
+        - cost_basis
+        - price
+        - price_as_of
+        - price_stale
+        - price_source
+        - market_value
+        - unrealized_gain
+        - lots
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        name:
+          type: string
+        asset_class:
+          $ref: "#/components/schemas/SecurityAssetClass"
+        sector:
+          oneOf:
+            - $ref: "#/components/schemas/Sector"
+            - type: "null"
+        currency:
+          type: string
+        quantity:
+          type: string
+        cost_basis:
+          type: string
+        price:
+          type: [string, "null"]
+        price_as_of:
+          type: [string, "null"]
+        price_stale:
+          type: boolean
+        price_source:
+          type: [string, "null"]
+        market_value:
+          type: [string, "null"]
+        unrealized_gain:
+          type: [string, "null"]
+        lots:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lot"
+    LotRequest:
+      type: object
+      additionalProperties: false
+      required: [acquired_on, quantity, cost_basis]
+      properties:
+        acquired_on:
+          type: string
+          format: date
+        quantity:
+          type: string
+        cost_basis:
+          type: string
+        currency:
+          type: [string, "null"]
+    CreateHoldingRequest:
+      type: object
+      additionalProperties: false
+      required: [symbol, lots]
+      properties:
+        symbol:
+          type: string
+        lots:
+          type: array
+          items:
+            $ref: "#/components/schemas/LotRequest"
+    HoldingBatchRow:
+      type: object
+      additionalProperties: false
+      required: [symbol, acquired_on, quantity, cost_basis]
+      properties:
+        symbol:
+          type: string
+        acquired_on:
+          type: string
+          format: date
+        quantity:
+          type: string
+        cost_basis:
+          type: string
+    HoldingBatchRequest:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/HoldingBatchRow"
+    HoldingRowError:
+      type: object
+      additionalProperties: false
+      required: [index, error]
+      properties:
+        index:
+          type: integer
+        error:
+          type: string
+    HoldingBatchResult:
+      type: object
+      additionalProperties: false
+      required: [saved, errors]
+      properties:
+        saved:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/HoldingRowError"
+    Price:
+      type: object
+      additionalProperties: false
+      required: [symbol, price, currency, as_of, stale, source]
+      properties:
+        symbol:
+          type: string
+        price:
+          type: string
+        currency:
+          type: string
+        as_of:
+          type: string
+        stale:
+          type: boolean
+        source:
+          type: string
+          enum: [provider, manual]
+    SetPriceRequest:
+      type: object
+      additionalProperties: false
+      required: [symbol, price]
+      properties:
+        symbol:
+          type: string
+        price:
+          type: string
+        currency:
+          type: [string, "null"]
+    ProviderStatus:
+      type: object
+      additionalProperties: false
+      required: [configured, name]
+      properties:
+        configured:
+          type: boolean
+        name:
+          type: [string, "null"]
+    FxRate:
+      type: object
+      additionalProperties: false
+      required: [base, quote, rate]
+      properties:
+        base:
+          type: string
+        quote:
+          type: string
+        rate:
+          type: string
+    SetFxRateRequest:
+      type: object
+      additionalProperties: false
+      required: [base, quote, rate]
+      properties:
+        base:
+          type: string
+        quote:
+          type: string
+        rate:
+          type: string
     AccountType:
       type: string
       enum:

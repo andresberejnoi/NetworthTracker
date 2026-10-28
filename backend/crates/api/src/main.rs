@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use networth_adapters::PostgresAccountRepository;
-use networth_api::{app, AppState};
-use networth_application::{AccountRepository, IdentityRepository, NetWorthRepository};
+use networth_adapters::{PostgresAccountRepository, StaticPriceProvider};
+use networth_api::{app, AppState, Repositories};
+use networth_application::{PriceProvider, ProviderConfig};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
 
@@ -40,11 +40,29 @@ async fn main() {
         .unwrap_or(true);
 
     let repository = Arc::new(PostgresAccountRepository::new(pool));
-    let accounts: Arc<dyn AccountRepository> = repository.clone();
-    let networth: Arc<dyn NetWorthRepository> = repository.clone();
-    let identity: Arc<dyn IdentityRepository> = repository;
+    let repositories = Repositories {
+        accounts: repository.clone(),
+        networth: repository.clone(),
+        identity: repository.clone(),
+        investments: repository.clone(),
+        prices: repository.clone(),
+        fx: repository,
+    };
 
-    let state = AppState::new(accounts, networth, identity, auth_enabled);
+    let provider_config = ProviderConfig::from_env();
+    let provider: Option<Arc<dyn PriceProvider>> = match provider_config.provider.as_deref() {
+        Some("static") => Some(Arc::new(StaticPriceProvider::from_env())),
+        Some(other) => {
+            tracing::warn!("unknown PRICE_PROVIDER '{other}'; using cached and manual prices only");
+            None
+        }
+        None => None,
+    };
+    if provider_config.api_key.is_some() && provider.is_none() {
+        tracing::warn!("PRICE_PROVIDER_API_KEY is set but no provider is enabled");
+    }
+
+    let state = AppState::new(repositories, provider, auth_enabled);
 
     let addr = std::env::var("BACKEND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = tokio::net::TcpListener::bind(&addr)

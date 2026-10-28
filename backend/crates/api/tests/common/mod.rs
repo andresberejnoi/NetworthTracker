@@ -13,8 +13,7 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use networth_adapters::InMemoryAccountRepository;
-use networth_api::{app, AppState};
-use networth_application::{AccountRepository, IdentityRepository, NetWorthRepository};
+use networth_api::{app, AppState, Repositories};
 use tower::ServiceExt;
 
 /// Build an app over a fresh in-memory repository, with auth disabled.
@@ -29,10 +28,15 @@ pub fn router_with_auth() -> Router {
 
 fn build(auth_enabled: bool) -> Router {
     let repository = Arc::new(InMemoryAccountRepository::new());
-    let accounts: Arc<dyn AccountRepository> = repository.clone();
-    let networth: Arc<dyn NetWorthRepository> = repository.clone();
-    let identity: Arc<dyn IdentityRepository> = repository;
-    app(AppState::new(accounts, networth, identity, auth_enabled))
+    let repositories = Repositories {
+        accounts: repository.clone(),
+        networth: repository.clone(),
+        identity: repository.clone(),
+        investments: repository.clone(),
+        prices: repository.clone(),
+        fx: repository,
+    };
+    app(AppState::new(repositories, None, auth_enabled))
 }
 
 /// Send a request and decode any JSON body.

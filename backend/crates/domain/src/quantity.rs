@@ -54,6 +54,16 @@ impl Quantity {
     pub fn checked_add(&self, other: &Quantity) -> Quantity {
         Quantity(&self.0 + &other.0)
     }
+
+    /// Multiply by a non-negative decimal factor (for example a unit price).
+    pub fn checked_mul(&self, factor: &BigDecimal) -> Quantity {
+        Quantity(&self.0 * factor)
+    }
+
+    /// Zero quantity.
+    pub fn zero() -> Self {
+        Self(BigDecimal::from(0))
+    }
 }
 
 impl fmt::Display for Quantity {

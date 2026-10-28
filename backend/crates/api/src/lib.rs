@@ -10,6 +10,7 @@ mod backup;
 mod data;
 mod dto;
 mod error;
+mod investments;
 mod networth;
 
 pub use auth::{AuthStatusDto, CurrentUser, SessionDto, UserDto};
@@ -27,8 +28,10 @@ use axum::{
     Json, Router,
 };
 use networth_application::{
-    AccountRepository, AccountService, AuthService, BackupService, IdentityRepository,
-    ImportService, NetWorthRepository, NetWorthService,
+    AccountRepository, AccountService, AuthService, BackupService, FxRepository, FxService,
+    IdentityRepository, ImportService, InvestmentRepository, InvestmentsService,
+    NetWorthRepository, NetWorthService, PriceProvider, PriceRepository, PriceService,
+    DEFAULT_MAX_AGE_SECS,
 };
 use serde::Serialize;
 use tower_http::{
@@ -41,6 +44,22 @@ use crate::accounts::{
     record_balances,
 };
 use crate::networth::{create_snapshot, get_net_worth, list_snapshots};
+
+/// The repository implementations the API runs on.
+pub struct Repositories {
+    /// Accounts and balances.
+    pub accounts: Arc<dyn AccountRepository>,
+    /// Net worth snapshots.
+    pub networth: Arc<dyn NetWorthRepository>,
+    /// Users and sessions.
+    pub identity: Arc<dyn IdentityRepository>,
+    /// Securities and holdings.
+    pub investments: Arc<dyn InvestmentRepository>,
+    /// Cached and manual prices.
+    pub prices: Arc<dyn PriceRepository>,
+    /// FX rates.
+    pub fx: Arc<dyn FxRepository>,
+}
 
 /// Shared application state.
 #[derive(Clone)]
@@ -55,22 +74,51 @@ pub struct AppState {
     pub auth: Arc<AuthService>,
     /// Full backup and restore.
     pub backup: Arc<BackupService>,
+    /// Securities and holdings.
+    pub investments: Arc<InvestmentsService>,
+    /// Prices.
+    pub prices: Arc<PriceService>,
+    /// FX conversion.
+    pub fx: Arc<FxService>,
 }
 
 impl AppState {
-    /// Build state over the account, net worth, and identity repositories.
+    /// Build state over the repository set and an optional price provider.
     pub fn new(
-        accounts: Arc<dyn AccountRepository>,
-        networth: Arc<dyn NetWorthRepository>,
-        identity: Arc<dyn IdentityRepository>,
+        repositories: Repositories,
+        provider: Option<Arc<dyn PriceProvider>>,
         auth_enabled: bool,
     ) -> Self {
+        let prices = Arc::new(PriceService::new(
+            repositories.prices,
+            provider,
+            DEFAULT_MAX_AGE_SECS,
+        ));
+        let investments = Arc::new(InvestmentsService::new(
+            repositories.investments,
+            prices.clone(),
+        ));
+        let fx = Arc::new(FxService::new(repositories.fx));
+
         Self {
-            accounts: Arc::new(AccountService::new(accounts.clone())),
-            networth: Arc::new(NetWorthService::new(accounts.clone(), networth.clone())),
-            data: Arc::new(ImportService::new(accounts.clone())),
-            auth: Arc::new(AuthService::new(identity.clone(), auth_enabled)),
-            backup: Arc::new(BackupService::new(accounts, networth, identity)),
+            accounts: Arc::new(AccountService::new(repositories.accounts.clone())),
+            networth: Arc::new(NetWorthService::new(
+                repositories.accounts.clone(),
+                repositories.networth.clone(),
+            )),
+            data: Arc::new(ImportService::new(repositories.accounts.clone())),
+            auth: Arc::new(AuthService::new(
+                repositories.identity.clone(),
+                auth_enabled,
+            )),
+            backup: Arc::new(BackupService::new(
+                repositories.accounts,
+                repositories.networth,
+                repositories.identity,
+            )),
+            investments,
+            prices,
+            fx,
         }
     }
 }
@@ -129,6 +177,29 @@ pub fn app(state: AppState) -> Router {
         .route(
             "/api/v1/accounts/{id}/balances/batch",
             post(record_balances),
+        )
+        .route(
+            "/api/v1/securities",
+            get(investments::list_securities).post(investments::create_security),
+        )
+        .route(
+            "/api/v1/accounts/{id}/holdings",
+            get(investments::list_holdings).post(investments::create_holding),
+        )
+        .route(
+            "/api/v1/accounts/{id}/holdings/batch",
+            post(investments::record_holdings_batch),
+        )
+        .route(
+            "/api/v1/accounts/{id}/holdings/{holding_id}",
+            axum::routing::delete(investments::delete_holding),
+        )
+        .route("/api/v1/prices/provider", get(investments::provider_status))
+        .route("/api/v1/prices", post(investments::set_price))
+        .route("/api/v1/prices/{symbol}", get(investments::get_price))
+        .route(
+            "/api/v1/fx-rates",
+            get(investments::get_fx_rate).post(investments::set_fx_rate),
         )
         .route("/api/v1/networth", get(get_net_worth))
         .route(

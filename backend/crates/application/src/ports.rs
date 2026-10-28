@@ -1,9 +1,10 @@
 //! Outbound ports implemented by adapters.
 
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use networth_domain::{
-    Account, Balance, NewAccount, NewBalance, NewSnapshot, NewUser, Snapshot, SnapshotFilter, User,
-    UserRole,
+    Account, Balance, Currency, Holding, Money, NewAccount, NewBalance, NewLot, NewSecurity,
+    NewSnapshot, NewUser, PriceSource, Security, Snapshot, SnapshotFilter, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -118,4 +119,117 @@ pub trait IdentityRepository: Send + Sync {
 
     /// Delete a session.
     async fn delete_session(&self, token_hash: &str) -> Result<(), RepositoryError>;
+}
+
+/// A stored price observation.
+#[derive(Debug, Clone)]
+pub struct StoredPrice {
+    /// Unit price.
+    pub price: Money,
+    /// When it was observed.
+    pub as_of: OffsetDateTime,
+    /// Where it came from.
+    pub source: PriceSource,
+}
+
+/// A stored FX rate.
+#[derive(Debug, Clone)]
+pub struct StoredRate {
+    /// Rate from base to quote.
+    pub rate: BigDecimal,
+    /// When it was observed.
+    pub as_of: OffsetDateTime,
+}
+
+/// Persistence for securities, holdings, and tax lots.
+#[async_trait]
+pub trait InvestmentRepository: Send + Sync {
+    /// Insert a security.
+    async fn create_security(&self, new: &NewSecurity) -> Result<Security, RepositoryError>;
+
+    /// Find a security by ticker symbol.
+    async fn find_security_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<Option<Security>, RepositoryError>;
+
+    /// List securities, ordered by symbol.
+    async fn list_securities(&self) -> Result<Vec<Security>, RepositoryError>;
+
+    /// Create or replace a holding and its lots for an account/security pair.
+    async fn upsert_holding(
+        &self,
+        account_id: Uuid,
+        security_id: Uuid,
+        lots: &[NewLot],
+    ) -> Result<Holding, RepositoryError>;
+
+    /// List holdings for one account.
+    async fn list_holdings(&self, account_id: Uuid) -> Result<Vec<Holding>, RepositoryError>;
+
+    /// List every holding.
+    async fn list_all_holdings(&self) -> Result<Vec<Holding>, RepositoryError>;
+
+    /// Delete a holding. Returns `false` if it does not exist.
+    async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError>;
+}
+
+/// Persistence for cached and manual prices.
+#[async_trait]
+pub trait PriceRepository: Send + Sync {
+    /// Append a price observation.
+    async fn insert_price(
+        &self,
+        symbol: &str,
+        price: &Money,
+        as_of: OffsetDateTime,
+        source: PriceSource,
+    ) -> Result<(), RepositoryError>;
+
+    /// The latest price for a symbol.
+    async fn latest_price(&self, symbol: &str) -> Result<Option<StoredPrice>, RepositoryError>;
+}
+
+/// Persistence for foreign-exchange rates.
+#[async_trait]
+pub trait FxRepository: Send + Sync {
+    /// Append an FX rate.
+    async fn insert_rate(
+        &self,
+        base: &Currency,
+        quote: &Currency,
+        rate: &BigDecimal,
+        as_of: OffsetDateTime,
+    ) -> Result<(), RepositoryError>;
+
+    /// The latest rate for a currency pair.
+    async fn latest_rate(
+        &self,
+        base: &Currency,
+        quote: &Currency,
+    ) -> Result<Option<StoredRate>, RepositoryError>;
+}
+
+/// A quote returned by a price provider.
+#[derive(Debug, Clone)]
+pub struct ProviderQuote {
+    /// Unit price.
+    pub price: Money,
+    /// When the provider observed it.
+    pub as_of: OffsetDateTime,
+}
+
+/// Errors raised by a price provider.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub struct ProviderError(pub String);
+
+/// A pluggable, user-funded price source.
+#[async_trait]
+pub trait PriceProvider: Send + Sync {
+    /// Provider name for status reporting.
+    fn name(&self) -> &'static str;
+
+    /// Fetch a quote, or `None` if the provider does not know the symbol.
+    async fn quote(&self, symbol: &str) -> Result<Option<ProviderQuote>, ProviderError>;
 }

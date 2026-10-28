@@ -12,6 +12,7 @@
 pub mod accounts;
 pub mod currency;
 pub mod identity;
+pub mod investments;
 pub mod money;
 pub mod networth;
 pub mod quantity;
@@ -24,10 +25,15 @@ pub use accounts::{
 };
 pub use currency::Currency;
 pub use identity::{NewUser, User, UserRole};
+pub use investments::{
+    Holding, Lot, NewLot, NewSecurity, PriceQuote, PriceSource, Sector, Security,
+    SecurityAssetClass,
+};
 pub use money::{Money, MoneyError};
 pub use networth::{
-    compute_net_worth, AggregationScope, AssetClass, BreakdownRow, ComputeParams,
-    NetWorthBreakdown, NetWorthKind, NewSnapshot, RedemptionPolicy, Snapshot, SnapshotFilter,
+    compute_net_worth, compute_net_worth_with_holdings, AggregationScope, AssetClass, BreakdownRow,
+    ComputeParams, NetWorthBreakdown, NetWorthKind, NewSnapshot, RedemptionPolicy, Snapshot,
+    SnapshotFilter,
 };
 pub use quantity::{Quantity, QuantityError};
 

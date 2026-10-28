@@ -1,10 +1,11 @@
 //! Net worth use cases.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use networth_domain::{
-    compute_net_worth, AggregationScope, ComputeParams, Currency, NetWorthBreakdown, NewSnapshot,
-    RedemptionPolicy, Snapshot, SnapshotFilter,
+    compute_net_worth_with_holdings, AggregationScope, ComputeParams, Currency, Money,
+    NetWorthBreakdown, NewSnapshot, RedemptionPolicy, Snapshot, SnapshotFilter,
 };
 use time::Date;
 use uuid::Uuid;
@@ -63,6 +64,16 @@ impl NetWorthService {
         &self,
         request: NetWorthRequest,
     ) -> Result<NetWorthBreakdown, NetWorthError> {
+        self.compute_with_holding_values(request, &HashMap::new())
+            .await
+    }
+
+    /// Compute net worth, using holdings values for accounts that have them.
+    pub async fn compute_with_holding_values(
+        &self,
+        request: NetWorthRequest,
+        holding_values: &HashMap<Uuid, Money>,
+    ) -> Result<NetWorthBreakdown, NetWorthError> {
         validate(&request)?;
 
         let accounts = self.accounts.list_accounts(true).await?;
@@ -79,12 +90,29 @@ impl NetWorthService {
             viewer_is_owner: request.viewer_is_owner,
         };
 
-        Ok(compute_net_worth(&accounts, &balances, &params))
+        Ok(compute_net_worth_with_holdings(
+            &accounts,
+            &balances,
+            holding_values,
+            &params,
+        ))
     }
 
     /// Compute net worth and persist an immutable snapshot.
     pub async fn take_snapshot(&self, request: NetWorthRequest) -> Result<Snapshot, NetWorthError> {
-        let breakdown = self.compute(request.clone()).await?;
+        self.take_snapshot_with_holding_values(request, &HashMap::new())
+            .await
+    }
+
+    /// Compute net worth with holdings values and persist a snapshot.
+    pub async fn take_snapshot_with_holding_values(
+        &self,
+        request: NetWorthRequest,
+        holding_values: &HashMap<Uuid, Money>,
+    ) -> Result<Snapshot, NetWorthError> {
+        let breakdown = self
+            .compute_with_holding_values(request.clone(), holding_values)
+            .await?;
 
         let new = NewSnapshot {
             as_of: request.as_of,

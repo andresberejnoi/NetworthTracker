@@ -319,3 +319,77 @@ async fn persists_users_and_sessions(pool: PgPool) {
         "usernames are unique (case-insensitive)"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_securities_holdings_prices_and_fx(pool: PgPool) {
+    use bigdecimal::BigDecimal;
+    use networth_application::ports::{FxRepository, InvestmentRepository, PriceRepository};
+    use networth_domain::{NewLot, NewSecurity, PriceSource, Quantity, Sector, SecurityAssetClass};
+    use std::str::FromStr;
+    use time::OffsetDateTime;
+
+    let repo = PostgresAccountRepository::new(pool);
+    let account = repo
+        .insert_account(&account("Brokerage", AccountType::TaxableBrokerage))
+        .await
+        .unwrap();
+
+    let security = repo
+        .create_security(&NewSecurity {
+            symbol: "VTI".to_string(),
+            name: "Total Market".to_string(),
+            asset_class: SecurityAssetClass::Equity,
+            sector: Some(Sector::Other),
+            currency: Currency::usd(),
+        })
+        .await
+        .unwrap();
+
+    let holding = repo
+        .upsert_holding(
+            account.id,
+            security.id,
+            &[NewLot {
+                acquired_on: date!(2026 - 01 - 01),
+                quantity: Quantity::parse("10").unwrap(),
+                cost_basis: Money::parse("1000.00", "USD").unwrap(),
+            }],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(holding.quantity().to_string(), "10");
+    assert_eq!(holding.cost_basis().amount_string(), "1000.00");
+    assert_eq!(repo.list_holdings(account.id).await.unwrap().len(), 1);
+    assert_eq!(repo.list_all_holdings().await.unwrap().len(), 1);
+
+    repo.insert_price(
+        "VTI",
+        &Money::parse("150.00", "USD").unwrap(),
+        OffsetDateTime::now_utc(),
+        PriceSource::Manual,
+    )
+    .await
+    .unwrap();
+
+    let price = repo.latest_price("vti").await.unwrap().expect("price");
+    assert_eq!(price.price.amount_string(), "150.00");
+    assert_eq!(price.source, PriceSource::Manual);
+
+    let eur = Currency::new("EUR").unwrap();
+    repo.insert_rate(
+        &Currency::usd(),
+        &eur,
+        &BigDecimal::from_str("0.92").unwrap(),
+        OffsetDateTime::now_utc(),
+    )
+    .await
+    .unwrap();
+
+    let rate = repo
+        .latest_rate(&Currency::usd(), &eur)
+        .await
+        .unwrap()
+        .expect("rate");
+    assert_eq!(rate.rate, BigDecimal::from_str("0.92").unwrap());
+}

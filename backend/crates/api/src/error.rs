@@ -127,3 +127,52 @@ impl From<networth_application::BackupError> for ApiError {
         }
     }
 }
+
+impl From<networth_application::InvestmentError> for ApiError {
+    fn from(error: networth_application::InvestmentError) -> Self {
+        use networth_application::{InvestmentError, PriceError};
+        match error {
+            InvestmentError::Validation(message) => ApiError::BadRequest(message),
+            InvestmentError::NotFound(message) => ApiError::NotFound(message),
+            InvestmentError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            InvestmentError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+            InvestmentError::Price(PriceError::Provider(message)) => ApiError::Internal(message),
+            InvestmentError::Price(PriceError::Repository(RepositoryError::Conflict(message))) => {
+                ApiError::Conflict(message)
+            }
+            InvestmentError::Price(PriceError::Repository(RepositoryError::Storage(message))) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}
+
+impl From<networth_application::PriceError> for ApiError {
+    fn from(error: networth_application::PriceError) -> Self {
+        use networth_application::PriceError;
+        match error {
+            PriceError::Provider(message) => ApiError::Internal(message),
+            PriceError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            PriceError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}
+
+impl From<networth_application::FxError> for ApiError {
+    fn from(error: networth_application::FxError) -> Self {
+        use networth_application::FxError;
+        match error {
+            FxError::Validation(message) => ApiError::BadRequest(message),
+            FxError::Repository(RepositoryError::Conflict(message)) => ApiError::Conflict(message),
+            FxError::Repository(RepositoryError::Storage(message)) => ApiError::Internal(message),
+        }
+    }
+}

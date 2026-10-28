@@ -5,12 +5,13 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_application::ports::{
-    AccountRepository, IdentityRepository, NetWorthRepository, RepositoryError, UserWithHash,
+    AccountRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
+    PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, AggregationScope, Balance, BalanceSource, Currency, Money, NewAccount, NewBalance,
-    NewSnapshot, NewUser, OwnershipScope, RedemptionPolicy, Snapshot, SnapshotFilter, User,
-    UserRole,
+    Account, AggregationScope, Balance, BalanceSource, Currency, Holding, Lot, Money, NewAccount,
+    NewBalance, NewLot, NewSecurity, NewSnapshot, NewUser, OwnershipScope, PriceSource,
+    RedemptionPolicy, Security, Snapshot, SnapshotFilter, User, UserRole,
 };
 use sqlx::PgPool;
 use time::{Date, OffsetDateTime};
@@ -579,5 +580,400 @@ impl IdentityRepository for PostgresAccountRepository {
             .await
             .map_err(map_sqlx_error)?;
         Ok(())
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct SecurityRow {
+    id: Uuid,
+    symbol: String,
+    name: String,
+    asset_class: String,
+    sector: Option<String>,
+    currency: String,
+}
+
+impl TryFrom<SecurityRow> for Security {
+    type Error = RepositoryError;
+
+    fn try_from(row: SecurityRow) -> Result<Self, Self::Error> {
+        Ok(Security {
+            id: row.id,
+            symbol: row.symbol,
+            name: row.name,
+            asset_class: row.asset_class.parse().map_err(
+                |e: networth_domain::investments::SecurityAssetClassParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            sector: row
+                .sector
+                .as_deref()
+                .map(|value| value.parse())
+                .transpose()
+                .map_err(|e: networth_domain::investments::SectorParseError| {
+                    RepositoryError::Storage(e.to_string())
+                })?,
+            currency: Currency::new(row.currency)
+                .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+        })
+    }
+}
+
+const SECURITY_COLUMNS: &str = "id, symbol, name, asset_class, sector, currency";
+const HOLDING_COLUMNS: &str = "h.id, h.account_id, s.id AS security_id, s.symbol, s.name, \
+    s.asset_class, s.sector, s.currency";
+
+#[derive(sqlx::FromRow)]
+struct HoldingRow {
+    id: Uuid,
+    account_id: Uuid,
+    security_id: Uuid,
+    symbol: String,
+    name: String,
+    asset_class: String,
+    sector: Option<String>,
+    currency: String,
+}
+
+impl TryFrom<HoldingRow> for (Holding, Uuid) {
+    type Error = RepositoryError;
+
+    fn try_from(row: HoldingRow) -> Result<Self, Self::Error> {
+        let security = Security {
+            id: row.security_id,
+            symbol: row.symbol,
+            name: row.name,
+            asset_class: row.asset_class.parse().map_err(
+                |e: networth_domain::investments::SecurityAssetClassParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            sector: row
+                .sector
+                .as_deref()
+                .map(|value| value.parse())
+                .transpose()
+                .map_err(|e: networth_domain::investments::SectorParseError| {
+                    RepositoryError::Storage(e.to_string())
+                })?,
+            currency: Currency::new(row.currency)
+                .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+        };
+
+        Ok((
+            Holding {
+                id: row.id,
+                account_id: row.account_id,
+                security,
+                lots: Vec::new(),
+            },
+            row.security_id,
+        ))
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct LotRow {
+    id: Uuid,
+    acquired_on: Date,
+    quantity: String,
+    cost_basis: String,
+    currency: String,
+}
+
+impl TryFrom<LotRow> for Lot {
+    type Error = RepositoryError;
+
+    fn try_from(row: LotRow) -> Result<Self, Self::Error> {
+        Ok(Lot {
+            id: row.id,
+            acquired_on: row.acquired_on,
+            quantity: networth_domain::Quantity::new(parse_decimal(&row.quantity)?)
+                .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            cost_basis: Money::new(
+                parse_decimal(&row.cost_basis)?,
+                Currency::new(row.currency).map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            ),
+        })
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct StoredPriceRow {
+    price: String,
+    currency: String,
+    as_of: OffsetDateTime,
+    source: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct StoredRateRow {
+    rate: String,
+    as_of: OffsetDateTime,
+}
+
+async fn load_lots(pool: &PgPool, holding_id: Uuid) -> Result<Vec<Lot>, RepositoryError> {
+    let rows: Vec<LotRow> = sqlx::query_as(
+        "SELECT id, acquired_on, quantity::text AS quantity, \
+                cost_basis::text AS cost_basis, currency \
+         FROM holding_lots WHERE holding_id = $1 ORDER BY acquired_on, id",
+    )
+    .bind(holding_id)
+    .fetch_all(pool)
+    .await
+    .map_err(map_sqlx_error)?;
+
+    rows.into_iter().map(TryInto::try_into).collect()
+}
+
+#[async_trait]
+impl InvestmentRepository for PostgresAccountRepository {
+    async fn create_security(&self, new: &NewSecurity) -> Result<Security, RepositoryError> {
+        let sql = format!(
+            "INSERT INTO securities (symbol, name, asset_class, sector, currency) \
+             VALUES ($1, $2, $3, $4, $5) RETURNING {SECURITY_COLUMNS}"
+        );
+        let row: SecurityRow = sqlx::query_as(&sql)
+            .bind(&new.symbol)
+            .bind(&new.name)
+            .bind(new.asset_class.as_str())
+            .bind(new.sector.map(|sector| sector.as_str()))
+            .bind(new.currency.as_str())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        row.try_into()
+    }
+
+    async fn find_security_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<Option<Security>, RepositoryError> {
+        let sql =
+            format!("SELECT {SECURITY_COLUMNS} FROM securities WHERE upper(symbol) = upper($1)");
+        let row: Option<SecurityRow> = sqlx::query_as(&sql)
+            .bind(symbol)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        row.map(TryInto::try_into).transpose()
+    }
+
+    async fn list_securities(&self) -> Result<Vec<Security>, RepositoryError> {
+        let sql = format!("SELECT {SECURITY_COLUMNS} FROM securities ORDER BY symbol");
+        let rows: Vec<SecurityRow> = sqlx::query_as(&sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn upsert_holding(
+        &self,
+        account_id: Uuid,
+        security_id: Uuid,
+        lots: &[NewLot],
+    ) -> Result<Holding, RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
+
+        let (holding_id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO holdings (account_id, security_id) VALUES ($1, $2) \
+             ON CONFLICT (account_id, security_id) \
+             DO UPDATE SET account_id = EXCLUDED.account_id RETURNING id",
+        )
+        .bind(account_id)
+        .bind(security_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        sqlx::query("DELETE FROM holding_lots WHERE holding_id = $1")
+            .bind(holding_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        for lot in lots {
+            sqlx::query(
+                "INSERT INTO holding_lots (holding_id, acquired_on, quantity, cost_basis, currency) \
+                 VALUES ($1, $2, CAST($3 AS numeric), CAST($4 AS numeric), $5)",
+            )
+            .bind(holding_id)
+            .bind(lot.acquired_on)
+            .bind(lot.quantity.to_string())
+            .bind(lot.cost_basis.amount_string())
+            .bind(lot.cost_basis.currency().as_str())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        }
+
+        tx.commit().await.map_err(map_sqlx_error)?;
+
+        let sql = format!(
+            "SELECT {HOLDING_COLUMNS} FROM holdings h \
+             JOIN securities s ON s.id = h.security_id WHERE h.id = $1"
+        );
+        let row: HoldingRow = sqlx::query_as(&sql)
+            .bind(holding_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        let (mut holding, _) = row.try_into()?;
+        holding.lots = load_lots(&self.pool, holding.id).await?;
+        Ok(holding)
+    }
+
+    async fn list_holdings(&self, account_id: Uuid) -> Result<Vec<Holding>, RepositoryError> {
+        let sql = format!(
+            "SELECT {HOLDING_COLUMNS} FROM holdings h \
+             JOIN securities s ON s.id = h.security_id \
+             WHERE h.account_id = $1 ORDER BY s.symbol"
+        );
+        let rows: Vec<HoldingRow> = sqlx::query_as(&sql)
+            .bind(account_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        let mut holdings = Vec::with_capacity(rows.len());
+        for row in rows {
+            let (mut holding, _) = row.try_into()?;
+            holding.lots = load_lots(&self.pool, holding.id).await?;
+            holdings.push(holding);
+        }
+        Ok(holdings)
+    }
+
+    async fn list_all_holdings(&self) -> Result<Vec<Holding>, RepositoryError> {
+        let sql = format!(
+            "SELECT {HOLDING_COLUMNS} FROM holdings h \
+             JOIN securities s ON s.id = h.security_id ORDER BY s.symbol"
+        );
+        let rows: Vec<HoldingRow> = sqlx::query_as(&sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        let mut holdings = Vec::with_capacity(rows.len());
+        for row in rows {
+            let (mut holding, _) = row.try_into()?;
+            holding.lots = load_lots(&self.pool, holding.id).await?;
+            holdings.push(holding);
+        }
+        Ok(holdings)
+    }
+
+    async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError> {
+        let result = sqlx::query("DELETE FROM holdings WHERE id = $1")
+            .bind(holding_id)
+            .execute(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        Ok(result.rows_affected() > 0)
+    }
+}
+
+#[async_trait]
+impl PriceRepository for PostgresAccountRepository {
+    async fn insert_price(
+        &self,
+        symbol: &str,
+        price: &Money,
+        as_of: OffsetDateTime,
+        source: PriceSource,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO security_prices (symbol, price, currency, as_of, source) \
+             VALUES ($1, CAST($2 AS numeric), $3, $4, $5)",
+        )
+        .bind(symbol)
+        .bind(price.amount_string())
+        .bind(price.currency().as_str())
+        .bind(as_of)
+        .bind(source.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn latest_price(&self, symbol: &str) -> Result<Option<StoredPrice>, RepositoryError> {
+        let row: Option<StoredPriceRow> = sqlx::query_as(
+            "SELECT price::text AS price, currency, as_of, source \
+             FROM security_prices WHERE upper(symbol) = upper($1) \
+             ORDER BY as_of DESC LIMIT 1",
+        )
+        .bind(symbol)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        row.map(|row| {
+            Ok(StoredPrice {
+                price: Money::new(
+                    parse_decimal(&row.price)?,
+                    Currency::new(row.currency)
+                        .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                ),
+                as_of: row.as_of,
+                source: row.source.parse().map_err(
+                    |e: networth_domain::investments::PriceSourceParseError| {
+                        RepositoryError::Storage(e.to_string())
+                    },
+                )?,
+            })
+        })
+        .transpose()
+    }
+}
+
+#[async_trait]
+impl FxRepository for PostgresAccountRepository {
+    async fn insert_rate(
+        &self,
+        base: &Currency,
+        quote: &Currency,
+        rate: &BigDecimal,
+        as_of: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO fx_rates (base_currency, quote_currency, rate, as_of) \
+             VALUES ($1, $2, CAST($3 AS numeric), $4)",
+        )
+        .bind(base.as_str())
+        .bind(quote.as_str())
+        .bind(rate.to_string())
+        .bind(as_of)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn latest_rate(
+        &self,
+        base: &Currency,
+        quote: &Currency,
+    ) -> Result<Option<StoredRate>, RepositoryError> {
+        let row: Option<StoredRateRow> = sqlx::query_as(
+            "SELECT rate::text AS rate, as_of FROM fx_rates \
+             WHERE base_currency = $1 AND quote_currency = $2 \
+             ORDER BY as_of DESC LIMIT 1",
+        )
+        .bind(base.as_str())
+        .bind(quote.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        row.map(|row| {
+            Ok(StoredRate {
+                rate: parse_decimal(&row.rate)?,
+                as_of: row.as_of,
+            })
+        })
+        .transpose()
     }
 }
