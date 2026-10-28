@@ -61,7 +61,7 @@ git clone git@github.com:andresberejnoi/NetworthTracker.git
 cd NetworthTracker
 
 cp .env.example .env
-# edit .env and set a strong POSTGRES_PASSWORD
+# edit .env: set a strong POSTGRES_PASSWORD and BACKUP_PASSPHRASE
 
 docker compose up --build
 ```
@@ -156,7 +156,7 @@ Your data lives in the `db-data` volume. **Never run `docker compose down -v`**
 unless you intend to delete it.
 
 ```bash
-make backup                  # ./backups/networth-<timestamp>.sql.gz
+make backup                  # ./backups/networth-<timestamp>.sql.gz.gpg (encrypted)
 make upgrade                 # backup + rebuild + restart + health check
 make restore FILE=backups/…  # replace the database from a backup
 make destroy                 # wipe the volume (confirmation required)

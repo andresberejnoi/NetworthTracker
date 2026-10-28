@@ -108,8 +108,8 @@ must exist on the target installation.
 For a raw database dump instead:
 
 ```bash
-make backup                                  # → ./backups/networth-<timestamp>.sql.gz
-make restore FILE=backups/networth-....sql.gz
+make backup                                  # → ./backups/networth-<timestamp>.sql.gz.gpg (encrypted)
+make restore FILE=backups/networth-....sql.gz.gpg
 ```
 
 See `docs/upgrades.md` for the upgrade and restore procedure.

@@ -4,7 +4,8 @@
 #
 # This REPLACES the current database. It stops the backend, drops and recreates
 # the database, restores the dump, and starts the backend (which re-runs any
-# pending migrations).
+# pending migrations). Encrypted .gpg dumps are decrypted with
+# BACKUP_PASSPHRASE; legacy plain .sql.gz dumps are still supported.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,8 +13,8 @@ cd "$root"
 
 file="${1:-}"
 if [[ -z "$file" || ! -f "$file" ]]; then
-  echo "Usage: $0 <backup.sql.gz>" >&2
-  echo "Example: $0 backups/networth-20261028T120000Z.sql.gz" >&2
+  echo "Usage: $0 <backup.sql.gz.gpg>" >&2
+  echo "Example: $0 backups/networth-20261028T120000Z.sql.gz.gpg" >&2
   exit 1
 fi
 
@@ -30,6 +31,20 @@ set +a
 POSTGRES_USER="${POSTGRES_USER:-networth}"
 POSTGRES_DB="${POSTGRES_DB:-networth}"
 BACKEND_PORT="${BACKEND_PORT:-8080}"
+BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
+
+encrypted=0
+if [[ "$file" == *.gpg ]]; then
+  encrypted=1
+  if [[ -z "$BACKUP_PASSPHRASE" || "$BACKUP_PASSPHRASE" == "change-me" ]]; then
+    echo "BACKUP_PASSPHRASE is required to restore an encrypted backup." >&2
+    exit 1
+  fi
+  if ! command -v gpg >/dev/null 2>&1; then
+    echo "gpg is required to restore an encrypted backup." >&2
+    exit 1
+  fi
+fi
 
 echo "This will REPLACE database '${POSTGRES_DB}' with:"
 echo "  ${file}"
@@ -49,7 +64,15 @@ docker compose exec -T db psql -U "$POSTGRES_USER" -d postgres \
   -c "CREATE DATABASE \"$POSTGRES_DB\";" >/dev/null
 
 echo "Restoring ..."
-gunzip -c "$file" | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+if [[ "$encrypted" -eq 1 ]]; then
+  gpg --batch --yes --pinentry-mode loopback --decrypt \
+    --passphrase "$BACKUP_PASSPHRASE" "$file" \
+    | gunzip \
+    | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+else
+  gunzip -c "$file" \
+    | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+fi
 
 echo "Starting the backend ..."
 docker compose start backend >/dev/null

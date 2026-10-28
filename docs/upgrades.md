@@ -13,20 +13,44 @@
 
 ```bash
 make backup
-# → backups/networth-<UTC timestamp>.sql.gz
+# → backups/networth-<UTC timestamp>.sql.gz.gpg
 ```
 
-- Uses `pg_dump` inside the `db` container, gzip-compressed and verified.
+- **Encrypted by default** with GPG symmetric AES-256; the passphrase comes from
+  `BACKUP_PASSPHRASE` in `.env`.
+- `pg_dump` runs inside the `db` container; the dump is gzip-compressed, then
+  encrypted. The script decrypts it once to verify the archive before keeping it.
 - Keeps the last **14** backups (`BACKUP_KEEP=30 make backup` to change).
 - Safe to run while the stack is up.
 - `GET /api/v1/backup` also produces a portable JSON backup including snapshot
   history; `pg_dump` is the full database backup.
 
+### Key management
+
+- `BACKUP_PASSPHRASE` is required; the script refuses a missing or placeholder
+  value.
+- **Keep the passphrase out of `./backups`.** Store it in a password manager or
+  on another machine. If you lose it, the encrypted backups are unrecoverable.
+- Rotate the passphrase by taking a new backup with the new passphrase and
+  deleting the old one (or re-encrypting it).
+- Backups contain your full financial history; encryption is the default, not an
+  option.
+
+### Industry standard
+
+Sensitive-data backups are normally **encrypted at rest and in transit**. Plain
+dumps are common only in development or when the storage layer itself encrypts
+(LUKS, cloud KMS/SSE). Common approaches are GPG/age-encrypted logical dumps,
+`pgBackRest`/`WAL-G` with AES-256 for physical backups, or cloud-managed keys.
+Key management is the hard part: keep the key separate from the backup, rotate
+it, and test restores. This project uses GPG AES-256 with a passphrase in
+`.env` as the pragmatic self-hosted default.
+
 ## Upgrade
 
 ```bash
 # get the new code (choose one)
-git fetch --tags && git checkout v0.1.20261027
+git fetch --tags && git checkout v0.1.20261028
 # or: UPGRADE_GIT_PULL=1 make upgrade
 
 make upgrade
@@ -49,12 +73,13 @@ make restore FILE=backups/networth-....sql.gz
 ## Restore
 
 ```bash
-make restore FILE=backups/networth-....sql.gz
+make restore FILE=backups/networth-....sql.gz.gpg
 ```
 
-The script stops the backend, drops and recreates the database, restores the
-dump, starts the backend, and waits for health. The dump includes the migration
-history, so any migrations added since the backup apply on startup.
+The script decrypts the `.gpg` dump with `BACKUP_PASSPHRASE`, stops the backend,
+drops and recreates the database, restores, starts the backend, and waits for
+health. Legacy plain `.sql.gz` dumps are still accepted. The dump includes the
+migration history, so any migrations added since the backup apply on startup.
 
 ## Migration policy
 
@@ -68,6 +93,10 @@ history, so any migrations added since the backup apply on startup.
 - SQLx refuses to start if the database contains migrations the binary does not
   know about, which protects against accidentally running an older image
   against a newer schema.
+- A repository test (`backend/crates/adapters/tests/migrations.rs`) applies all
+  migrations except the latest, seeds accounts/balances/snapshots/users, applies
+  the latest migration, and asserts the rows and exact values survived and the
+  new schema is writable. It runs in `make backend-test-db`.
 - Test a restore after every release.
 
 ## What is not automated yet
@@ -77,7 +106,6 @@ These are planned for the post-tag **robust upgrades** change:
 - a pre-migration backup inside the container entrypoint (today it is in
   `scripts/upgrade.sh`);
 - scheduled backups and retention outside the manual script;
-- encrypted backups;
 - published versioned images (today the stack builds from source);
 - an automated upgrade test matrix (previous release → new release);
 - a documented compatibility policy for breaking schema changes.
