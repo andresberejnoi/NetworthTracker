@@ -43,6 +43,14 @@ db_psql() {
   fi
 }
 
+# Keep the passphrase out of the process argument list; GPG reads it from fd 3
+# while the restore data uses stdin.
+gpg_decrypt() {
+  gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+    --decrypt "$1" \
+    3< <(printf '%s' "$BACKUP_PASSPHRASE")
+}
+
 encrypted=0
 if [[ "$file" == *.gpg ]]; then
   encrypted=1
@@ -58,8 +66,7 @@ fi
 
 echo "Verifying the backup before changing anything ..."
 if [[ "$encrypted" -eq 1 ]]; then
-  if ! gpg --batch --yes --pinentry-mode loopback --decrypt \
-        --passphrase "$BACKUP_PASSPHRASE" "$file" 2>/dev/null | gzip -t; then
+  if ! gpg_decrypt "$file" 2>/dev/null | gzip -t; then
     echo "Cannot decrypt or verify the backup. The database was not changed." >&2
     exit 1
   fi
@@ -93,8 +100,7 @@ db_psql -U "$POSTGRES_USER" -d postgres \
 
 echo "Restoring ..."
 if [[ "$encrypted" -eq 1 ]]; then
-  gpg --batch --yes --pinentry-mode loopback --decrypt \
-    --passphrase "$BACKUP_PASSPHRASE" "$file" \
+  gpg_decrypt "$file" \
     | gunzip \
     | db_psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
 else

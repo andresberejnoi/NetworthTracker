@@ -36,6 +36,20 @@ if ! command -v gpg >/dev/null 2>&1; then
   exit 1
 fi
 
+# Keep the passphrase out of the process argument list; GPG reads it from fd 3
+# while the dump/restore data uses stdin.
+gpg_encrypt() {
+  gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+    --symmetric --cipher-algo AES256 --output "$1" \
+    3< <(printf '%s' "$BACKUP_PASSPHRASE")
+}
+
+gpg_decrypt() {
+  gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+    --decrypt "$1" \
+    3< <(printf '%s' "$BACKUP_PASSPHRASE")
+}
+
 if [[ -n "$DB_CONTAINER" ]]; then
   # Test/advanced mode: target a database container directly instead of the
   # Compose `db` service.
@@ -59,14 +73,10 @@ file="$BACKUP_DIR/networth-${timestamp}.sql.gz.gpg"
 echo "Backing up database '${POSTGRES_DB}' to ${file} (GPG AES-256) ..."
 "${dump[@]}" \
   | gzip \
-  | gpg --batch --yes --pinentry-mode loopback \
-        --symmetric --cipher-algo AES256 \
-        --passphrase "$BACKUP_PASSPHRASE" \
-        --output "$file"
+  | gpg_encrypt "$file"
 
 # Verify by decrypting and testing the gzip stream.
-if ! gpg --batch --yes --pinentry-mode loopback --decrypt \
-      --passphrase "$BACKUP_PASSPHRASE" "$file" 2>/dev/null | gzip -t; then
+if ! gpg_decrypt "$file" 2>/dev/null | gzip -t; then
   echo "Backup verification failed; removing ${file}." >&2
   rm -f "$file"
   exit 1
