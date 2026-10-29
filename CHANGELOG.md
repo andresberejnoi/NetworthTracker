@@ -8,6 +8,38 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261029] - 2026-10-29
+
+### Added
+
+- `make upgrade-test`, an end-to-end test that starts at the previous database
+  schema, seeds fake accounts/balances/snapshots/users, upgrades to the current
+  schema, and verifies the data, exact `NUMERIC` values, new schema, and
+  reported version.
+- The same test verifies encrypted backup/restore, rejects a wrong passphrase,
+  and rejects a corrupt archive without changing the database.
+- A dedicated CI job runs the upgrade/backup/restore test.
+- Upgrade-testing documentation and a roadmap note for a future guided
+  data-migration tool.
+
+### Changed
+
+- Backup and restore scripts accept `DB_CONTAINER` and
+  `RESTORE_SKIP_BACKEND` for isolated test databases.
+- `make upgrade` reports the version that was actually running before the
+  rebuild, instead of the version in the working tree.
+
+### Fixed
+
+- Restore now decrypts and verifies the archive before stopping the backend or
+  dropping the database. A wrong passphrase or corrupt backup leaves existing
+  data untouched.
+
+### Security
+
+- The backup passphrase is passed to GPG through a file descriptor instead of
+  the process argument list.
+
 ## [0.1.20261028] - 2026-10-28
 
 The first tagged release. It covers the accounts, net worth, history, bulk
@@ -49,5 +81,6 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261028...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261029...HEAD
+[0.1.20261029]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261028...v0.1.20261029
 [0.1.20261028]: https://github.com/andresberejnoi/NetworthTracker/releases/tag/v0.1.20261028

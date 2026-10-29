@@ -536,7 +536,7 @@ export interface components {
             message: string;
             /** @example NetworthTracker */
             service: string;
-            /** @example 0.1.20261028 */
+            /** @example 0.1.20261029 */
             version: string;
         };
         ApiError: {

@@ -18,7 +18,12 @@ set -a
 set +a
 
 BACKEND_PORT="${BACKEND_PORT:-8080}"
-old_version="$("$root/scripts/version.sh" 2>/dev/null || echo unknown)"
+old_version="$(curl -s "http://localhost:${BACKEND_PORT}/api/v1/ping" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin).get("version","unknown"))' \
+  2>/dev/null || true)"
+if [[ -z "$old_version" || "$old_version" == "unknown" ]]; then
+  old_version="$("$root/scripts/version.sh" 2>/dev/null || echo unknown)"
+fi
 
 echo "==> Pre-upgrade backup"
 "$root/scripts/backup.sh"

@@ -169,7 +169,7 @@ still planned.
 ## Versioning
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
-The current version is `0.1.20261028`. The authoritative value lives in
+The current version is `0.1.20261029`. The authoritative value lives in
 `backend/Cargo.toml`; `make version` prints it. See `AGENTS.md` and
 [`CHANGELOG.md`](CHANGELOG.md) for the release process and per-release notes.
 

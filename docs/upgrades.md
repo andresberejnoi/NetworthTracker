@@ -50,7 +50,7 @@ it, and test restores. This project uses GPG AES-256 with a passphrase in
 
 ```bash
 # get the new code (choose one)
-git fetch --tags && git checkout v0.1.20261028
+git fetch --tags && git checkout v0.1.20261029
 # or: UPGRADE_GIT_PULL=1 make upgrade
 
 make upgrade
