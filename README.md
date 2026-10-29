@@ -170,7 +170,8 @@ still planned.
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
 The current version is `0.1.20261028`. The authoritative value lives in
-`backend/Cargo.toml`; `make version` prints it. See `AGENTS.md`.
+`backend/Cargo.toml`; `make version` prints it. See `AGENTS.md` and
+[`CHANGELOG.md`](CHANGELOG.md) for the release process and per-release notes.
 
 ## Documentation
 
@@ -182,6 +183,7 @@ The current version is `0.1.20261028`. The authoritative value lives in
 - `docs/bulk-entry.md` — grid, paste, batch saves
 - `docs/dashboard.md` — frontend views
 - `docs/analytics.md` — read-only SQL/Python analysis
+- [`CHANGELOG.md`](CHANGELOG.md) — per-release history
 - `openspec/changes/networth-tracker-v1/` — proposal, specs, design, tasks
 
 ## Roadmap

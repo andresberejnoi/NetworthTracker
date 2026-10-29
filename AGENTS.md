@@ -84,11 +84,21 @@ container images are tagged `v<version>`.
 - Read the authoritative value with `make version`.
 - Do not invent ad-hoc versions; `0.x.yyyymmdd` is the only allowed shape.
 
+### Changelog
+
+- `CHANGELOG.md` records every tagged release using the Keep a Changelog format.
+- Add a dated section named after the version in the same commit that bumps the
+  version, before creating the tag.
+- Use `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`
+  headings as needed; keep `[Unreleased]` at the top.
+- The version, changelog section, and tag must match.
+
 ## Common commands
 
 ```bash
 make help              # list targets
 make test              # backend + frontend tests + secret + boundary checks
+make upgrade-test      # schema upgrade + version + encrypted backup/restore
 make secrets           # scan tracked files for credentials
 make integration-test  # boot the backend, drive it through the frontend client
 make validate          # openspec validate --strict
