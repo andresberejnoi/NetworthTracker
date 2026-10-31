@@ -194,12 +194,12 @@ The current version is `0.1.20261029`. The authoritative value lives in
 
 ## Roadmap
 
-The v1 design also covers investment holdings and sectors, cryptocurrency wallet
-tracking, budgeting, and read-only aggregation adapters. These are specified in
-OpenSpec and land as their own slices; the current release covers the accounts,
-net worth, history, bulk entry, import/export, backups, and family access. A
-guided data-migration tool for importing from other trackers is planned as a
-separate deliverable.
+The v1 design also covers budgeting and read-only aggregation adapters. The
+current release covers accounts, net worth, history, bulk entry, import/export,
+backups, family access, investments and tax lots, and native BTC/ETH crypto
+wallets with manual or address-based tracking. Budgeting, real chain/price
+adapters, and aggregation land as their own slices. A guided data-migration tool
+for importing from other trackers is planned as a separate deliverable.
 
 ## License
 
