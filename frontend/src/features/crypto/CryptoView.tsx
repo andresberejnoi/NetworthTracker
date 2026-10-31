@@ -3,15 +3,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../../auth/AuthContext";
 import {
   createCryptoAsset,
+  createCryptoLot,
+  createCryptoSale,
   createCryptoWallet,
   getChainProvider,
   listCryptoAssets,
+  listCryptoLots,
   listCryptoPositions,
+  listCryptoSales,
   listCryptoWallets,
   recordCryptoBalance,
   setPrice,
   syncCryptoWallet,
   type CryptoWallet,
+  type Lot,
+  type Sale,
 } from "../../api/client";
 import BulkGrid, {
   type GridColumn,
@@ -95,12 +101,26 @@ export default function CryptoView() {
   const [priceSymbol, setPriceSymbol] = useState("");
   const [priceValue, setPriceValue] = useState("");
 
+  const [taxWallet, setTaxWallet] = useState("");
+  const [lotDate, setLotDate] = useState("");
+  const [lotQuantity, setLotQuantity] = useState("");
+  const [lotCost, setLotCost] = useState("");
+  const [lotFees, setLotFees] = useState("");
+  const [lotEstimated, setLotEstimated] = useState(false);
+  const [saleDate, setSaleDate] = useState("");
+  const [saleQuantity, setSaleQuantity] = useState("");
+  const [saleProceeds, setSaleProceeds] = useState("");
+  const [saleFees, setSaleFees] = useState("");
+  const [saleYears, setSaleYears] = useState("1");
+
   const selectedAsset = (assets.data ?? []).find((asset) => asset.id === walletAsset);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["crypto-assets"] });
     queryClient.invalidateQueries({ queryKey: ["crypto-wallets"] });
     queryClient.invalidateQueries({ queryKey: ["crypto-positions"] });
+    queryClient.invalidateQueries({ queryKey: ["crypto-lots"] });
+    queryClient.invalidateQueries({ queryKey: ["crypto-sales"] });
     queryClient.invalidateQueries({ queryKey: ["networth"] });
   };
 
@@ -152,6 +172,55 @@ export default function CryptoView() {
     onSuccess: refresh,
   });
 
+  const lots = useQuery({
+    queryKey: ["crypto-lots", taxWallet],
+    queryFn: () => listCryptoLots(taxWallet),
+    enabled: Boolean(taxWallet),
+  });
+  const sales = useQuery({
+    queryKey: ["crypto-sales", taxWallet, saleYears],
+    queryFn: () =>
+      listCryptoSales(taxWallet, {
+        long_term_years: Number(saleYears) || 1,
+      }),
+    enabled: Boolean(taxWallet),
+  });
+
+  const addLot = useMutation({
+    mutationFn: () =>
+      createCryptoLot(taxWallet, {
+        acquired_on: lotDate,
+        quantity: lotQuantity,
+        cost_basis: lotCost,
+        fees: lotFees || null,
+        basis_quality: lotEstimated ? "estimated" : "actual",
+      }),
+    onSuccess: () => {
+      setLotQuantity("");
+      setLotCost("");
+      setLotFees("");
+      refresh();
+    },
+  });
+
+  const recordSale = useMutation({
+    mutationFn: () =>
+      createCryptoSale(taxWallet, {
+        symbol: "",
+        disposed_on: saleDate,
+        quantity: saleQuantity,
+        gross_proceeds: saleProceeds,
+        fees: saleFees || null,
+        long_term_years: Number(saleYears) || 1,
+      }),
+    onSuccess: () => {
+      setSaleQuantity("");
+      setSaleProceeds("");
+      setSaleFees("");
+      refresh();
+    },
+  });
+
   const savePrice = useMutation({
     mutationFn: () => setPrice({ symbol: priceSymbol, price: priceValue }),
     onSuccess: () => {
@@ -199,6 +268,7 @@ export default function CryptoView() {
     () => new Map((wallets.data ?? []).map((wallet) => [wallet.id, wallet])),
     [wallets.data],
   );
+  const currency = positions.data?.[0]?.currency ?? "USD";
 
   return (
     <section aria-label="crypto">
@@ -530,6 +600,225 @@ export default function CryptoView() {
           <p className="error" role="alert">
             {(savePrice.error as Error).message}
           </p>
+        )}
+      </section>
+
+      <section className="card" aria-label="crypto tax lots">
+        <h2>Crypto tax lots</h2>
+        <p className="muted">
+          Purchase lots are separate from wallet balances. They drive FIFO sales
+          and tax reporting; a balance can exist without lots.
+        </p>
+        <div className="controls">
+          <label>
+            <span>Wallet</span>
+            <select
+              aria-label="crypto tax wallet"
+              value={taxWallet}
+              onChange={(event) => setTaxWallet(event.target.value)}
+            >
+              <option value="">Select …</option>
+              {(wallets.data ?? []).map((wallet) => (
+                <option key={wallet.id} value={wallet.id}>
+                  {wallet.label} · {wallet.symbol}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {taxWallet && (
+          <>
+            <h3>Lots</h3>
+            {lots.data && lots.data.length === 0 && (
+              <p className="muted">No purchase lots yet.</p>
+            )}
+            {lots.data && lots.data.length > 0 && (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Acquired</th>
+                    <th>Remaining</th>
+                    <th>Original</th>
+                    <th>Basis</th>
+                    <th>Source</th>
+                    <th>Quality</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lots.data.map((lot: Lot) => (
+                    <tr key={lot.id}>
+                      <td>{lot.acquired_on}</td>
+                      <td>{lot.quantity}</td>
+                      <td>{lot.original_quantity}</td>
+                      <td>{formatAmount(lot.cost_basis, currency)}</td>
+                      <td>{lot.source}</td>
+                      <td>
+                        {lot.basis_quality}
+                        {lot.basis_quality === "estimated" && (
+                          <span className="badge badge-warn"> estimated</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <h3>Add purchase lot</h3>
+            <form
+              className="row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addLot.mutate();
+              }}
+            >
+              <label>
+                <span>Acquired</span>
+                <input
+                  aria-label="crypto lot date"
+                  placeholder="YYYY-MM-DD"
+                  value={lotDate}
+                  onChange={(event) => setLotDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Quantity</span>
+                <input
+                  aria-label="crypto lot quantity"
+                  value={lotQuantity}
+                  onChange={(event) => setLotQuantity(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Cost basis</span>
+                <input
+                  aria-label="crypto lot cost basis"
+                  value={lotCost}
+                  onChange={(event) => setLotCost(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Fees</span>
+                <input
+                  aria-label="crypto lot fees"
+                  value={lotFees}
+                  onChange={(event) => setLotFees(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Estimated</span>
+                <input
+                  aria-label="crypto lot estimated"
+                  type="checkbox"
+                  checked={lotEstimated}
+                  onChange={(event) => setLotEstimated(event.target.checked)}
+                />
+              </label>
+              <button type="submit" disabled={!canWrite || addLot.isPending}>
+                Add lot
+              </button>
+            </form>
+            {addLot.isError && (
+              <p className="error" role="alert">
+                {(addLot.error as Error).message}
+              </p>
+            )}
+
+            <h3>Record sale</h3>
+            <form
+              className="row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                recordSale.mutate();
+              }}
+            >
+              <label>
+                <span>Disposed</span>
+                <input
+                  aria-label="crypto sale date"
+                  placeholder="YYYY-MM-DD"
+                  value={saleDate}
+                  onChange={(event) => setSaleDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Quantity</span>
+                <input
+                  aria-label="crypto sale quantity"
+                  value={saleQuantity}
+                  onChange={(event) => setSaleQuantity(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Proceeds</span>
+                <input
+                  aria-label="crypto sale proceeds"
+                  value={saleProceeds}
+                  onChange={(event) => setSaleProceeds(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Fees</span>
+                <input
+                  aria-label="crypto sale fees"
+                  value={saleFees}
+                  onChange={(event) => setSaleFees(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Long-term years</span>
+                <input
+                  aria-label="crypto sale long-term years"
+                  value={saleYears}
+                  onChange={(event) => setSaleYears(event.target.value)}
+                />
+              </label>
+              <button type="submit" disabled={!canWrite || recordSale.isPending}>
+                Record sale
+              </button>
+            </form>
+            {recordSale.isError && (
+              <p className="error" role="alert">
+                {(recordSale.error as Error).message}
+              </p>
+            )}
+
+            <h3>Realized gains</h3>
+            {sales.data && sales.data.length === 0 && (
+              <p className="muted">No crypto sales recorded yet.</p>
+            )}
+            {sales.data && sales.data.length > 0 && (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Disposed</th>
+                    <th>Acquired</th>
+                    <th>Quantity</th>
+                    <th>Proceeds</th>
+                    <th>Basis</th>
+                    <th>Gain</th>
+                    <th>Term</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sales.data.flatMap((sale: Sale) =>
+                    sale.disposals.map((disposal) => (
+                      <tr key={disposal.id}>
+                        <td>{sale.disposed_on}</td>
+                        <td>{disposal.acquired_on}</td>
+                        <td>{disposal.quantity}</td>
+                        <td>{formatAmount(disposal.net_proceeds, currency)}</td>
+                        <td>{formatAmount(disposal.cost_basis, currency)}</td>
+                        <td>{formatAmount(disposal.realized_gain, currency)}</td>
+                        <td>{disposal.term}</td>
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </section>
 

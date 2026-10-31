@@ -58,6 +58,25 @@ function stubApi() {
     if (url.includes("/api/v1/crypto/assets")) {
       return jsonResponse(init?.method === "POST" ? asset : [asset]);
     }
+    if (url.includes("/lots")) {
+      return jsonResponse([
+        {
+          id: "99999999-9999-9999-9999-999999999999",
+          acquired_on: "2026-01-01",
+          quantity: "0.003",
+          original_quantity: "0.003",
+          cost_basis: "210.00",
+          original_cost_basis: "210.00",
+          fees: "0.00",
+          source: "purchase",
+          basis_quality: "actual",
+          basis_note: null,
+        },
+      ]);
+    }
+    if (url.includes("/sales")) {
+      return jsonResponse([]);
+    }
     if (url.includes("/api/v1/crypto/wallets")) {
       return jsonResponse(init?.method === "POST" ? wallet : [wallet]);
     }
@@ -107,8 +126,8 @@ describe("CryptoView", () => {
     renderView();
 
     await screen.findByText("Coinbase");
-    expect(screen.getByText("0.003")).toBeInTheDocument();
-    expect(screen.getByText("210.00 USD")).toBeInTheDocument();
+    expect(screen.getAllByText("0.003").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("210.00 USD").length).toBeGreaterThan(0);
     expect(screen.getByText("manual balances only")).toBeInTheDocument();
     expect(screen.getAllByText("BTC").length).toBeGreaterThan(0);
   });
@@ -160,4 +179,18 @@ describe("CryptoView", () => {
     expect(screen.getByRole("button", { name: "Add asset" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Add wallet" })).toBeDisabled();
   });
+  it("shows crypto tax lots for a selected wallet", async () => {
+    stubApi();
+    renderView();
+
+    await screen.findByText("Coinbase");
+    await userEvent.selectOptions(
+      screen.getByLabelText("crypto tax wallet"),
+      wallet.id,
+    );
+    await screen.findByText("Crypto tax lots");
+    expect(screen.getAllByText("0.003").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("210.00 USD").length).toBeGreaterThan(0);
+  });
+
 });

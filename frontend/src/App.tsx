@@ -13,6 +13,8 @@ import {
 import { AuthProvider } from "./auth/AuthContext";
 import AccountsView from "./features/accounts/AccountsView";
 import AuthScreen from "./features/auth/AuthScreen";
+import AggregationView from "./features/aggregation/AggregationView";
+import BudgetView from "./features/budget/BudgetView";
 import BulkEntryView from "./features/bulk-entry/BulkEntryView";
 import CryptoView from "./features/crypto/CryptoView";
 import DataView from "./features/data/DataView";
@@ -28,6 +30,8 @@ type View =
   | "data"
   | "investments"
   | "crypto"
+  | "budget"
+  | "aggregation"
   | "users";
 
 export default function App() {
@@ -209,6 +213,22 @@ export default function App() {
             >
               Crypto
             </button>
+            <button
+              type="button"
+              aria-pressed={view === "budget"}
+              onClick={() => setView("budget")}
+            >
+              Budget
+            </button>
+            {user.role === "owner" && (
+              <button
+                type="button"
+                aria-pressed={view === "aggregation"}
+                onClick={() => setView("aggregation")}
+              >
+                Aggregation
+              </button>
+            )}
             {user.role === "owner" && (
               <button
                 type="button"
@@ -233,6 +253,10 @@ export default function App() {
           <HoldingsView />
         ) : view === "crypto" ? (
           <CryptoView />
+        ) : view === "budget" ? (
+          <BudgetView />
+        ) : view === "aggregation" ? (
+          <AggregationView />
         ) : view === "users" ? (
           <UsersView />
         ) : (
