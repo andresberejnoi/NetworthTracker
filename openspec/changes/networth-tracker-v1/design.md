@@ -306,6 +306,51 @@ number conveys less about freshness); CalVer `2026.10.17` (rejected: drops the
 compatibility signal and reads oddly as a three-part number); build metadata `0.1.0+20261017`
 (rejected: not reliably carried into container tags and registries).
 
+### D16. Shared append-only tax-lot ledger
+
+**Decision:** Securities and cryptocurrency share a tax-lot ledger. A lot records
+the original acquisition date, quantity, and total cost basis, plus remaining
+quantity/basis, fees, source, and a `basis_quality` marker (`actual` or
+`estimated`). Adding lots appends; it never replaces prior lots. A sale creates
+a sale header plus one disposal row per consumed lot, with allocated gross
+proceeds, fees, and cost basis. FIFO is the only implemented method in v1; the
+sale records `method = fifo` so future LIFO/specific-identification support does
+not require rewriting history. Transfers move lot slices between wallets or
+accounts while preserving the acquisition date and proportional basis.
+
+**Rationale:** Tax history is irreplaceable. The previous holdings code deleted
+and re-inserted `holding_lots` on every edit, which is acceptable for a simple
+position view but unacceptable for tax preparation. Append-only lots plus
+disposals make every realized gain reproducible, support both securities and
+crypto, and let the UI show remaining lots without a parallel valuation path.
+The `basis_quality` tag distinguishes actual from estimated basis without
+changing calculations.
+
+**Alternatives considered:** Keeping lots inside each holding and deleting on
+replacement (rejected: destroys tax history); separate crypto and securities lot
+engines (rejected: duplicate FIFO/reporting logic and inconsistent behavior); a
+full event-sourced ledger (deferred: more machinery than a personal tracker
+needs).
+
+### D17. Holding-period rules are derived, not stored
+
+**Decision:** The database stores acquisition and disposal dates only. The
+backend computes holding-period days and short/long-term status from a
+caller-supplied `LongTermRule` (`MoreThanYears(n)` or `MoreThanDays(n)`). A
+region-to-rule mapping lives outside the database (config/intermediary), and the
+API accepts the rule or a cutoff date. Reports include the derived fields and
+the rule used; they do not persist `short_term`/`long_term` per lot.
+
+**Rationale:** Tax jurisdictions and rules change, and leap days depend on the
+specific acquisition/disposal interval, so a fixed day count or a stored label
+would be wrong for some dates. Dates are facts; term is a calculation. Keeping
+the rule outside the schema avoids baking one jurisdiction into the data.
+
+**Alternatives considered:** Storing `long_term`/`short_term` per disposal
+(rejected: stale, jurisdiction-specific, and redundant); a hard-coded 365-day
+rule (rejected: leap-year edge cases and future jurisdictions); storing the
+holding-period days (rejected: also derivable from dates).
+
 ## Risks / Trade-offs
 
 - **Accessible net worth is inherently approximate, and tax estimation multiplies the assumptions** →

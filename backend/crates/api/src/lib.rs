@@ -187,6 +187,10 @@ pub fn app(state: AppState) -> Router {
             get(investments::list_holdings).post(investments::create_holding),
         )
         .route(
+            "/api/v1/accounts/{id}/sales",
+            get(investments::list_sales).post(investments::create_sale),
+        )
+        .route(
             "/api/v1/accounts/{id}/holdings/batch",
             post(investments::record_holdings_batch),
         )

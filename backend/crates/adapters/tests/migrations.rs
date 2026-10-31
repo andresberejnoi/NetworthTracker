@@ -103,6 +103,34 @@ async fn applying_a_new_migration_preserves_existing_data() {
     .await
     .expect("insert user");
 
+    // Seed a pre-tax-ledger holding lot so the migration itself is exercised.
+    let (security_id,): (Uuid,) = sqlx::query_as(
+        "INSERT INTO securities (symbol, name, asset_class, currency) \
+         VALUES ('VTI', 'Total Market', 'equity', 'USD') RETURNING id",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("insert baseline security");
+
+    let (holding_id,): (Uuid,) = sqlx::query_as(
+        "INSERT INTO holdings (account_id, security_id) VALUES ($1, $2) RETURNING id",
+    )
+    .bind(account_id)
+    .bind(security_id)
+    .fetch_one(&pool)
+    .await
+    .expect("insert baseline holding");
+
+    sqlx::query(
+        "INSERT INTO holding_lots \
+         (holding_id, acquired_on, quantity, cost_basis, currency) \
+         VALUES ($1, DATE '2026-01-01', 10, 1000.00, 'USD')",
+    )
+    .bind(holding_id)
+    .execute(&pool)
+    .await
+    .expect("insert baseline holding lot");
+
     // Apply the remaining migrations (the "new version").
     Migrator::new(migrations_dir)
         .await
@@ -136,10 +164,31 @@ async fn applying_a_new_migration_preserves_existing_data() {
         .expect("count users");
     assert_eq!(users.0, 1);
 
+    // The migrated lot keeps its original and remaining quantities/basis.
+    let lots: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tax_lots")
+        .fetch_one(&pool)
+        .await
+        .expect("count tax lots");
+    assert_eq!(lots.0, 1);
+
+    let lot: (String, String, String, String, String) = sqlx::query_as(
+        "SELECT original_quantity::text, remaining_quantity::text, \
+                original_cost_basis::text, remaining_cost_basis::text, source \
+         FROM tax_lots",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("read migrated lot");
+    assert_eq!(lot.0, "10");
+    assert_eq!(lot.1, "10");
+    assert_eq!(lot.2, "1000.00");
+    assert_eq!(lot.3, "1000.00");
+    assert_eq!(lot.4, "import");
+
     // The new schema exists and is writable.
     sqlx::query(
         "INSERT INTO securities (symbol, name, asset_class, currency) \
-         VALUES ('VTI', 'Total Market', 'equity', 'USD')",
+         VALUES ('VOO', 'S&P 500', 'equity', 'USD')",
     )
     .execute(&pool)
     .await
@@ -149,7 +198,7 @@ async fn applying_a_new_migration_preserves_existing_data() {
         .fetch_one(&pool)
         .await
         .expect("count securities");
-    assert_eq!(securities.0, 1);
+    assert_eq!(securities.0, 2);
 
     pool.close().await;
     sqlx::query(&format!("DROP DATABASE \"{db_name}\" WITH (FORCE)"))

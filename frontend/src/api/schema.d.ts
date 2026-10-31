@@ -224,7 +224,7 @@ export interface paths {
         /** List an account's holdings with valuation */
         get: operations["listHoldings"];
         put?: never;
-        /** Create or replace a holding and its lots */
+        /** Append purchase lots to a holding */
         post: operations["createHolding"];
         delete?: never;
         options?: never;
@@ -243,7 +243,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Save a grid of holding lots in one action */
+        /** Append a grid of purchase lots in one action */
         post: operations["recordHoldingsBatch"];
         delete?: never;
         options?: never;
@@ -266,6 +266,26 @@ export interface paths {
         post?: never;
         /** Delete a holding */
         delete: operations["deleteHolding"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{id}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        /** List recorded sales with FIFO disposals and realized gains */
+        get: operations["listSales"];
+        put?: never;
+        /** Record a sale and consume lots FIFO */
+        post: operations["createSale"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -650,7 +670,15 @@ export interface components {
             /** Format: date */
             acquired_on: string;
             quantity: string;
+            original_quantity: string;
             cost_basis: string;
+            original_cost_basis: string;
+            fees: string;
+            /** @enum {string} */
+            source: "purchase" | "income" | "transfer" | "import" | "adjustment";
+            /** @enum {string} */
+            basis_quality: "actual" | "estimated";
+            basis_note: string | null;
         };
         Holding: {
             /** Format: uuid */
@@ -678,6 +706,12 @@ export interface components {
             quantity: string;
             cost_basis: string;
             currency?: string | null;
+            fees?: string | null;
+            /** @enum {string|null} */
+            source?: "purchase" | "income" | "transfer" | "import" | "adjustment" | null;
+            /** @enum {string|null} */
+            basis_quality?: "actual" | "estimated" | null;
+            basis_note?: string | null;
         };
         CreateHoldingRequest: {
             symbol: string;
@@ -689,6 +723,12 @@ export interface components {
             acquired_on: string;
             quantity: string;
             cost_basis: string;
+            fees?: string | null;
+            /** @enum {string|null} */
+            source?: "purchase" | "income" | "transfer" | "import" | "adjustment" | null;
+            /** @enum {string|null} */
+            basis_quality?: "actual" | "estimated" | null;
+            basis_note?: string | null;
         };
         HoldingBatchRequest: {
             rows: components["schemas"]["HoldingBatchRow"][];
@@ -700,6 +740,58 @@ export interface components {
         HoldingBatchResult: {
             saved: number;
             errors: components["schemas"]["HoldingRowError"][];
+        };
+        Disposal: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            lot_id: string;
+            /** Format: date */
+            acquired_on: string;
+            quantity: string;
+            gross_proceeds: string;
+            fees: string;
+            net_proceeds: string;
+            cost_basis: string;
+            realized_gain: string;
+            holding_period_days: number;
+            /** @enum {string} */
+            term: "short" | "long";
+            /** @enum {string} */
+            basis_quality: "actual" | "estimated";
+        };
+        Sale: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            account_id: string;
+            /** Format: uuid */
+            holding_id: string;
+            symbol: string;
+            name: string;
+            /** Format: date */
+            disposed_on: string;
+            quantity: string;
+            gross_proceeds: string;
+            fees: string;
+            net_proceeds: string;
+            cost_basis: string;
+            realized_gain: string;
+            currency: string;
+            /** @enum {string} */
+            method: "fifo";
+            disposals: components["schemas"]["Disposal"][];
+        };
+        SaleRequest: {
+            symbol: string;
+            /** Format: date */
+            disposed_on: string;
+            quantity: string;
+            gross_proceeds: string;
+            fees?: string | null;
+            currency?: string | null;
+            long_term_years?: number | null;
+            long_term_days?: number | null;
         };
         Price: {
             symbol: string;
@@ -1342,6 +1434,61 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    listSales: {
+        parameters: {
+            query?: {
+                long_term_years?: number;
+                long_term_days?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sales, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sale"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createSale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaleRequest"];
+            };
+        };
+        responses: {
+            /** @description The recorded sale and its disposals. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sale"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getPriceProvider: {

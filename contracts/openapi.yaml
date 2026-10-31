@@ -290,7 +290,7 @@ paths:
     post:
       tags: [investments]
       operationId: createHolding
-      summary: Create or replace a holding and its lots
+      summary: Append purchase lots to a holding
       requestBody:
         required: true
         content:
@@ -314,7 +314,7 @@ paths:
     post:
       tags: [investments]
       operationId: recordHoldingsBatch
-      summary: Save a grid of holding lots in one action
+      summary: Append a grid of purchase lots in one action
       requestBody:
         required: true
         content:
@@ -350,6 +350,61 @@ paths:
           description: Deleted.
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{id}/sales:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [investments]
+      operationId: listSales
+      summary: List recorded sales with FIFO disposals and realized gains
+      parameters:
+        - name: long_term_years
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 1
+        - name: long_term_days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "200":
+          description: Sales, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sale"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [investments]
+      operationId: createSale
+      summary: Record a sale and consume lots FIFO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaleRequest"
+      responses:
+        "201":
+          description: The recorded sale and its disposals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/prices/provider:
     get:
       tags: [investments]
@@ -1070,7 +1125,17 @@ components:
     Lot:
       type: object
       additionalProperties: false
-      required: [id, acquired_on, quantity, cost_basis]
+      required:
+        - id
+        - acquired_on
+        - quantity
+        - original_quantity
+        - cost_basis
+        - original_cost_basis
+        - fees
+        - source
+        - basis_quality
+        - basis_note
       properties:
         id:
           type: string
@@ -1080,8 +1145,22 @@ components:
           format: date
         quantity:
           type: string
+        original_quantity:
+          type: string
         cost_basis:
           type: string
+        original_cost_basis:
+          type: string
+        fees:
+          type: string
+        source:
+          type: string
+          enum: [purchase, income, transfer, import, adjustment]
+        basis_quality:
+          type: string
+          enum: [actual, estimated]
+        basis_note:
+          type: [string, "null"]
     Holding:
       type: object
       additionalProperties: false
@@ -1155,6 +1234,16 @@ components:
           type: string
         currency:
           type: [string, "null"]
+        fees:
+          type: [string, "null"]
+        source:
+          type: [string, "null"]
+          enum: [purchase, income, transfer, import, adjustment, null]
+        basis_quality:
+          type: [string, "null"]
+          enum: [actual, estimated, null]
+        basis_note:
+          type: [string, "null"]
     CreateHoldingRequest:
       type: object
       additionalProperties: false
@@ -1180,6 +1269,16 @@ components:
           type: string
         cost_basis:
           type: string
+        fees:
+          type: [string, "null"]
+        source:
+          type: [string, "null"]
+          enum: [purchase, income, transfer, import, adjustment, null]
+        basis_quality:
+          type: [string, "null"]
+          enum: [actual, estimated, null]
+        basis_note:
+          type: [string, "null"]
     HoldingBatchRequest:
       type: object
       additionalProperties: false
@@ -1209,6 +1308,133 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HoldingRowError"
+    Disposal:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - lot_id
+        - acquired_on
+        - quantity
+        - gross_proceeds
+        - fees
+        - net_proceeds
+        - cost_basis
+        - realized_gain
+        - holding_period_days
+        - term
+        - basis_quality
+      properties:
+        id:
+          type: string
+          format: uuid
+        lot_id:
+          type: string
+          format: uuid
+        acquired_on:
+          type: string
+          format: date
+        quantity:
+          type: string
+        gross_proceeds:
+          type: string
+        fees:
+          type: string
+        net_proceeds:
+          type: string
+        cost_basis:
+          type: string
+        realized_gain:
+          type: string
+        holding_period_days:
+          type: integer
+        term:
+          type: string
+          enum: [short, long]
+        basis_quality:
+          type: string
+          enum: [actual, estimated]
+    Sale:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - account_id
+        - holding_id
+        - symbol
+        - name
+        - disposed_on
+        - quantity
+        - gross_proceeds
+        - fees
+        - net_proceeds
+        - cost_basis
+        - realized_gain
+        - currency
+        - method
+        - disposals
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        holding_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        name:
+          type: string
+        disposed_on:
+          type: string
+          format: date
+        quantity:
+          type: string
+        gross_proceeds:
+          type: string
+        fees:
+          type: string
+        net_proceeds:
+          type: string
+        cost_basis:
+          type: string
+        realized_gain:
+          type: string
+        currency:
+          type: string
+        method:
+          type: string
+          enum: [fifo]
+        disposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Disposal"
+    SaleRequest:
+      type: object
+      additionalProperties: false
+      required: [symbol, disposed_on, quantity, gross_proceeds]
+      properties:
+        symbol:
+          type: string
+        disposed_on:
+          type: string
+          format: date
+        quantity:
+          type: string
+        gross_proceeds:
+          type: string
+        fees:
+          type: [string, "null"]
+        currency:
+          type: [string, "null"]
+        long_term_years:
+          type: [integer, "null"]
+          minimum: 0
+        long_term_days:
+          type: [integer, "null"]
+          minimum: 0
     Price:
       type: object
       additionalProperties: false

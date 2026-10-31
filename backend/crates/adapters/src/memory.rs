@@ -14,8 +14,9 @@ use networth_application::ports::{
     PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, Balance, Currency, Holding, Lot, Money, NewAccount, NewBalance, NewLot, NewSecurity,
-    NewSnapshot, NewUser, PriceSource, Security, Snapshot, SnapshotFilter, User, UserRole,
+    Account, Balance, Currency, Disposal, DisposalAllocation, Holding, Lot, Money, NewAccount,
+    NewBalance, NewLot, NewSale, NewSecurity, NewSnapshot, NewUser, PriceSource, Sale, Security,
+    Snapshot, SnapshotFilter, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -35,6 +36,8 @@ struct Inner {
     sessions: Vec<SessionEntry>,
     securities: Vec<Security>,
     holdings: Vec<Holding>,
+    sales: Vec<Sale>,
+    next_lot_sequence: i64,
     prices: Vec<PriceRecord>,
     fx_rates: Vec<FxRateRecord>,
 }
@@ -391,7 +394,7 @@ impl InvestmentRepository for InMemoryAccountRepository {
         Ok(securities)
     }
 
-    async fn upsert_holding(
+    async fn append_lots(
         &self,
         account_id: Uuid,
         security_id: Uuid,
@@ -405,36 +408,46 @@ impl InvestmentRepository for InMemoryAccountRepository {
             .cloned()
             .ok_or_else(|| RepositoryError::Storage("security not found".to_string()))?;
 
-        if let Some(existing) = inner
-            .holdings
-            .iter_mut()
-            .find(|holding| holding.account_id == account_id && holding.security.id == security_id)
-        {
-            existing.lots = lots
-                .iter()
-                .map(|lot| Lot {
+        let holding_index = inner.holdings.iter().position(|holding| {
+            holding.account_id == account_id && holding.security.id == security_id
+        });
+
+        let mut sequence = inner.next_lot_sequence;
+        let new_lots: Vec<Lot> = lots
+            .iter()
+            .map(|lot| {
+                let current = sequence;
+                sequence += 1;
+                Lot {
                     id: Uuid::new_v4(),
+                    sequence: current,
                     acquired_on: lot.acquired_on,
-                    quantity: lot.quantity.clone(),
-                    cost_basis: lot.cost_basis.clone(),
-                })
-                .collect();
-            return Ok(existing.clone());
+                    original_quantity: lot.quantity.clone(),
+                    remaining_quantity: lot.quantity.clone(),
+                    original_cost_basis: lot.cost_basis.clone(),
+                    remaining_cost_basis: lot.cost_basis.clone(),
+                    fees: lot
+                        .fees
+                        .clone()
+                        .unwrap_or_else(|| Money::zero(lot.cost_basis.currency().clone())),
+                    source: lot.source,
+                    basis_quality: lot.basis_quality,
+                    basis_note: lot.basis_note.clone(),
+                }
+            })
+            .collect();
+        inner.next_lot_sequence = sequence;
+
+        if let Some(index) = holding_index {
+            inner.holdings[index].lots.extend(new_lots);
+            return Ok(inner.holdings[index].clone());
         }
 
         let holding = Holding {
             id: Uuid::new_v4(),
             account_id,
             security,
-            lots: lots
-                .iter()
-                .map(|lot| Lot {
-                    id: Uuid::new_v4(),
-                    acquired_on: lot.acquired_on,
-                    quantity: lot.quantity.clone(),
-                    cost_basis: lot.cost_basis.clone(),
-                })
-                .collect(),
+            lots: new_lots,
         };
         inner.holdings.push(holding.clone());
         Ok(holding)
@@ -455,8 +468,92 @@ impl InvestmentRepository for InMemoryAccountRepository {
         Ok(inner.holdings.clone())
     }
 
+    async fn record_sale(
+        &self,
+        holding_id: Uuid,
+        sale: &NewSale,
+        allocations: &[DisposalAllocation],
+    ) -> Result<Sale, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let holding_index = inner
+            .holdings
+            .iter()
+            .position(|holding| holding.id == holding_id)
+            .ok_or_else(|| RepositoryError::Storage("holding not found".to_string()))?;
+        let account_id = inner.holdings[holding_index].account_id;
+        let security = inner.holdings[holding_index].security.clone();
+
+        for allocation in allocations {
+            let lot = inner.holdings[holding_index]
+                .lots
+                .iter_mut()
+                .find(|lot| lot.id == allocation.lot_id)
+                .ok_or_else(|| RepositoryError::Storage("lot not found".to_string()))?;
+            lot.remaining_quantity = lot
+                .remaining_quantity
+                .checked_sub(&allocation.quantity)
+                .map_err(|error| RepositoryError::Conflict(error.to_string()))?;
+            lot.remaining_cost_basis = lot
+                .remaining_cost_basis
+                .checked_sub(&allocation.cost_basis)
+                .map_err(|error| RepositoryError::Conflict(error.to_string()))?;
+        }
+
+        let sale_id = Uuid::new_v4();
+        let disposals = allocations
+            .iter()
+            .map(|allocation| Disposal {
+                id: Uuid::new_v4(),
+                lot_id: allocation.lot_id,
+                acquired_on: allocation.acquired_on,
+                quantity: allocation.quantity.clone(),
+                gross_proceeds: allocation.gross_proceeds.clone(),
+                fees: allocation.fees.clone(),
+                cost_basis: allocation.cost_basis.clone(),
+                basis_quality: allocation.basis_quality,
+            })
+            .collect();
+
+        let sale = Sale {
+            id: sale_id,
+            account_id,
+            holding_id,
+            security,
+            disposed_on: sale.disposed_on,
+            quantity: sale.quantity.clone(),
+            gross_proceeds: sale.gross_proceeds.clone(),
+            fees: sale.fees.clone(),
+            currency: sale.currency.clone(),
+            method: sale.method,
+            disposals,
+        };
+        inner.sales.push(sale.clone());
+        Ok(sale)
+    }
+
+    async fn list_sales(&self, account_id: Uuid) -> Result<Vec<Sale>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut sales: Vec<Sale> = inner
+            .sales
+            .iter()
+            .filter(|sale| sale.account_id == account_id)
+            .cloned()
+            .collect();
+        sales.sort_by(|a, b| {
+            b.disposed_on
+                .cmp(&a.disposed_on)
+                .then_with(|| b.id.cmp(&a.id))
+        });
+        Ok(sales)
+    }
+
     async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError> {
         let mut inner = self.inner.lock().expect("lock");
+        if inner.sales.iter().any(|sale| sale.holding_id == holding_id) {
+            return Err(RepositoryError::Conflict(
+                "cannot delete a position with recorded sales".to_string(),
+            ));
+        }
         let before = inner.holdings.len();
         inner.holdings.retain(|holding| holding.id != holding_id);
         Ok(inner.holdings.len() != before)

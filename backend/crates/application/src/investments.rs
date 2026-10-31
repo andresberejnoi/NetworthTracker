@@ -3,7 +3,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use networth_domain::{Currency, Holding, Money, NewLot, NewSecurity, PriceQuote, Security};
+use networth_domain::{
+    allocate_fifo, Currency, Holding, LotError, Money, NewLot, NewSale, NewSecurity, PriceQuote,
+    Sale, SaleMethod, Security,
+};
 use uuid::Uuid;
 
 use crate::market_data::{PriceError, PriceService};
@@ -80,8 +83,8 @@ impl InvestmentsService {
         Ok(self.repo.list_securities().await?)
     }
 
-    /// Create or replace a holding and its lots.
-    pub async fn upsert_holding(
+    /// Append purchase lots to a holding, creating it if needed.
+    pub async fn append_lots(
         &self,
         account_id: Uuid,
         symbol: &str,
@@ -103,6 +106,16 @@ impl InvestmentsService {
             })?;
 
         for lot in &lots {
+            if lot.quantity.is_zero() {
+                return Err(InvestmentError::Validation(
+                    "lot quantity must be positive".to_string(),
+                ));
+            }
+            if lot.cost_basis.is_negative() {
+                return Err(InvestmentError::Validation(
+                    "lot cost basis must not be negative".to_string(),
+                ));
+            }
             if lot.cost_basis.currency() != &security.currency {
                 return Err(InvestmentError::Validation(format!(
                     "lot currency {} does not match security currency {}",
@@ -110,12 +123,87 @@ impl InvestmentsService {
                     security.currency
                 )));
             }
+            if let Some(fees) = &lot.fees {
+                if fees.currency() != &security.currency {
+                    return Err(InvestmentError::Validation(format!(
+                        "fee currency {} does not match security currency {}",
+                        fees.currency(),
+                        security.currency
+                    )));
+                }
+                if fees.is_negative() {
+                    return Err(InvestmentError::Validation(
+                        "lot fees must not be negative".to_string(),
+                    ));
+                }
+            }
         }
 
         Ok(self
             .repo
-            .upsert_holding(account_id, security.id, &lots)
+            .append_lots(account_id, security.id, &lots)
             .await?)
+    }
+
+    /// Record a sale and consume lots FIFO.
+    pub async fn record_sale(
+        &self,
+        account_id: Uuid,
+        symbol: &str,
+        sale: NewSale,
+    ) -> Result<Sale, InvestmentError> {
+        if sale.method != SaleMethod::Fifo {
+            return Err(InvestmentError::Validation(
+                "only FIFO sales are supported".to_string(),
+            ));
+        }
+        if sale.gross_proceeds.is_negative() || sale.fees.is_negative() {
+            return Err(InvestmentError::Validation(
+                "proceeds and fees must not be negative".to_string(),
+            ));
+        }
+
+        let symbol = symbol.trim().to_ascii_uppercase();
+        let security = self
+            .repo
+            .find_security_by_symbol(&symbol)
+            .await?
+            .ok_or_else(|| InvestmentError::NotFound(format!("security '{symbol}' not found")))?;
+
+        if sale.currency != security.currency {
+            return Err(InvestmentError::Validation(format!(
+                "sale currency {} does not match security currency {}",
+                sale.currency, security.currency
+            )));
+        }
+
+        let holdings = self.repo.list_holdings(account_id).await?;
+        let holding = holdings
+            .into_iter()
+            .find(|holding| holding.security.id == security.id)
+            .ok_or_else(|| {
+                InvestmentError::NotFound(format!("no {symbol} holding in account {account_id}"))
+            })?;
+
+        let allocations = allocate_fifo(&holding.lots, &sale).map_err(|error| match error {
+            LotError::InsufficientQuantity {
+                requested,
+                available,
+            } => InvestmentError::Validation(format!(
+                "cannot sell {requested}: only {available} available"
+            )),
+            other => InvestmentError::Validation(other.to_string()),
+        })?;
+
+        Ok(self
+            .repo
+            .record_sale(holding.id, &sale, &allocations)
+            .await?)
+    }
+
+    /// List recorded sales for an account, newest first.
+    pub async fn list_sales(&self, account_id: Uuid) -> Result<Vec<Sale>, InvestmentError> {
+        Ok(self.repo.list_sales(account_id).await?)
     }
 
     /// List holdings for an account with current valuations.

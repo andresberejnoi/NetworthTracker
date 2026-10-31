@@ -26,8 +26,9 @@ pub use accounts::{
 pub use currency::Currency;
 pub use identity::{NewUser, User, UserRole};
 pub use investments::{
-    Holding, Lot, NewLot, NewSecurity, PriceQuote, PriceSource, Sector, Security,
-    SecurityAssetClass,
+    allocate_fifo, BasisQuality, Disposal, DisposalAllocation, Holding, HoldingTerm, LongTermRule,
+    Lot, LotError, LotSource, NewLot, NewSale, NewSecurity, PriceQuote, PriceSource, Sale,
+    SaleMethod, Sector, Security, SecurityAssetClass,
 };
 pub use money::{Money, MoneyError};
 pub use networth::{

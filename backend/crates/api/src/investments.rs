@@ -11,7 +11,8 @@ use axum::{
 use bigdecimal::BigDecimal;
 use networth_application::HoldingValuation;
 use networth_domain::{
-    Currency, Holding, Money, NewLot, NewSecurity, PriceQuote, Quantity, Sector, Security,
+    BasisQuality, Currency, Disposal, Holding, LongTermRule, Lot, LotSource, Money, NewLot,
+    NewSale, NewSecurity, PriceQuote, Quantity, Sale, SaleMethod, Sector, Security,
     SecurityAssetClass,
 };
 use serde::{Deserialize, Serialize};
@@ -131,10 +132,39 @@ pub struct LotDto {
     pub id: Uuid,
     /// ISO acquisition date.
     pub acquired_on: String,
-    /// Quantity as a decimal string.
+    /// Remaining quantity as a decimal string.
     pub quantity: String,
-    /// Cost basis as a decimal string.
+    /// Original quantity as a decimal string.
+    pub original_quantity: String,
+    /// Remaining cost basis as a decimal string.
     pub cost_basis: String,
+    /// Original cost basis as a decimal string.
+    pub original_cost_basis: String,
+    /// Acquisition fees.
+    pub fees: String,
+    /// `purchase`, `income`, `transfer`, `import`, or `adjustment`.
+    pub source: String,
+    /// `actual` or `estimated`.
+    pub basis_quality: String,
+    /// Optional note.
+    pub basis_note: Option<String>,
+}
+
+impl From<Lot> for LotDto {
+    fn from(lot: Lot) -> Self {
+        Self {
+            id: lot.id,
+            acquired_on: lot.acquired_on.to_string(),
+            quantity: lot.remaining_quantity.to_string(),
+            original_quantity: lot.original_quantity.to_string(),
+            cost_basis: lot.remaining_cost_basis.amount_string(),
+            original_cost_basis: lot.original_cost_basis.amount_string(),
+            fees: lot.fees.amount_string(),
+            source: lot.source.as_str().to_string(),
+            basis_quality: lot.basis_quality.as_str().to_string(),
+            basis_note: lot.basis_note,
+        }
+    }
 }
 
 /// A holding with valuation.
@@ -199,16 +229,7 @@ impl From<HoldingValuation> for HoldingDto {
                 .map(|quote| quote.source.as_str().to_string()),
             market_value: value.market_value.map(|value| value.amount_string()),
             unrealized_gain: value.unrealized_gain.map(|value| value.amount_string()),
-            lots: holding
-                .lots
-                .into_iter()
-                .map(|lot| LotDto {
-                    id: lot.id,
-                    acquired_on: lot.acquired_on.to_string(),
-                    quantity: lot.quantity.to_string(),
-                    cost_basis: lot.cost_basis.amount_string(),
-                })
-                .collect(),
+            lots: holding.lots.into_iter().map(LotDto::from).collect(),
         }
     }
 }
@@ -236,6 +257,18 @@ pub struct LotRequest {
     /// Currency; defaults to USD.
     #[serde(default)]
     pub currency: Option<String>,
+    /// Acquisition fees; defaults to zero.
+    #[serde(default)]
+    pub fees: Option<String>,
+    /// `purchase`, `income`, `transfer`, `import`, or `adjustment`.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// `actual` or `estimated`; defaults to actual.
+    #[serde(default)]
+    pub basis_quality: Option<String>,
+    /// Optional note explaining an estimated basis.
+    #[serde(default)]
+    pub basis_note: Option<String>,
 }
 
 /// Request body for creating or replacing a holding.
@@ -258,6 +291,18 @@ pub struct HoldingBatchRow {
     pub quantity: String,
     /// Cost basis as a decimal string.
     pub cost_basis: String,
+    /// Acquisition fees; defaults to zero.
+    #[serde(default)]
+    pub fees: Option<String>,
+    /// `purchase`, `income`, `transfer`, `import`, or `adjustment`.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// `actual` or `estimated`; defaults to actual.
+    #[serde(default)]
+    pub basis_quality: Option<String>,
+    /// Optional note.
+    #[serde(default)]
+    pub basis_note: Option<String>,
 }
 
 /// Request body for a holdings batch.
@@ -283,6 +328,162 @@ pub struct HoldingBatchResultDto {
     pub saved: usize,
     /// Rows skipped.
     pub errors: Vec<HoldingRowErrorDto>,
+}
+
+/// Request body for recording a sale.
+#[derive(Debug, Deserialize)]
+pub struct SaleRequest {
+    /// Ticker symbol.
+    pub symbol: String,
+    /// ISO disposal date.
+    pub disposed_on: String,
+    /// Quantity sold.
+    pub quantity: String,
+    /// Gross proceeds before fees.
+    pub gross_proceeds: String,
+    /// Selling fees; defaults to zero.
+    #[serde(default)]
+    pub fees: Option<String>,
+    /// Currency; defaults to USD.
+    #[serde(default)]
+    pub currency: Option<String>,
+    /// Long-term threshold in calendar years; defaults to 1.
+    #[serde(default)]
+    pub long_term_years: Option<u16>,
+    /// Long-term threshold in days; mutually exclusive with years.
+    #[serde(default)]
+    pub long_term_days: Option<u32>,
+}
+
+/// Query parameters for the realized-gains list.
+#[derive(Debug, Deserialize)]
+pub struct SaleQuery {
+    /// Long-term threshold in calendar years; defaults to 1.
+    #[serde(default)]
+    pub long_term_years: Option<u16>,
+    /// Long-term threshold in days; mutually exclusive with years.
+    #[serde(default)]
+    pub long_term_days: Option<u32>,
+}
+
+/// One lot consumed by a sale.
+#[derive(Debug, Serialize)]
+pub struct DisposalDto {
+    /// Identifier.
+    pub id: Uuid,
+    /// Consumed lot.
+    pub lot_id: Uuid,
+    /// ISO acquisition date.
+    pub acquired_on: String,
+    /// Quantity consumed.
+    pub quantity: String,
+    /// Gross proceeds allocated.
+    pub gross_proceeds: String,
+    /// Fees allocated.
+    pub fees: String,
+    /// Net proceeds after fees.
+    pub net_proceeds: String,
+    /// Cost basis allocated.
+    pub cost_basis: String,
+    /// Realized gain/loss.
+    pub realized_gain: String,
+    /// Derived holding-period days.
+    pub holding_period_days: i64,
+    /// Derived `short` or `long` term.
+    pub term: String,
+    /// `actual` or `estimated`.
+    pub basis_quality: String,
+}
+
+impl DisposalDto {
+    fn from_disposal(disposal: &Disposal, disposed_on: time::Date, rule: LongTermRule) -> Self {
+        Self {
+            id: disposal.id,
+            lot_id: disposal.lot_id,
+            acquired_on: disposal.acquired_on.to_string(),
+            quantity: disposal.quantity.to_string(),
+            gross_proceeds: disposal.gross_proceeds.amount_string(),
+            fees: disposal.fees.amount_string(),
+            net_proceeds: disposal.net_proceeds().amount_string(),
+            cost_basis: disposal.cost_basis.amount_string(),
+            realized_gain: disposal.realized_gain().amount_string(),
+            holding_period_days: disposal.holding_period_days(disposed_on),
+            term: disposal.term(disposed_on, rule).as_str().to_string(),
+            basis_quality: disposal.basis_quality.as_str().to_string(),
+        }
+    }
+}
+
+/// A recorded sale with FIFO disposals and realized gain.
+#[derive(Debug, Serialize)]
+pub struct SaleDto {
+    /// Identifier.
+    pub id: Uuid,
+    /// Account.
+    pub account_id: Uuid,
+    /// Position.
+    pub holding_id: Uuid,
+    /// Ticker symbol.
+    pub symbol: String,
+    /// Security name.
+    pub name: String,
+    /// ISO disposal date.
+    pub disposed_on: String,
+    /// Quantity sold.
+    pub quantity: String,
+    /// Gross proceeds before fees.
+    pub gross_proceeds: String,
+    /// Fees.
+    pub fees: String,
+    /// Net proceeds.
+    pub net_proceeds: String,
+    /// Cost basis consumed.
+    pub cost_basis: String,
+    /// Realized gain/loss.
+    pub realized_gain: String,
+    /// Currency.
+    pub currency: String,
+    /// Lot-consumption method.
+    pub method: String,
+    /// Per-lot disposals.
+    pub disposals: Vec<DisposalDto>,
+}
+
+impl SaleDto {
+    fn from_sale(sale: Sale, rule: LongTermRule) -> Self {
+        Self {
+            id: sale.id,
+            account_id: sale.account_id,
+            holding_id: sale.holding_id,
+            symbol: sale.security.symbol.clone(),
+            name: sale.security.name.clone(),
+            disposed_on: sale.disposed_on.to_string(),
+            quantity: sale.quantity.to_string(),
+            gross_proceeds: sale.gross_proceeds.amount_string(),
+            fees: sale.fees.amount_string(),
+            net_proceeds: sale.net_proceeds().amount_string(),
+            cost_basis: sale.cost_basis().amount_string(),
+            realized_gain: sale.realized_gain().amount_string(),
+            currency: sale.currency.to_string(),
+            method: sale.method.as_str().to_string(),
+            disposals: sale
+                .disposals
+                .iter()
+                .map(|disposal| DisposalDto::from_disposal(disposal, sale.disposed_on, rule))
+                .collect(),
+        }
+    }
+}
+
+fn long_term_rule(years: Option<u16>, days: Option<u32>) -> Result<LongTermRule, ApiError> {
+    match (years, days) {
+        (Some(_), Some(_)) => Err(ApiError::BadRequest(
+            "long_term_years and long_term_days are mutually exclusive".to_string(),
+        )),
+        (_, Some(days)) => Ok(LongTermRule::MoreThanDays(days)),
+        (Some(years), None) => Ok(LongTermRule::MoreThanYears(years)),
+        (None, None) => Ok(LongTermRule::default()),
+    }
 }
 
 /// A price quote in the API.
@@ -438,7 +639,7 @@ pub async fn create_holding(
     let lots = parse_lots(request.lots)?;
     let holding = state
         .investments
-        .upsert_holding(account_id, &request.symbol, lots)
+        .append_lots(account_id, &request.symbol, lots)
         .await?;
 
     Ok((StatusCode::CREATED, Json(HoldingDto::from(holding))))
@@ -488,7 +689,16 @@ pub async fn record_holdings_batch(
             continue;
         }
 
-        match parse_lot(&row.acquired_on, &row.quantity, &row.cost_basis, None) {
+        match parse_lot(RawLot {
+            acquired_on: &row.acquired_on,
+            quantity: &row.quantity,
+            cost_basis: &row.cost_basis,
+            currency: None,
+            fees: row.fees.as_deref(),
+            source: row.source.as_deref(),
+            basis_quality: row.basis_quality.as_deref(),
+            basis_note: row.basis_note.as_deref(),
+        }) {
             Ok(lot) => {
                 by_symbol
                     .entry(symbol)
@@ -508,7 +718,7 @@ pub async fn record_holdings_batch(
         let count = lots.len();
         match state
             .investments
-            .upsert_holding(account_id, &symbol, lots)
+            .append_lots(account_id, &symbol, lots)
             .await
         {
             Ok(_) => saved += count,
@@ -520,6 +730,66 @@ pub async fn record_holdings_batch(
     }
 
     Ok(Json(HoldingBatchResultDto { saved, errors }))
+}
+
+/// `POST /api/v1/accounts/{id}/sales`
+pub async fn create_sale(
+    State(state): State<AppState>,
+    Path(account_id): Path<Uuid>,
+    current: CurrentUser,
+    Json(request): Json<SaleRequest>,
+) -> Result<(StatusCode, Json<SaleDto>), ApiError> {
+    modifiable_account(&state, &current, account_id).await?;
+
+    let rule = long_term_rule(request.long_term_years, request.long_term_days)?;
+    let disposed_on = Date::parse(&request.disposed_on, &Iso8601::DATE)
+        .map_err(|error| ApiError::BadRequest(format!("invalid disposed_on date: {error}")))?;
+    let quantity = Quantity::parse(&request.quantity)
+        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    let currency = parse_currency(request.currency.as_deref())?;
+    let gross_proceeds = Money::parse(&request.gross_proceeds, currency.as_str())
+        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    let fees = match request.fees.as_deref() {
+        Some(fees) => Money::parse(fees, currency.as_str())
+            .map_err(|error| ApiError::BadRequest(error.to_string()))?,
+        None => Money::zero(currency.clone()),
+    };
+
+    let sale = state
+        .investments
+        .record_sale(
+            account_id,
+            &request.symbol,
+            NewSale {
+                disposed_on,
+                quantity,
+                gross_proceeds,
+                fees,
+                currency,
+                method: SaleMethod::Fifo,
+            },
+        )
+        .await?;
+
+    Ok((StatusCode::CREATED, Json(SaleDto::from_sale(sale, rule))))
+}
+
+/// `GET /api/v1/accounts/{id}/sales`
+pub async fn list_sales(
+    State(state): State<AppState>,
+    Path(account_id): Path<Uuid>,
+    Query(query): Query<SaleQuery>,
+    current: CurrentUser,
+) -> Result<Json<Vec<SaleDto>>, ApiError> {
+    visible_account(&state, &current, account_id).await?;
+    let rule = long_term_rule(query.long_term_years, query.long_term_days)?;
+    let sales = state.investments.list_sales(account_id).await?;
+    Ok(Json(
+        sales
+            .into_iter()
+            .map(|sale| SaleDto::from_sale(sale, rule))
+            .collect(),
+    ))
 }
 
 /// `GET /api/v1/prices/provider`
@@ -613,36 +883,73 @@ fn parse_lots(requests: Vec<LotRequest>) -> Result<Vec<NewLot>, ApiError> {
     requests
         .into_iter()
         .map(|request| {
-            parse_lot(
-                &request.acquired_on,
-                &request.quantity,
-                &request.cost_basis,
-                request.currency.as_deref(),
-            )
+            parse_lot(RawLot {
+                acquired_on: &request.acquired_on,
+                quantity: &request.quantity,
+                cost_basis: &request.cost_basis,
+                currency: request.currency.as_deref(),
+                fees: request.fees.as_deref(),
+                source: request.source.as_deref(),
+                basis_quality: request.basis_quality.as_deref(),
+                basis_note: request.basis_note.as_deref(),
+            })
             .map_err(ApiError::BadRequest)
         })
         .collect()
 }
 
-fn parse_lot(
-    acquired_on: &str,
-    quantity: &str,
-    cost_basis: &str,
-    currency: Option<&str>,
-) -> Result<NewLot, String> {
-    let acquired_on = Date::parse(acquired_on, &Iso8601::DATE)
+struct RawLot<'a> {
+    acquired_on: &'a str,
+    quantity: &'a str,
+    cost_basis: &'a str,
+    currency: Option<&'a str>,
+    fees: Option<&'a str>,
+    source: Option<&'a str>,
+    basis_quality: Option<&'a str>,
+    basis_note: Option<&'a str>,
+}
+
+fn parse_lot(raw: RawLot<'_>) -> Result<NewLot, String> {
+    let acquired_on = Date::parse(raw.acquired_on, &Iso8601::DATE)
         .map_err(|error| format!("invalid acquired_on date: {error}"))?;
-    let quantity = Quantity::parse(quantity).map_err(|error| error.to_string())?;
-    let currency = match currency {
+    let quantity = Quantity::parse(raw.quantity).map_err(|error| error.to_string())?;
+    let currency = match raw.currency {
         Some(code) => Currency::new(code).map_err(|error| error.to_string())?,
         None => Currency::usd(),
     };
     let cost_basis =
-        Money::parse(cost_basis, currency.as_str()).map_err(|error| error.to_string())?;
+        Money::parse(raw.cost_basis, currency.as_str()).map_err(|error| error.to_string())?;
+    let fees = match raw.fees {
+        Some(value) if !value.trim().is_empty() => {
+            Some(Money::parse(value, currency.as_str()).map_err(|error| error.to_string())?)
+        }
+        _ => None,
+    };
+    let source = match raw.source {
+        Some(value) => value
+            .parse::<LotSource>()
+            .map_err(|error| error.to_string())?,
+        None => LotSource::Purchase,
+    };
+    let basis_quality = match raw.basis_quality {
+        Some(value) => value
+            .parse::<BasisQuality>()
+            .map_err(|error| error.to_string())?,
+        None => BasisQuality::Actual,
+    };
+    let basis_note = raw
+        .basis_note
+        .map(str::trim)
+        .filter(|note| !note.is_empty())
+        .map(str::to_string);
 
     Ok(NewLot {
         acquired_on,
         quantity,
         cost_basis,
+        fees,
+        source,
+        basis_quality,
+        basis_note,
     })
 }

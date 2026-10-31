@@ -159,6 +159,26 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [x] 14.4 Run the full release matrix against the final commit (backend, Postgres, frontend, integration, boundaries, secret scan, `openspec validate --strict`)
 - [x] 14.5 Confirm the README, screenshots, and version are current, then tag `v0.1.20261028` and verify the tag points at the release commit
 
+## 15. Shared tax-lot ledger
+
+- [x] 15.1 Add the `tax_lots`, `tax_sales`, and `tax_disposals` migration; migrate existing `holding_lots` rows and verify the upgrade preserves lots
+- [x] 15.2 Add original/remaining lot fields, `basis_quality`, FIFO allocation, and derived holding-period rules to the domain; verify with unit tests
+- [x] 15.3 Make lot writes append-only and fix bulk entry so adding lots never replaces existing lots; verify with API tests
+- [x] 15.4 Add sale/disposal endpoints with FIFO, realized gains, and configurable long-term rules; verify with API and Postgres tests
+- [x] 15.5 Add the lot-level holdings UI, estimated-basis markers, sale form, and realized-gains table; verify with frontend tests
+- [x] 15.6 Add `docs/tax-lots.md`, update the OpenAPI contract, and verify the generated client/contract check
+- [x] 15.7 Add migration/upgrade coverage and cross-boundary integration coverage for appending lots and selling FIFO
+
+Deferred until after the v1 ledger slice:
+
+- LIFO and specific-lot identification.
+- Global asset-wide FIFO versus per-account/per-wallet FIFO.
+- Crypto wallet transfers and address-sync lot matching.
+- Crypto-to-crypto conversions, income lots (staking/mining/airdrops), and fees paid in crypto.
+- Wash sales, stock splits, mergers, and other corporate actions.
+- Broker/exchange-specific historical importers and realized-gains PDF/other formats.
+- Including investment lots and sales in the JSON backup (the full `pg_dump` backup already covers them).
+
 ## Workflow follow-up
 
 - Archive the change after the project's review requirements are satisfied.

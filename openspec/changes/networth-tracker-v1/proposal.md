@@ -49,6 +49,7 @@ personal/family networth tracker.
 - `identity`: users, households/families, sub-accounts, roles and access levels.
 - `accounts`: the financial account and balance registry (account types, institutions, ownership, valuation source).
 - `investments`: securities positions, cost basis and tax lots, sector/asset-class classification.
+- `tax-lots`: shared append-only purchase lots, FIFO sales/disposals, transfers, realized gains, and configurable holding-period reporting for securities and cryptocurrency.
 - `crypto-tracking`: cryptocurrency wallet addresses, on-chain balance derivation, high-precision amounts.
 - `market-data`: quotes, historical prices, and FX rates with caching and offline fallback.
 - `networth`: networth definitions (total/liquid/accessible), valuation adjustments, and historical snapshots.

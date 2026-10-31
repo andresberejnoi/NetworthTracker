@@ -3,8 +3,9 @@
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_domain::{
-    Account, Balance, Currency, Holding, Money, NewAccount, NewBalance, NewLot, NewSecurity,
-    NewSnapshot, NewUser, PriceSource, Security, Snapshot, SnapshotFilter, User, UserRole,
+    Account, Balance, Currency, DisposalAllocation, Holding, Money, NewAccount, NewBalance, NewLot,
+    NewSale, NewSecurity, NewSnapshot, NewUser, PriceSource, Sale, Security, Snapshot,
+    SnapshotFilter, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -156,8 +157,8 @@ pub trait InvestmentRepository: Send + Sync {
     /// List securities, ordered by symbol.
     async fn list_securities(&self) -> Result<Vec<Security>, RepositoryError>;
 
-    /// Create or replace a holding and its lots for an account/security pair.
-    async fn upsert_holding(
+    /// Append purchase lots to a position, creating the position if needed.
+    async fn append_lots(
         &self,
         account_id: Uuid,
         security_id: Uuid,
@@ -170,7 +171,19 @@ pub trait InvestmentRepository: Send + Sync {
     /// List every holding.
     async fn list_all_holdings(&self) -> Result<Vec<Holding>, RepositoryError>;
 
-    /// Delete a holding. Returns `false` if it does not exist.
+    /// Persist a sale and its per-lot disposals, reducing the lots' remaining
+    /// quantities and cost bases atomically.
+    async fn record_sale(
+        &self,
+        holding_id: Uuid,
+        sale: &NewSale,
+        allocations: &[DisposalAllocation],
+    ) -> Result<Sale, RepositoryError>;
+
+    /// List sales for an account, newest first.
+    async fn list_sales(&self, account_id: Uuid) -> Result<Vec<Sale>, RepositoryError>;
+
+    /// Delete a holding. Implementations must refuse if the holding has sales.
     async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError>;
 }
 

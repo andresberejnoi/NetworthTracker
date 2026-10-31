@@ -324,7 +324,10 @@ async fn persists_users_and_sessions(pool: PgPool) {
 async fn persists_securities_holdings_prices_and_fx(pool: PgPool) {
     use bigdecimal::BigDecimal;
     use networth_application::ports::{FxRepository, InvestmentRepository, PriceRepository};
-    use networth_domain::{NewLot, NewSecurity, PriceSource, Quantity, Sector, SecurityAssetClass};
+    use networth_domain::{
+        BasisQuality, LotSource, NewLot, NewSecurity, PriceSource, Quantity, Sector,
+        SecurityAssetClass,
+    };
     use std::str::FromStr;
     use time::OffsetDateTime;
 
@@ -346,13 +349,17 @@ async fn persists_securities_holdings_prices_and_fx(pool: PgPool) {
         .unwrap();
 
     let holding = repo
-        .upsert_holding(
+        .append_lots(
             account.id,
             security.id,
             &[NewLot {
                 acquired_on: date!(2026 - 01 - 01),
                 quantity: Quantity::parse("10").unwrap(),
                 cost_basis: Money::parse("1000.00", "USD").unwrap(),
+                fees: None,
+                source: LotSource::Purchase,
+                basis_quality: BasisQuality::Actual,
+                basis_note: None,
             }],
         )
         .await
@@ -392,4 +399,92 @@ async fn persists_securities_holdings_prices_and_fx(pool: PgPool) {
         .unwrap()
         .expect("rate");
     assert_eq!(rate.rate, BigDecimal::from_str("0.92").unwrap());
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn records_fifo_sales_and_keeps_lot_history(pool: PgPool) {
+    use networth_application::ports::InvestmentRepository;
+    use networth_domain::{
+        allocate_fifo, BasisQuality, Currency, LotSource, NewLot, NewSale, NewSecurity, Quantity,
+        SaleMethod, SecurityAssetClass,
+    };
+
+    let repo = PostgresAccountRepository::new(pool);
+    let account = repo
+        .insert_account(&account("Brokerage", AccountType::TaxableBrokerage))
+        .await
+        .unwrap();
+    let security = repo
+        .create_security(&NewSecurity {
+            symbol: "VTI".to_string(),
+            name: "Total Market".to_string(),
+            asset_class: SecurityAssetClass::Equity,
+            sector: None,
+            currency: Currency::usd(),
+        })
+        .await
+        .unwrap();
+
+    let holding = repo
+        .append_lots(
+            account.id,
+            security.id,
+            &[
+                NewLot {
+                    acquired_on: date!(2026 - 01 - 01),
+                    quantity: Quantity::parse("10").unwrap(),
+                    cost_basis: Money::parse("1000.00", "USD").unwrap(),
+                    fees: None,
+                    source: LotSource::Purchase,
+                    basis_quality: BasisQuality::Actual,
+                    basis_note: None,
+                },
+                NewLot {
+                    acquired_on: date!(2026 - 02 - 01),
+                    quantity: Quantity::parse("5").unwrap(),
+                    cost_basis: Money::parse("600.00", "USD").unwrap(),
+                    fees: None,
+                    source: LotSource::Purchase,
+                    basis_quality: BasisQuality::Estimated,
+                    basis_note: Some("backfilled".to_string()),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+
+    let sale = NewSale {
+        disposed_on: date!(2026 - 06 - 01),
+        quantity: Quantity::parse("12").unwrap(),
+        gross_proceeds: Money::parse("1800.00", "USD").unwrap(),
+        fees: Money::parse("12.00", "USD").unwrap(),
+        currency: Currency::usd(),
+        method: SaleMethod::Fifo,
+    };
+    let allocations = allocate_fifo(&holding.lots, &sale).unwrap();
+    let recorded = repo
+        .record_sale(holding.id, &sale, &allocations)
+        .await
+        .unwrap();
+
+    assert_eq!(recorded.realized_gain().amount_string(), "548.00");
+    assert_eq!(recorded.disposals.len(), 2);
+    assert_eq!(recorded.disposals[1].basis_quality, BasisQuality::Estimated);
+
+    let remaining = repo.list_holdings(account.id).await.unwrap();
+    assert_eq!(remaining[0].quantity().to_string(), "3");
+    assert_eq!(remaining[0].cost_basis().amount_string(), "360.00");
+    assert_eq!(remaining[0].lots.len(), 2);
+    assert_eq!(remaining[0].lots[0].remaining_quantity.to_string(), "0");
+    assert_eq!(remaining[0].lots[1].remaining_quantity.to_string(), "3");
+
+    let sales = repo.list_sales(account.id).await.unwrap();
+    assert_eq!(sales.len(), 1);
+    assert_eq!(sales[0].realized_gain().amount_string(), "548.00");
+
+    let error = repo.delete_holding(holding.id).await.unwrap_err();
+    assert!(matches!(
+        error,
+        networth_application::ports::RepositoryError::Conflict(_)
+    ));
 }

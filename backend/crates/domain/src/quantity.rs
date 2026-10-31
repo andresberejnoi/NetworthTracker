@@ -25,7 +25,7 @@ pub enum QuantityError {
 }
 
 /// A non-negative, arbitrary-precision asset quantity.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Quantity(BigDecimal);
 
 impl Quantity {
@@ -55,9 +55,29 @@ impl Quantity {
         Quantity(&self.0 + &other.0)
     }
 
+    /// Subtract a quantity exactly, rejecting a negative result.
+    pub fn checked_sub(&self, other: &Quantity) -> Result<Quantity, QuantityError> {
+        let value = &self.0 - &other.0;
+        Self::new(value)
+    }
+
     /// Multiply by a non-negative decimal factor (for example a unit price).
     pub fn checked_mul(&self, factor: &BigDecimal) -> Quantity {
         Quantity(&self.0 * factor)
+    }
+
+    /// The smaller of two quantities.
+    pub fn at_most(&self, other: &Quantity) -> Quantity {
+        if self <= other {
+            self.clone()
+        } else {
+            other.clone()
+        }
+    }
+
+    /// Whether the quantity is exactly zero.
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
     }
 
     /// Zero quantity.

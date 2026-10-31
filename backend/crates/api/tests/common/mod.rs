@@ -84,6 +84,16 @@ pub async fn post_json(
     send(app, request).await
 }
 
+/// `DELETE path`.
+pub async fn delete(app: &Router, path: &str) -> (StatusCode, serde_json::Value) {
+    let request = Request::builder()
+        .method("DELETE")
+        .uri(path)
+        .body(Body::empty())
+        .expect("build request");
+    send(app, request).await
+}
+
 /// `POST path` with raw bytes and an explicit content type.
 pub async fn post_bytes(
     app: &Router,

@@ -319,6 +319,9 @@ export type CreateHoldingRequest = components["schemas"]["CreateHoldingRequest"]
 export type LotRequest = components["schemas"]["LotRequest"];
 export type HoldingBatchRow = components["schemas"]["HoldingBatchRow"];
 export type HoldingBatchResult = components["schemas"]["HoldingBatchResult"];
+export type Sale = components["schemas"]["Sale"];
+export type Disposal = components["schemas"]["Disposal"];
+export type SaleRequest = components["schemas"]["SaleRequest"];
 export type Price = components["schemas"]["Price"];
 export type ProviderStatus = components["schemas"]["ProviderStatus"];
 
@@ -389,6 +392,31 @@ export function recordHoldingsBatch(
     `/api/v1/accounts/${accountId}/holdings/batch`,
     { method: "POST", body: JSON.stringify({ rows }) },
   );
+}
+
+export function createSale(
+  accountId: string,
+  body: SaleRequest,
+): Promise<Sale> {
+  return request<Sale>(`/api/v1/accounts/${accountId}/sales`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listSales(
+  accountId: string,
+  params: { long_term_years?: number; long_term_days?: number } = {},
+): Promise<Sale[]> {
+  const query = new URLSearchParams();
+  if (params.long_term_years !== undefined) {
+    query.set("long_term_years", String(params.long_term_years));
+  }
+  if (params.long_term_days !== undefined) {
+    query.set("long_term_days", String(params.long_term_days));
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<Sale[]>(`/api/v1/accounts/${accountId}/sales${suffix}`);
 }
 
 export function getPriceProvider(): Promise<ProviderStatus> {

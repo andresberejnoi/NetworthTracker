@@ -9,9 +9,10 @@ use networth_application::ports::{
     PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, AggregationScope, Balance, BalanceSource, Currency, Holding, Lot, Money, NewAccount,
-    NewBalance, NewLot, NewSecurity, NewSnapshot, NewUser, OwnershipScope, PriceSource,
-    RedemptionPolicy, Security, Snapshot, SnapshotFilter, User, UserRole,
+    Account, AggregationScope, Balance, BalanceSource, Currency, Disposal, DisposalAllocation,
+    Holding, Lot, Money, NewAccount, NewBalance, NewLot, NewSale, NewSecurity, NewSnapshot,
+    NewUser, OwnershipScope, PriceSource, RedemptionPolicy, Sale, Security, Snapshot,
+    SnapshotFilter, User, UserRole,
 };
 use sqlx::PgPool;
 use time::{Date, OffsetDateTime};
@@ -676,27 +677,89 @@ impl TryFrom<HoldingRow> for (Holding, Uuid) {
 #[derive(sqlx::FromRow)]
 struct LotRow {
     id: Uuid,
+    seq: i64,
     acquired_on: Date,
-    quantity: String,
-    cost_basis: String,
+    original_quantity: String,
+    remaining_quantity: String,
+    original_cost_basis: String,
+    remaining_cost_basis: String,
     currency: String,
+    fees: String,
+    source: String,
+    basis_quality: String,
+    basis_note: Option<String>,
 }
 
 impl TryFrom<LotRow> for Lot {
     type Error = RepositoryError;
 
     fn try_from(row: LotRow) -> Result<Self, Self::Error> {
+        let currency =
+            Currency::new(row.currency).map_err(|e| RepositoryError::Storage(e.to_string()))?;
         Ok(Lot {
             id: row.id,
+            sequence: row.seq,
             acquired_on: row.acquired_on,
-            quantity: networth_domain::Quantity::new(parse_decimal(&row.quantity)?)
-                .map_err(|e| RepositoryError::Storage(e.to_string()))?,
-            cost_basis: Money::new(
-                parse_decimal(&row.cost_basis)?,
-                Currency::new(row.currency).map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            original_quantity: networth_domain::Quantity::new(parse_decimal(
+                &row.original_quantity,
+            )?)
+            .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            remaining_quantity: networth_domain::Quantity::new(parse_decimal(
+                &row.remaining_quantity,
+            )?)
+            .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            original_cost_basis: Money::new(
+                parse_decimal(&row.original_cost_basis)?,
+                currency.clone(),
             ),
+            remaining_cost_basis: Money::new(
+                parse_decimal(&row.remaining_cost_basis)?,
+                currency.clone(),
+            ),
+            fees: Money::new(parse_decimal(&row.fees)?, currency),
+            source: row.source.parse().map_err(
+                |e: networth_domain::investments::LotSourceParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            basis_quality: row.basis_quality.parse().map_err(
+                |e: networth_domain::investments::BasisQualityParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            basis_note: row.basis_note,
         })
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct SaleRow {
+    id: Uuid,
+    account_id: Uuid,
+    holding_id: Uuid,
+    security_id: Uuid,
+    symbol: String,
+    name: String,
+    asset_class: String,
+    sector: Option<String>,
+    currency: String,
+    disposed_on: Date,
+    quantity: String,
+    gross_proceeds: String,
+    fees: String,
+    method: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct DisposalRow {
+    id: Uuid,
+    lot_id: Uuid,
+    acquired_on: Date,
+    quantity: String,
+    gross_proceeds: String,
+    fees: String,
+    cost_basis: String,
+    basis_quality: String,
 }
 
 #[derive(sqlx::FromRow)]
@@ -715,9 +778,12 @@ struct StoredRateRow {
 
 async fn load_lots(pool: &PgPool, holding_id: Uuid) -> Result<Vec<Lot>, RepositoryError> {
     let rows: Vec<LotRow> = sqlx::query_as(
-        "SELECT id, acquired_on, quantity::text AS quantity, \
-                cost_basis::text AS cost_basis, currency \
-         FROM holding_lots WHERE holding_id = $1 ORDER BY acquired_on, id",
+        "SELECT id, seq, acquired_on, original_quantity::text AS original_quantity, \
+                remaining_quantity::text AS remaining_quantity, \
+                original_cost_basis::text AS original_cost_basis, \
+                remaining_cost_basis::text AS remaining_cost_basis, \
+                currency, fees::text AS fees, source, basis_quality, basis_note \
+         FROM tax_lots WHERE holding_id = $1 ORDER BY acquired_on, seq",
     )
     .bind(holding_id)
     .fetch_all(pool)
@@ -769,7 +835,7 @@ impl InvestmentRepository for PostgresAccountRepository {
         rows.into_iter().map(TryInto::try_into).collect()
     }
 
-    async fn upsert_holding(
+    async fn append_lots(
         &self,
         account_id: Uuid,
         security_id: Uuid,
@@ -788,22 +854,30 @@ impl InvestmentRepository for PostgresAccountRepository {
         .await
         .map_err(map_sqlx_error)?;
 
-        sqlx::query("DELETE FROM holding_lots WHERE holding_id = $1")
-            .bind(holding_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-
         for lot in lots {
+            let fees = lot
+                .fees
+                .as_ref()
+                .map(|fees| fees.amount_string())
+                .unwrap_or_else(|| "0".to_string());
             sqlx::query(
-                "INSERT INTO holding_lots (holding_id, acquired_on, quantity, cost_basis, currency) \
-                 VALUES ($1, $2, CAST($3 AS numeric), CAST($4 AS numeric), $5)",
+                "INSERT INTO tax_lots \
+                 (holding_id, acquired_on, original_quantity, remaining_quantity, \
+                  original_cost_basis, remaining_cost_basis, currency, fees, source, \
+                  basis_quality, basis_note) \
+                 VALUES ($1, $2, CAST($3 AS numeric), CAST($3 AS numeric), \
+                         CAST($4 AS numeric), CAST($4 AS numeric), $5, CAST($6 AS numeric), \
+                         $7, $8, $9)",
             )
             .bind(holding_id)
             .bind(lot.acquired_on)
             .bind(lot.quantity.to_string())
             .bind(lot.cost_basis.amount_string())
             .bind(lot.cost_basis.currency().as_str())
+            .bind(fees)
+            .bind(lot.source.as_str())
+            .bind(lot.basis_quality.as_str())
+            .bind(lot.basis_note.as_deref())
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
@@ -865,7 +939,258 @@ impl InvestmentRepository for PostgresAccountRepository {
         Ok(holdings)
     }
 
+    async fn record_sale(
+        &self,
+        holding_id: Uuid,
+        sale: &NewSale,
+        allocations: &[DisposalAllocation],
+    ) -> Result<Sale, RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
+
+        let holding: SaleRow = sqlx::query_as(
+            "SELECT h.id, h.account_id, h.id AS holding_id, s.id AS security_id, \
+                    s.symbol, s.name, s.asset_class, s.sector, s.currency, \
+                    DATE '1970-01-01' AS disposed_on, \
+                    '0' AS quantity, '0' AS gross_proceeds, '0' AS fees, 'fifo' AS method \
+             FROM holdings h JOIN securities s ON s.id = h.security_id \
+             WHERE h.id = $1",
+        )
+        .bind(holding_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        let (sale_id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO tax_sales \
+             (holding_id, disposed_on, quantity, gross_proceeds, fees, currency, method) \
+             VALUES ($1, $2, CAST($3 AS numeric), CAST($4 AS numeric), CAST($5 AS numeric), $6, $7) \
+             RETURNING id",
+        )
+        .bind(holding_id)
+        .bind(sale.disposed_on)
+        .bind(sale.quantity.to_string())
+        .bind(sale.gross_proceeds.amount_string())
+        .bind(sale.fees.amount_string())
+        .bind(sale.currency.as_str())
+        .bind(sale.method.as_str())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        let mut disposals = Vec::with_capacity(allocations.len());
+        for allocation in allocations {
+            let (disposal_id,): (Uuid,) = sqlx::query_as(
+                "INSERT INTO tax_disposals \
+                 (sale_id, lot_id, quantity, gross_proceeds, fees, cost_basis) \
+                 VALUES ($1, $2, CAST($3 AS numeric), CAST($4 AS numeric), \
+                         CAST($5 AS numeric), CAST($6 AS numeric)) RETURNING id",
+            )
+            .bind(sale_id)
+            .bind(allocation.lot_id)
+            .bind(allocation.quantity.to_string())
+            .bind(allocation.gross_proceeds.amount_string())
+            .bind(allocation.fees.amount_string())
+            .bind(allocation.cost_basis.amount_string())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+
+            let result = sqlx::query(
+                "UPDATE tax_lots \
+                 SET remaining_quantity = remaining_quantity - CAST($2 AS numeric), \
+                     remaining_cost_basis = remaining_cost_basis - CAST($3 AS numeric) \
+                 WHERE id = $1 \
+                   AND remaining_quantity >= CAST($2 AS numeric) \
+                   AND remaining_cost_basis >= CAST($3 AS numeric)",
+            )
+            .bind(allocation.lot_id)
+            .bind(allocation.quantity.to_string())
+            .bind(allocation.cost_basis.amount_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error)?;
+
+            if result.rows_affected() != 1 {
+                return Err(RepositoryError::Conflict(
+                    "a lot changed while the sale was being recorded".to_string(),
+                ));
+            }
+
+            disposals.push(Disposal {
+                id: disposal_id,
+                lot_id: allocation.lot_id,
+                acquired_on: allocation.acquired_on,
+                quantity: allocation.quantity.clone(),
+                gross_proceeds: allocation.gross_proceeds.clone(),
+                fees: allocation.fees.clone(),
+                cost_basis: allocation.cost_basis.clone(),
+                basis_quality: allocation.basis_quality,
+            });
+        }
+
+        tx.commit().await.map_err(map_sqlx_error)?;
+
+        Ok(Sale {
+            id: sale_id,
+            account_id: holding.account_id,
+            holding_id,
+            security: Security {
+                id: holding.security_id,
+                symbol: holding.symbol,
+                name: holding.name,
+                asset_class: holding.asset_class.parse().map_err(
+                    |e: networth_domain::investments::SecurityAssetClassParseError| {
+                        RepositoryError::Storage(e.to_string())
+                    },
+                )?,
+                sector: holding
+                    .sector
+                    .as_deref()
+                    .map(|value| value.parse())
+                    .transpose()
+                    .map_err(|e: networth_domain::investments::SectorParseError| {
+                        RepositoryError::Storage(e.to_string())
+                    })?,
+                currency: Currency::new(holding.currency)
+                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            },
+            disposed_on: sale.disposed_on,
+            quantity: sale.quantity.clone(),
+            gross_proceeds: sale.gross_proceeds.clone(),
+            fees: sale.fees.clone(),
+            currency: sale.currency.clone(),
+            method: sale.method,
+            disposals,
+        })
+    }
+
+    async fn list_sales(&self, account_id: Uuid) -> Result<Vec<Sale>, RepositoryError> {
+        let rows: Vec<SaleRow> = sqlx::query_as(
+            "SELECT s.id, h.account_id, s.holding_id, sec.id AS security_id, \
+                    sec.symbol, sec.name, sec.asset_class, sec.sector, s.currency, \
+                    s.disposed_on, \
+                    s.quantity::text AS quantity, s.gross_proceeds::text AS gross_proceeds, \
+                    s.fees::text AS fees, s.method \
+             FROM tax_sales s \
+             JOIN holdings h ON h.id = s.holding_id \
+             JOIN securities sec ON sec.id = h.security_id \
+             WHERE h.account_id = $1 ORDER BY s.disposed_on DESC, s.id DESC",
+        )
+        .bind(account_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        let mut sales = Vec::with_capacity(rows.len());
+        for row in rows {
+            let disposals: Vec<DisposalRow> = sqlx::query_as(
+                "SELECT d.id, d.lot_id, l.acquired_on, d.quantity::text AS quantity, \
+                        d.gross_proceeds::text AS gross_proceeds, d.fees::text AS fees, \
+                        d.cost_basis::text AS cost_basis, l.basis_quality \
+                 FROM tax_disposals d JOIN tax_lots l ON l.id = d.lot_id \
+                 WHERE d.sale_id = $1 ORDER BY l.acquired_on, l.seq",
+            )
+            .bind(row.id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+
+            sales.push(Sale {
+                id: row.id,
+                account_id: row.account_id,
+                holding_id: row.holding_id,
+                security: Security {
+                    id: row.security_id,
+                    symbol: row.symbol,
+                    name: row.name,
+                    asset_class: row.asset_class.parse().map_err(
+                        |e: networth_domain::investments::SecurityAssetClassParseError| {
+                            RepositoryError::Storage(e.to_string())
+                        },
+                    )?,
+                    sector: row
+                        .sector
+                        .as_deref()
+                        .map(|value| value.parse())
+                        .transpose()
+                        .map_err(|e: networth_domain::investments::SectorParseError| {
+                            RepositoryError::Storage(e.to_string())
+                        })?,
+                    currency: Currency::new(row.currency.clone())
+                        .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                },
+                disposed_on: row.disposed_on,
+                quantity: networth_domain::Quantity::new(parse_decimal(&row.quantity)?)
+                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                gross_proceeds: Money::new(
+                    parse_decimal(&row.gross_proceeds)?,
+                    Currency::new(row.currency.clone())
+                        .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                ),
+                fees: Money::new(
+                    parse_decimal(&row.fees)?,
+                    Currency::new(row.currency.clone())
+                        .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                ),
+                currency: Currency::new(row.currency.clone())
+                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                method: row.method.parse().map_err(
+                    |e: networth_domain::investments::SaleMethodParseError| {
+                        RepositoryError::Storage(e.to_string())
+                    },
+                )?,
+                disposals: disposals
+                    .into_iter()
+                    .map(|disposal| {
+                        Ok(Disposal {
+                            id: disposal.id,
+                            lot_id: disposal.lot_id,
+                            acquired_on: disposal.acquired_on,
+                            quantity: networth_domain::Quantity::new(parse_decimal(
+                                &disposal.quantity,
+                            )?)
+                            .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                            gross_proceeds: Money::new(
+                                parse_decimal(&disposal.gross_proceeds)?,
+                                Currency::new(row.currency.clone())
+                                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                            ),
+                            fees: Money::new(
+                                parse_decimal(&disposal.fees)?,
+                                Currency::new(row.currency.clone())
+                                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                            ),
+                            cost_basis: Money::new(
+                                parse_decimal(&disposal.cost_basis)?,
+                                Currency::new(row.currency.clone())
+                                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                            ),
+                            basis_quality: disposal.basis_quality.parse().map_err(
+                                |e: networth_domain::investments::BasisQualityParseError| {
+                                    RepositoryError::Storage(e.to_string())
+                                },
+                            )?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, RepositoryError>>()?,
+            });
+        }
+
+        Ok(sales)
+    }
+
     async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError> {
+        let (sales,): (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM tax_sales WHERE holding_id = $1")
+                .bind(holding_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(map_sqlx_error)?;
+        if sales > 0 {
+            return Err(RepositoryError::Conflict(
+                "cannot delete a position with recorded sales".to_string(),
+            ));
+        }
         let result = sqlx::query("DELETE FROM holdings WHERE id = $1")
             .bind(holding_id)
             .execute(&self.pool)
