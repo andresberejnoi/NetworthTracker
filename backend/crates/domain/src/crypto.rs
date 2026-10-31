@@ -399,7 +399,7 @@ mod tests {
         );
         let key = format!("0x{}", "0123456789abcdef".repeat(4));
         assert_eq!(
-            validate_address(Chain::Ethereum, key),
+            validate_address(Chain::Ethereum, &key),
             Err(CryptoAddressError::PrivateKey)
         );
         let xprv = "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi";
