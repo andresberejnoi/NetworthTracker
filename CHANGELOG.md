@@ -10,6 +10,12 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ### Added
 
+- Cryptocurrency tracking with manual wallets/buckets and public-address
+  wallets for native BTC/ETH, dated balances, address validation that rejects
+  seed phrases/private keys, optional fake chain-provider sync, aggregated
+  positions, and net worth integration as marketable crypto assets.
+- A Crypto view with asset/wallet/balance forms, manual prices, provider status,
+  and a bulk wallet grid.
 - A shared append-only tax-lot ledger for securities: original and remaining
   quantities/basis, estimated-basis markers, FIFO sales, per-lot disposals,
   realized gains, and configurable short/long-term holding-period rules.

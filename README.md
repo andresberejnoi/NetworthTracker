@@ -21,6 +21,8 @@ selling costs).
   amounts keep at least 18 decimal places.
 - **Tax lots and realized gains** — append-only purchase lots, FIFO sales,
   estimated-basis tags, and configurable short/long-term holding-period rules.
+- **Crypto wallets** — manual buckets or public addresses for native BTC/ETH,
+  optional address sync, exact 18-decimal quantities, and manual/cached prices.
 - **Four net worth figures** — total, liquid (cash + brokerage + retirement),
   liquidity (cash available now), and accessible (net proceeds after estimated
   taxes, penalties, and selling costs).
@@ -186,6 +188,7 @@ The current version is `0.1.20261029`. The authoritative value lives in
 - `docs/dashboard.md` — frontend views
 - `docs/analytics.md` — read-only SQL/Python analysis
 - `docs/tax-lots.md` — purchase lots, FIFO sales, realized gains, estimated basis
+- `docs/crypto.md` — manual/address wallets, chain providers, prices, limits
 - [`CHANGELOG.md`](CHANGELOG.md) — per-release history
 - `openspec/changes/networth-tracker-v1/` — proposal, specs, design, tasks
 
