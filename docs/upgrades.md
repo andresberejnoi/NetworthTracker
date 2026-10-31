@@ -97,9 +97,10 @@ wrong passphrase or corrupt file is rejected and the database is left untouched.
   know about, which protects against accidentally running an older image
   against a newer schema.
 - A repository test (`backend/crates/adapters/tests/migrations.rs`) applies all
-  migrations except the latest, seeds accounts/balances/snapshots/users, applies
-  the latest migration, and asserts the rows and exact values survived and the
-  new schema is writable. It runs in `make backend-test-db`.
+  migrations except the latest, seeds accounts/balances/snapshots/users plus a
+  pre-ledger holding lot, applies the latest migration, and asserts the rows,
+  exact values, and migrated tax lot survived and the new schema is writable.
+  It runs in `make backend-test-db`.
 - Test a restore after every release.
 
 ## Testing the upgrade path

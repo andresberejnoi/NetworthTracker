@@ -8,6 +8,21 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+### Added
+
+- A shared append-only tax-lot ledger for securities: original and remaining
+  quantities/basis, estimated-basis markers, FIFO sales, per-lot disposals,
+  realized gains, and configurable short/long-term holding-period rules.
+- Lot-level investments UI with a purchase-lot form, sale form, estimated-basis
+  badges, and a realized-gains table.
+- Migration coverage for existing `holding_lots` and cross-boundary coverage
+  for appending lots and selling FIFO.
+
+### Fixed
+
+- Adding or bulk-pasting a lot no longer deletes existing lots. Positions with
+  recorded sales cannot be deleted.
+
 ## [0.1.20261029] - 2026-10-29
 
 ### Added

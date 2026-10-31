@@ -10,7 +10,9 @@ every holding in the account has a price.
   `real_estate`, `commodity`, `cash`, `other`), optional sector, currency.
 - **Holding** — a security inside one account. Unique per account/security.
 - **Lot** — acquisition date, quantity, and total cost basis. A holding's
-  quantity and cost basis are the sum of its lots.
+  quantity and cost basis are the sum of its remaining lots. Lots are
+  append-only; see [`docs/tax-lots.md`](tax-lots.md) for FIFO sales, disposals,
+  estimated basis, and holding-period rules.
 - **Price** — cached provider quote or a manual override, with an as-of
   timestamp and a stale flag.
 
@@ -104,6 +106,8 @@ The **Investments** view lets you:
 - add or replace holdings with one or more lots,
 - set manual prices,
 - see positions, market value, unrealized P/L, and stale badges,
+- see each tax lot with remaining/original quantity and estimated-basis markers,
+- record FIFO sales and review realized gains by disposal and term,
 - see allocation by asset class and sector,
 - paste lots into the bulk-entry grid.
 
