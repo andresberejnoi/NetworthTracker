@@ -75,7 +75,7 @@ reported_version() {
 }
 
 assert_data() {
-  local accounts balances snapshots users applied securities security_rows
+  local accounts balances snapshots users applied securities security_rows tax_lots lot_remaining
 
   accounts="$(psql_db -tAc 'SELECT COUNT(*) FROM accounts')"
   balances="$(psql_db -tAc 'SELECT amount::text FROM account_balances')"
@@ -84,6 +84,8 @@ assert_data() {
   applied="$(psql_db -tAc 'SELECT COUNT(*) FROM _sqlx_migrations')"
   securities="$(psql_db -tAc "SELECT to_regclass('public.securities') IS NOT NULL")"
   security_rows="$(psql_db -tAc 'SELECT COUNT(*) FROM securities')"
+  tax_lots="$(psql_db -tAc 'SELECT COUNT(*) FROM tax_lots')"
+  lot_remaining="$(psql_db -tAc 'SELECT remaining_quantity::text FROM tax_lots')"
 
   [[ "$accounts" == "1" ]] || { echo "accounts: expected 1, got ${accounts}" >&2; return 1; }
   [[ "$balances" == "1234.56" ]] || { echo "balance: expected 1234.56, got ${balances}" >&2; return 1; }
@@ -96,6 +98,14 @@ assert_data() {
   [[ "$securities" == "t" ]] || { echo "securities table is missing" >&2; return 1; }
   [[ "$security_rows" == "1" ]] || {
     echo "securities: expected 1 row, got ${security_rows}" >&2
+    return 1
+  }
+  [[ "$tax_lots" == "1" ]] || {
+    echo "tax_lots: expected 1 row, got ${tax_lots}" >&2
+    return 1
+  }
+  [[ "$lot_remaining" == "10" ]] || {
+    echo "tax_lots: expected remaining 10, got ${lot_remaining}" >&2
     return 1
   }
 }
@@ -177,10 +187,26 @@ VALUES
 
 INSERT INTO users (username, display_name, password_hash, role)
 VALUES ('upgrade-owner', 'Upgrade Owner', 'hash', 'owner');
+
+INSERT INTO securities (symbol, name, asset_class, currency)
+VALUES ('VTI', 'Total Market', 'equity', 'USD');
+
+INSERT INTO holdings (account_id, security_id)
+SELECT a.id, s.id
+FROM accounts a, securities s
+WHERE a.name = 'Upgrade checking' AND s.symbol = 'VTI';
+
+INSERT INTO holding_lots (holding_id, acquired_on, quantity, cost_basis, currency)
+SELECT h.id, DATE '2026-01-01', 10, 1000.00, 'USD'
+FROM holdings h;
 SQL
 
-if [[ "$(psql_db -tAc "SELECT to_regclass('public.securities') IS NOT NULL")" != "f" ]]; then
-  echo "The previous schema unexpectedly already has securities" >&2
+if [[ "$(psql_db -tAc "SELECT to_regclass('public.securities') IS NOT NULL")" != "t" ]]; then
+  echo "The previous schema should already have securities" >&2
+  exit 1
+fi
+if [[ "$(psql_db -tAc "SELECT to_regclass('public.tax_lots') IS NOT NULL")" != "f" ]]; then
+  echo "The previous schema unexpectedly already has tax_lots" >&2
   exit 1
 fi
 if [[ "$(psql_db -tAc 'SELECT COUNT(*) FROM _sqlx_migrations')" != "$last_index" ]]; then
@@ -203,8 +229,6 @@ if ! curl -s "${url}/api/v1/accounts" | grep -q "Upgrade checking"; then
   exit 1
 fi
 
-psql_db -c "INSERT INTO securities (symbol, name, asset_class, currency)
-             VALUES ('VTI', 'Total Market', 'equity', 'USD');" >/dev/null
 assert_data
 echo "Schema upgrade preserved data and the new schema is writable."
 
