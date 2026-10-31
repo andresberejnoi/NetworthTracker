@@ -8,6 +8,7 @@ import {
   createCryptoWallet,
   getChainProvider,
   listCryptoAssets,
+  listCryptoBalances,
   listCryptoLots,
   listCryptoPositions,
   listCryptoSales,
@@ -230,6 +231,11 @@ export default function CryptoView() {
     queryFn: () => listCryptoLots(taxWallet),
     enabled: Boolean(taxWallet),
   });
+  const taxBalances = useQuery({
+    queryKey: ["crypto-balances", taxWallet],
+    queryFn: () => listCryptoBalances(taxWallet),
+    enabled: Boolean(taxWallet),
+  });
   const sales = useQuery({
     queryKey: ["crypto-sales", taxWallet, saleYears],
     queryFn: () =>
@@ -417,6 +423,27 @@ export default function CryptoView() {
     [wallets.data],
   );
   const currency = positions.data?.[0]?.currency ?? "USD";
+  const latestBalance = taxBalances.data?.[0];
+  const lotQuantityTotal = useMemo(() => {
+    // Display-only exact sum of remaining lot quantities at 18 decimals.
+    const scale = 10n ** 18n;
+    const parse = (value: string): bigint => {
+      const [whole, fraction = ""] = value.split(".");
+      const padded = (fraction + "0".repeat(18)).slice(0, 18);
+      return BigInt(whole || "0") * scale + BigInt(padded || "0");
+    };
+    const total = (lots.data ?? []).reduce(
+      (sum: bigint, lot: Lot) => sum + parse(lot.quantity),
+      0n,
+    );
+    const whole = total / scale;
+    const fraction = (total % scale).toString().padStart(18, "0").replace(/0+$/, "");
+    return fraction ? `${whole}.${fraction}` : whole.toString();
+  }, [lots.data]);
+  const lotsDifferFromBalance =
+    Boolean(latestBalance) &&
+    (lots.data ?? []).length > 0 &&
+    lotQuantityTotal !== latestBalance?.quantity.replace(/\.?0+$/, "");
 
   return (
     <section aria-label="crypto">
@@ -777,6 +804,34 @@ export default function CryptoView() {
 
         {taxWallet && (
           <>
+            {latestBalance && (
+              <p className="muted">
+                Wallet balance: {latestBalance.quantity} ({latestBalance.source},{" "}
+                {latestBalance.as_of})
+              </p>
+            )}
+            {(lots.data ?? []).length > 0 && (
+              <p className="muted">Tax lots remaining: {lotQuantityTotal}</p>
+            )}
+            {lotsDifferFromBalance && (
+              <p className="badge badge-warn" role="alert">
+                Tax lots total {lotQuantityTotal} differs from wallet balance{" "}
+                {latestBalance?.quantity}. Add an opening lot or adjust the
+                balance.
+              </p>
+            )}
+            {latestBalance && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLotDate(latestBalance.as_of);
+                  setLotQuantity(latestBalance.quantity);
+                }}
+              >
+                Use balance as opening lot
+              </button>
+            )}
+
             <h3>Lots</h3>
             {lots.data && lots.data.length === 0 && (
               <p className="muted">No purchase lots yet.</p>

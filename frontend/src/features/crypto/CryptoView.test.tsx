@@ -58,6 +58,19 @@ function stubApi() {
     if (url.includes("/api/v1/crypto/assets")) {
       return jsonResponse(init?.method === "POST" ? asset : [asset]);
     }
+    if (url.includes("/balances")) {
+      return jsonResponse([
+        {
+          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          wallet_id: wallet.id,
+          as_of: "2026-01-01",
+          quantity: "1.5",
+          source: "manual",
+          provider: null,
+          fetched_at: null,
+        },
+      ]);
+    }
     if (url.includes("/lots")) {
       return jsonResponse([
         {
@@ -191,6 +204,22 @@ describe("CryptoView", () => {
     await screen.findByText("Crypto tax lots");
     expect(screen.getAllByText("0.003").length).toBeGreaterThan(0);
     expect(screen.getAllByText("210.00 USD").length).toBeGreaterThan(0);
+  });
+
+  it("warns when tax lots differ from the wallet balance and can prefill an opening lot", async () => {
+    stubApi();
+    renderView();
+
+    await screen.findByText("Coinbase");
+    await userEvent.selectOptions(
+      screen.getByLabelText("crypto tax wallet"),
+      wallet.id,
+    );
+    await screen.findByText(/differs from wallet balance/);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use balance as opening lot" }),
+    );
+    expect(screen.getByLabelText("crypto lot quantity")).toHaveValue("1.5");
   });
 
 });

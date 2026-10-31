@@ -12,6 +12,8 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 - A bulk purchase-lot grid for crypto wallets; multiple rows for one wallet
   become separate FIFO/tax lots.
+- A wallet balance versus tax-lots reconciliation warning and a
+  "Use balance as opening lot" helper in the crypto view.
 
 ### Fixed
 

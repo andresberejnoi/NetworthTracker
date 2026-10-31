@@ -79,6 +79,28 @@ CoinPaprika adapter (common crypto symbols), or use `static`/manual prices.
 `PRICE_PROVIDER_API_KEY` is available for providers that need one. The app does
 not bundle credentials.
 
+## Totals, batches, and wallet identity
+
+- A manual wallet is identified by **asset + label** (case-insensitive). So one
+  `BTC / Coinbase` wallet stays one wallet no matter how many totals or lots you
+  add.
+- Multiple real wallets at the same exchange should use distinct labels, for
+  example `Coinbase BTC 1` and `Coinbase BTC 2`. They remain separate wallets
+  but aggregate into one BTC position for net worth.
+- An address wallet is identified by **asset + address**. The same address
+  cannot be registered twice under different labels.
+
+A common starting point is a total-only position, such as `1.5 BTC` in
+Coinbase. Record that as a dated wallet balance. To keep tax lots aligned,
+use **Use balance as opening lot** in the crypto tax-lot section, enter the
+opening cost basis (or mark it estimated), and save. Later small purchases can
+be appended as separate purchase lots; the wallet remains one wallet and the
+lots remain separate for FIFO.
+
+Balances and lots are still independent records. The tax-lot section shows the
+wallet balance, the remaining lots total, and a warning when they differ. This
+prevents a silent mismatch between "how much I hold" and "what I paid".
+
 ## API
 
 ```bash
