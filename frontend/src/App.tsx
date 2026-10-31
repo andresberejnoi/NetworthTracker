@@ -14,6 +14,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import AccountsView from "./features/accounts/AccountsView";
 import AuthScreen from "./features/auth/AuthScreen";
 import BulkEntryView from "./features/bulk-entry/BulkEntryView";
+import CryptoView from "./features/crypto/CryptoView";
 import DataView from "./features/data/DataView";
 import HoldingsView from "./features/investments/HoldingsView";
 import NetWorthView from "./features/networth/NetWorthView";
@@ -26,6 +27,7 @@ type View =
   | "bulk"
   | "data"
   | "investments"
+  | "crypto"
   | "users";
 
 export default function App() {
@@ -200,6 +202,13 @@ export default function App() {
             >
               Investments
             </button>
+            <button
+              type="button"
+              aria-pressed={view === "crypto"}
+              onClick={() => setView("crypto")}
+            >
+              Crypto
+            </button>
             {user.role === "owner" && (
               <button
                 type="button"
@@ -222,6 +231,8 @@ export default function App() {
           <DataView />
         ) : view === "investments" ? (
           <HoldingsView />
+        ) : view === "crypto" ? (
+          <CryptoView />
         ) : view === "users" ? (
           <UsersView />
         ) : (

@@ -27,7 +27,7 @@ const KIND_LABELS: Record<Kind, string> = {
 
 const KIND_HINTS: Record<Kind, string> = {
   total: "assets minus liabilities",
-  liquid: "cash, brokerage, and retirement accounts",
+  liquid: "cash, brokerage, retirement, and crypto",
   liquidity: "cash available right now",
   accessible: "after estimated taxes, penalties, and costs",
 };
