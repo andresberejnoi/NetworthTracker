@@ -9,6 +9,7 @@ port="${INTEGRATION_PORT:-18080}"
 db_port="${INTEGRATION_DB_PORT:-15433}"
 db_container="networth-integration-db-$$"
 db_password="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+aggregation_key="$(python3 -c 'import base64,os; print(base64.b64encode(os.urandom(32)).decode())')"
 url="http://127.0.0.1:${port}"
 
 cleanup() {
@@ -41,6 +42,8 @@ DATABASE_URL="postgres://networth:${db_password}@127.0.0.1:${db_port}/networth" 
   AUTH_DISABLED=true \
   CHAIN_PROVIDER=fake \
   CHAIN_FAKE_BALANCES="bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq=0.000000000000000001" \
+  AGGREGATION_PROVIDER=fake \
+  AGGREGATION_ENCRYPTION_KEY="$aggregation_key" \
   "$root/backend/target/debug/networth-api" &
 backend_pid=$!
 

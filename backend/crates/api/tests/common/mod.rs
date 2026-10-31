@@ -13,9 +13,9 @@ use axum::{
     Router,
 };
 use http_body_util::BodyExt;
-use networth_adapters::{FakeChainProvider, InMemoryAccountRepository};
+use networth_adapters::{FakeAggregationProvider, FakeChainProvider, InMemoryAccountRepository};
 use networth_api::{app, AppState, Repositories};
-use networth_application::ChainDataProvider;
+use networth_application::{AggregationProvider, ChainDataProvider, TokenCipher};
 use networth_domain::{Chain, Quantity};
 use tower::ServiceExt;
 
@@ -55,13 +55,19 @@ fn build_with_chain(
         identity: repository.clone(),
         investments: repository.clone(),
         crypto: repository.clone(),
+        budget: repository.clone(),
+        aggregation: repository.clone(),
         prices: repository.clone(),
         fx: repository,
     };
+    let aggregation_provider: Option<Arc<dyn AggregationProvider>> =
+        Some(Arc::new(FakeAggregationProvider));
     app(AppState::new(
         repositories,
         None,
         chain_provider,
+        aggregation_provider,
+        Some(TokenCipher::new([7u8; 32])),
         auth_enabled,
     ))
 }

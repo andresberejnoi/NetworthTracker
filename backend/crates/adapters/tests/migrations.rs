@@ -51,10 +51,10 @@ async fn applying_a_new_migration_preserves_existing_data() {
         })
         .collect();
     files.sort();
-    assert!(files.len() >= 3, "need at least three migrations");
+    assert!(files.len() >= 5, "need at least five migrations");
 
-    // Exercise the last two migrations (tax lots and crypto) in sequence.
-    let previous_count = files.len() - 2;
+    // Exercise the last four migrations (tax lots, crypto, budgeting, aggregation).
+    let previous_count = files.len() - 4;
     let previous_dir = std::env::temp_dir().join(format!("networth-previous-{db_name}"));
     std::fs::create_dir_all(&previous_dir).expect("create temp migrations dir");
     for file in &files[..previous_count] {
@@ -208,6 +208,22 @@ async fn applying_a_new_migration_preserves_existing_data() {
         .await
         .expect("count crypto assets");
     assert_eq!(crypto_assets.0, 0);
+    let budget_tables: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM information_schema.tables \
+         WHERE table_name IN ('budget_incomes', 'budget_plans', 'budget_allocations', 'budget_spending')",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count budget tables");
+    assert_eq!(budget_tables.0, 4);
+    let aggregation_tables: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM information_schema.tables \
+         WHERE table_name IN ('aggregation_configs', 'aggregation_links', 'aggregation_balances', 'aggregation_holdings')",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count aggregation tables");
+    assert_eq!(aggregation_tables.0, 4);
     sqlx::query(
         "INSERT INTO crypto_assets (symbol, name, chain, decimals, currency) \
          VALUES ('BTC', 'Bitcoin', 'bitcoin', 18, 'USD')",

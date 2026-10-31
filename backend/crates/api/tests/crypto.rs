@@ -242,3 +242,59 @@ async fn eighteen_decimal_quantities_survive_storage_and_json() {
     assert_eq!(networth["total"], "1.00");
     assert_eq!(networth["liquid"], "1.00");
 }
+
+#[tokio::test]
+async fn crypto_lots_and_fifo_sales_use_the_shared_ledger() {
+    let app = common::router();
+    let asset_id = create_asset(&app, "BTC", "bitcoin").await;
+    let wallet_id = create_wallet(&app, &asset_id, "manual", "bitcoin", "Tax wallet", None).await;
+
+    for (date, quantity, cost) in [
+        ("2026-01-01", "10", "1000.00"),
+        ("2026-02-01", "5", "600.00"),
+    ] {
+        let (status, lots) = common::post_json(
+            &app,
+            &format!("/api/v1/crypto/wallets/{wallet_id}/lots"),
+            json!({
+                "acquired_on": date,
+                "quantity": quantity,
+                "cost_basis": cost
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "lot: {lots}");
+    }
+
+    let (_, lots) = common::get(&app, &format!("/api/v1/crypto/wallets/{wallet_id}/lots")).await;
+    assert_eq!(lots.as_array().expect("lots").len(), 2);
+
+    let (status, sale) = common::post_json(
+        &app,
+        &format!("/api/v1/crypto/wallets/{wallet_id}/sales"),
+        json!({
+            "symbol": "BTC",
+            "disposed_on": "2026-06-01",
+            "quantity": "12",
+            "gross_proceeds": "1800.00",
+            "fees": "12.00"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "sale: {sale}");
+    assert_eq!(sale["realized_gain"], "548.00");
+    assert_eq!(sale["disposals"].as_array().expect("disposals").len(), 2);
+
+    let (_, sales) = common::get(&app, &format!("/api/v1/crypto/wallets/{wallet_id}/sales")).await;
+    assert_eq!(sales.as_array().expect("sales").len(), 1);
+    assert_eq!(sales[0]["realized_gain"], "548.00");
+
+    let (_, lots) = common::get(&app, &format!("/api/v1/crypto/wallets/{wallet_id}/lots")).await;
+    let remaining: Vec<&str> = lots
+        .as_array()
+        .expect("lots")
+        .iter()
+        .map(|lot| lot["quantity"].as_str().expect("quantity"))
+        .collect();
+    assert_eq!(remaining, vec!["0", "3"]);
+}

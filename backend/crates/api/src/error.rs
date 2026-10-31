@@ -166,6 +166,37 @@ impl From<networth_application::PriceError> for ApiError {
     }
 }
 
+impl From<networth_application::AggregationError> for ApiError {
+    fn from(error: networth_application::AggregationError) -> Self {
+        use networth_application::AggregationError;
+        match error {
+            AggregationError::Validation(message) => ApiError::BadRequest(message),
+            AggregationError::Provider(message) => ApiError::Internal(message),
+            AggregationError::Crypto(message) => ApiError::Internal(message),
+            AggregationError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            AggregationError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}
+
+impl From<networth_application::BudgetError> for ApiError {
+    fn from(error: networth_application::BudgetError) -> Self {
+        match error {
+            networth_application::BudgetError::Validation(message) => ApiError::BadRequest(message),
+            networth_application::BudgetError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            networth_application::BudgetError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}
+
 impl From<networth_application::CryptoError> for ApiError {
     fn from(error: networth_application::CryptoError) -> Self {
         use networth_application::{CryptoError, PriceError};

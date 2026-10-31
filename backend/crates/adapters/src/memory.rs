@@ -10,14 +10,18 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_application::ports::{
-    AccountRepository, CryptoRepository, FxRepository, IdentityRepository, InvestmentRepository,
-    NetWorthRepository, PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
+    AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
+    AggregationRepository, BudgetRepository, CryptoRepository, FxRepository, IdentityRepository,
+    InvestmentRepository, NetWorthRepository, PriceRepository, RepositoryError, StoredPrice,
+    StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, Balance, CryptoAsset, CryptoBalance, CryptoBalanceSource, CryptoWallet, Currency,
-    Disposal, DisposalAllocation, Holding, Lot, Money, NewAccount, NewBalance, NewCryptoAsset,
-    NewCryptoBalance, NewCryptoWallet, NewLot, NewSale, NewSecurity, NewSnapshot, NewUser,
-    PriceSource, Sale, Security, Snapshot, SnapshotFilter, User, UserRole,
+    Account, AccountType, Balance, BudgetAllocation, BudgetIncome, BudgetSpending, CryptoAsset,
+    CryptoBalance, CryptoBalanceSource, CryptoWallet, Currency, Disposal, DisposalAllocation,
+    Holding, Lot, Money, NewAccount, NewBalance, NewBudgetIncome, NewBudgetSpending,
+    NewCryptoAsset, NewCryptoBalance, NewCryptoWallet, NewLot, NewSale, NewSecurity, NewSnapshot,
+    NewUser, PriceSource, Quantity, Sale, Security, Snapshot, SnapshotFilter, SpendingPlan, User,
+    UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -41,9 +45,23 @@ struct Inner {
     crypto_assets: Vec<CryptoAsset>,
     crypto_wallets: Vec<CryptoWallet>,
     crypto_balances: Vec<CryptoBalance>,
+    budget_incomes: Vec<BudgetIncome>,
+    budget_plans: Vec<SpendingPlan>,
+    budget_spending: Vec<BudgetSpending>,
+    aggregation_config: Option<AggregationConfig>,
+    aggregation_links: Vec<AggregationLink>,
+    aggregation_balances: Vec<AggregationBalance>,
+    aggregation_holdings: Vec<AggregationHolding>,
+    crypto_lots: Vec<CryptoLotRecord>,
+    crypto_sales: Vec<Sale>,
     next_lot_sequence: i64,
     prices: Vec<PriceRecord>,
     fx_rates: Vec<FxRateRecord>,
+}
+
+struct CryptoLotRecord {
+    wallet_id: Uuid,
+    lot: Lot,
 }
 
 struct SessionEntry {
@@ -158,7 +176,7 @@ impl AccountRepository for InMemoryAccountRepository {
     ) -> Result<Vec<Balance>, RepositoryError> {
         let mut saved = Vec::with_capacity(balances.len());
         for balance in balances {
-            saved.push(self.upsert_balance(balance).await?);
+            saved.push(AccountRepository::upsert_balance(self, balance).await?);
         }
         Ok(saved)
     }
@@ -565,6 +583,291 @@ impl InvestmentRepository for InMemoryAccountRepository {
 }
 
 #[async_trait]
+impl AggregationRepository for InMemoryAccountRepository {
+    async fn config(&self) -> Result<Option<AggregationConfig>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner.aggregation_config.clone())
+    }
+
+    async fn save_config(
+        &self,
+        provider: &str,
+        enabled: bool,
+        token_ciphertext: Option<&str>,
+        token_nonce: Option<&str>,
+    ) -> Result<AggregationConfig, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let config = AggregationConfig {
+            provider: provider.to_string(),
+            enabled,
+            token_ciphertext: token_ciphertext.map(str::to_string),
+            token_nonce: token_nonce.map(str::to_string),
+        };
+        inner.aggregation_config = Some(config.clone());
+        Ok(config)
+    }
+
+    async fn links(&self) -> Result<Vec<AggregationLink>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner.aggregation_links.clone())
+    }
+
+    async fn upsert_link(
+        &self,
+        provider: &str,
+        provider_account_id: &str,
+        account_id: Uuid,
+        display_name: &str,
+        account_type: AccountType,
+        currency: &Currency,
+    ) -> Result<AggregationLink, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(link) = inner.aggregation_links.iter_mut().find(|link| {
+            link.provider == provider && link.provider_account_id == provider_account_id
+        }) {
+            link.account_id = account_id;
+            link.display_name = display_name.to_string();
+            link.account_type = account_type;
+            link.currency = currency.clone();
+            return Ok(link.clone());
+        }
+        let link = AggregationLink {
+            id: Uuid::new_v4(),
+            provider: provider.to_string(),
+            provider_account_id: provider_account_id.to_string(),
+            account_id,
+            display_name: display_name.to_string(),
+            account_type,
+            currency: currency.clone(),
+            last_synced_at: None,
+        };
+        inner.aggregation_links.push(link.clone());
+        Ok(link)
+    }
+
+    async fn upsert_balance(
+        &self,
+        link_id: Uuid,
+        as_of: time::Date,
+        amount: &Money,
+        synced_at: OffsetDateTime,
+    ) -> Result<AggregationBalance, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(balance) = inner
+            .aggregation_balances
+            .iter_mut()
+            .find(|balance| balance.link_id == link_id && balance.as_of == as_of)
+        {
+            balance.amount = amount.clone();
+            balance.synced_at = synced_at;
+            return Ok(balance.clone());
+        }
+        let balance = AggregationBalance {
+            link_id,
+            as_of,
+            amount: amount.clone(),
+            synced_at,
+        };
+        inner.aggregation_balances.push(balance.clone());
+        Ok(balance)
+    }
+
+    async fn upsert_holding(
+        &self,
+        link_id: Uuid,
+        symbol: &str,
+        quantity: &Quantity,
+        value: &Money,
+        synced_at: OffsetDateTime,
+    ) -> Result<AggregationHolding, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(holding) = inner
+            .aggregation_holdings
+            .iter_mut()
+            .find(|holding| holding.link_id == link_id && holding.symbol == symbol)
+        {
+            holding.quantity = quantity.clone();
+            holding.value = value.clone();
+            holding.synced_at = synced_at;
+            return Ok(holding.clone());
+        }
+        let holding = AggregationHolding {
+            link_id,
+            symbol: symbol.to_string(),
+            quantity: quantity.clone(),
+            value: value.clone(),
+            synced_at,
+        };
+        inner.aggregation_holdings.push(holding.clone());
+        Ok(holding)
+    }
+
+    async fn latest_balance(
+        &self,
+        link_id: Uuid,
+    ) -> Result<Option<AggregationBalance>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .aggregation_balances
+            .iter()
+            .filter(|balance| balance.link_id == link_id)
+            .max_by_key(|balance| balance.as_of)
+            .cloned())
+    }
+
+    async fn holdings(&self, link_id: Uuid) -> Result<Vec<AggregationHolding>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .aggregation_holdings
+            .iter()
+            .filter(|holding| holding.link_id == link_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn touch_link(
+        &self,
+        link_id: Uuid,
+        synced_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(link) = inner
+            .aggregation_links
+            .iter_mut()
+            .find(|link| link.id == link_id)
+        {
+            link.last_synced_at = Some(synced_at);
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl BudgetRepository for InMemoryAccountRepository {
+    async fn upsert_income(&self, new: &NewBudgetIncome) -> Result<BudgetIncome, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(existing) = inner
+            .budget_incomes
+            .iter_mut()
+            .find(|income| income.user_id == new.user_id && income.year == new.year)
+        {
+            existing.amount = new.amount.clone();
+            return Ok(existing.clone());
+        }
+        let income = BudgetIncome {
+            id: Uuid::new_v4(),
+            user_id: new.user_id,
+            year: new.year,
+            amount: new.amount.clone(),
+        };
+        inner.budget_incomes.push(income.clone());
+        Ok(income)
+    }
+
+    async fn income(
+        &self,
+        user_id: Uuid,
+        year: i32,
+    ) -> Result<Option<BudgetIncome>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .budget_incomes
+            .iter()
+            .find(|income| income.user_id == user_id && income.year == year)
+            .cloned())
+    }
+
+    async fn upsert_plan(
+        &self,
+        user_id: Uuid,
+        year: i32,
+        currency: &Currency,
+        allocations: &[BudgetAllocation],
+    ) -> Result<SpendingPlan, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(existing) = inner
+            .budget_plans
+            .iter_mut()
+            .find(|plan| plan.user_id == user_id && plan.year == year)
+        {
+            existing.currency = currency.clone();
+            existing.allocations = allocations.to_vec();
+            return Ok(existing.clone());
+        }
+        let plan = SpendingPlan {
+            id: Uuid::new_v4(),
+            user_id,
+            year,
+            currency: currency.clone(),
+            allocations: allocations.to_vec(),
+        };
+        inner.budget_plans.push(plan.clone());
+        Ok(plan)
+    }
+
+    async fn plan(
+        &self,
+        user_id: Uuid,
+        year: i32,
+    ) -> Result<Option<SpendingPlan>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .budget_plans
+            .iter()
+            .find(|plan| plan.user_id == user_id && plan.year == year)
+            .cloned())
+    }
+
+    async fn upsert_spending(
+        &self,
+        new: &NewBudgetSpending,
+    ) -> Result<BudgetSpending, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(existing) = inner.budget_spending.iter_mut().find(|spending| {
+            spending.user_id == new.user_id
+                && spending.year == new.year
+                && spending.month == new.month
+                && spending.category == new.category
+        }) {
+            existing.amount = new.amount.clone();
+            existing.note = new.note.clone();
+            return Ok(existing.clone());
+        }
+        let spending = BudgetSpending {
+            id: Uuid::new_v4(),
+            user_id: new.user_id,
+            year: new.year,
+            month: new.month,
+            category: new.category,
+            amount: new.amount.clone(),
+            note: new.note.clone(),
+        };
+        inner.budget_spending.push(spending.clone());
+        Ok(spending)
+    }
+
+    async fn list_spending(
+        &self,
+        user_id: Uuid,
+        year: i32,
+    ) -> Result<Vec<BudgetSpending>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut spending: Vec<BudgetSpending> = inner
+            .budget_spending
+            .iter()
+            .filter(|spending| spending.user_id == user_id && spending.year == year)
+            .cloned()
+            .collect();
+        spending.sort_by(|a, b| {
+            a.month
+                .cmp(&b.month)
+                .then_with(|| a.category.as_str().cmp(b.category.as_str()))
+        });
+        Ok(spending)
+    }
+}
+
+#[async_trait]
 impl CryptoRepository for InMemoryAccountRepository {
     async fn create_asset(&self, new: &NewCryptoAsset) -> Result<CryptoAsset, RepositoryError> {
         let mut inner = self.inner.lock().expect("lock");
@@ -734,6 +1037,144 @@ impl CryptoRepository for InMemoryAccountRepository {
                 .or_insert_with(|| balance.clone());
         }
         Ok(by_wallet.into_values().collect())
+    }
+
+    async fn append_crypto_lots(
+        &self,
+        wallet_id: Uuid,
+        asset_id: Uuid,
+        lots: &[NewLot],
+    ) -> Result<Vec<Lot>, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let asset = inner
+            .crypto_assets
+            .iter()
+            .find(|asset| asset.id == asset_id)
+            .cloned()
+            .ok_or_else(|| RepositoryError::Storage("asset not found".to_string()))?;
+        let mut sequence = inner.next_lot_sequence;
+        let mut created = Vec::with_capacity(lots.len());
+        for new in lots {
+            let lot = Lot {
+                id: Uuid::new_v4(),
+                sequence,
+                acquired_on: new.acquired_on,
+                original_quantity: new.quantity.clone(),
+                remaining_quantity: new.quantity.clone(),
+                original_cost_basis: new.cost_basis.clone(),
+                remaining_cost_basis: new.cost_basis.clone(),
+                fees: new
+                    .fees
+                    .clone()
+                    .unwrap_or_else(|| Money::zero(asset.currency.clone())),
+                source: new.source,
+                basis_quality: new.basis_quality,
+                basis_note: new.basis_note.clone(),
+            };
+            sequence += 1;
+            inner.crypto_lots.push(CryptoLotRecord {
+                wallet_id,
+                lot: lot.clone(),
+            });
+            created.push(lot);
+        }
+        inner.next_lot_sequence = sequence;
+        Ok(created)
+    }
+
+    async fn list_crypto_lots(&self, wallet_id: Uuid) -> Result<Vec<Lot>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut lots: Vec<Lot> = inner
+            .crypto_lots
+            .iter()
+            .filter(|record| record.wallet_id == wallet_id)
+            .map(|record| record.lot.clone())
+            .collect();
+        lots.sort_by_key(|lot| (lot.acquired_on, lot.sequence));
+        Ok(lots)
+    }
+
+    async fn record_crypto_sale(
+        &self,
+        wallet_id: Uuid,
+        asset_id: Uuid,
+        sale: &NewSale,
+        allocations: &[DisposalAllocation],
+    ) -> Result<Sale, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let asset = inner
+            .crypto_assets
+            .iter()
+            .find(|asset| asset.id == asset_id)
+            .cloned()
+            .ok_or_else(|| RepositoryError::Storage("asset not found".to_string()))?;
+        for allocation in allocations {
+            let record = inner
+                .crypto_lots
+                .iter_mut()
+                .find(|record| record.wallet_id == wallet_id && record.lot.id == allocation.lot_id)
+                .ok_or_else(|| RepositoryError::Storage("lot not found".to_string()))?;
+            record.lot.remaining_quantity = record
+                .lot
+                .remaining_quantity
+                .checked_sub(&allocation.quantity)
+                .map_err(|error| RepositoryError::Conflict(error.to_string()))?;
+            record.lot.remaining_cost_basis = record
+                .lot
+                .remaining_cost_basis
+                .checked_sub(&allocation.cost_basis)
+                .map_err(|error| RepositoryError::Conflict(error.to_string()))?;
+        }
+        let sale = Sale {
+            id: Uuid::new_v4(),
+            account_id: wallet_id,
+            holding_id: wallet_id,
+            security: Security {
+                id: asset.id,
+                symbol: asset.symbol,
+                name: asset.name,
+                asset_class: networth_domain::SecurityAssetClass::Other,
+                sector: None,
+                currency: asset.currency,
+            },
+            disposed_on: sale.disposed_on,
+            quantity: sale.quantity.clone(),
+            gross_proceeds: sale.gross_proceeds.clone(),
+            fees: sale.fees.clone(),
+            currency: sale.currency.clone(),
+            method: sale.method,
+            disposals: allocations
+                .iter()
+                .map(|allocation| Disposal {
+                    id: Uuid::new_v4(),
+                    lot_id: allocation.lot_id,
+                    acquired_on: allocation.acquired_on,
+                    quantity: allocation.quantity.clone(),
+                    gross_proceeds: allocation.gross_proceeds.clone(),
+                    fees: allocation.fees.clone(),
+                    cost_basis: allocation.cost_basis.clone(),
+                    basis_quality: allocation.basis_quality,
+                })
+                .collect(),
+        };
+        inner.crypto_sales.push(sale.clone());
+        Ok(sale)
+    }
+
+    async fn list_crypto_sales(&self, wallet_id: Uuid) -> Result<Vec<Sale>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut sales: Vec<Sale> = inner
+            .crypto_sales
+            .iter()
+            .filter(|sale| sale.account_id == wallet_id)
+            .cloned()
+            .collect();
+        sales.sort_by(|a, b| {
+            b.disposed_on
+                .cmp(&a.disposed_on)
+                .then_with(|| b.id.cmp(&a.id))
+        });
+        Ok(sales)
     }
 }
 

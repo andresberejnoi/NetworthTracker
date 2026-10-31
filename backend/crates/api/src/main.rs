@@ -2,9 +2,14 @@
 
 use std::sync::Arc;
 
-use networth_adapters::{FakeChainProvider, PostgresAccountRepository, StaticPriceProvider};
+use networth_adapters::{
+    CoinPaprikaPriceProvider, FakeAggregationProvider, FakeChainProvider,
+    PostgresAccountRepository, PublicChainProvider, StaticPriceProvider,
+};
 use networth_api::{app, AppState, Repositories};
-use networth_application::{ChainDataProvider, PriceProvider, ProviderConfig};
+use networth_application::{
+    AggregationProvider, ChainDataProvider, PriceProvider, ProviderConfig, TokenCipher,
+};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
 
@@ -46,6 +51,8 @@ async fn main() {
         identity: repository.clone(),
         investments: repository.clone(),
         crypto: repository.clone(),
+        budget: repository.clone(),
+        aggregation: repository.clone(),
         prices: repository.clone(),
         fx: repository,
     };
@@ -53,6 +60,7 @@ async fn main() {
     let provider_config = ProviderConfig::from_env();
     let provider: Option<Arc<dyn PriceProvider>> = match provider_config.provider.as_deref() {
         Some("static") => Some(Arc::new(StaticPriceProvider::from_env())),
+        Some("coinpaprika") => Some(Arc::new(CoinPaprikaPriceProvider::new())),
         Some(other) => {
             tracing::warn!("unknown PRICE_PROVIDER '{other}'; using cached and manual prices only");
             None
@@ -69,6 +77,16 @@ async fn main() {
         .as_deref()
     {
         Some("fake") => Some(Arc::new(FakeChainProvider::from_env())),
+        Some("public") => Some(Arc::new(PublicChainProvider::new(None))),
+        Some("etherscan") => {
+            let key = std::env::var("CHAIN_PROVIDER_API_KEY").ok();
+            if key.is_none() {
+                tracing::warn!(
+                    "CHAIN_PROVIDER=etherscan requires CHAIN_PROVIDER_API_KEY; using public Ethereum"
+                );
+            }
+            Some(Arc::new(PublicChainProvider::new(key)))
+        }
         Some("none") | None => None,
         Some(other) => {
             tracing::warn!("unknown CHAIN_PROVIDER '{other}'; address sync is disabled");
@@ -76,7 +94,34 @@ async fn main() {
         }
     };
 
-    let state = AppState::new(repositories, provider, chain_provider, auth_enabled);
+    let aggregation_provider: Option<Arc<dyn AggregationProvider>> =
+        match std::env::var("AGGREGATION_PROVIDER")
+            .ok()
+            .map(|value| value.trim().to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("fake") => Some(Arc::new(FakeAggregationProvider)),
+            Some("none") | None => None,
+            Some(other) => {
+                tracing::warn!("unknown AGGREGATION_PROVIDER '{other}'; aggregation is disabled");
+                None
+            }
+        };
+    let aggregation_cipher = TokenCipher::from_env();
+    if aggregation_provider.is_some() && aggregation_cipher.is_none() {
+        tracing::warn!(
+            "AGGREGATION_PROVIDER is set but AGGREGATION_ENCRYPTION_KEY is missing; tokens cannot be stored"
+        );
+    }
+
+    let state = AppState::new(
+        repositories,
+        provider,
+        chain_provider,
+        aggregation_provider,
+        aggregation_cipher,
+        auth_enabled,
+    );
 
     let addr = std::env::var("BACKEND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = tokio::net::TcpListener::bind(&addr)

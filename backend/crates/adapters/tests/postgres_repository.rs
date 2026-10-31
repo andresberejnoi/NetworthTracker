@@ -569,3 +569,230 @@ async fn persists_crypto_assets_wallets_and_balances(pool: PgPool) {
         .unwrap();
     assert_eq!(dust.quantity.to_string(), "0.000000000000000001");
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_budget_income_plan_and_spending(pool: PgPool) {
+    use networth_application::ports::BudgetRepository;
+    use networth_domain::{
+        BudgetAllocation, BudgetCategory, Currency, Money, NewBudgetIncome, NewBudgetSpending,
+    };
+
+    let repo = PostgresAccountRepository::new(pool);
+    let user = repo
+        .create_user(&networth_domain::NewUser {
+            username: "budget-user".to_string(),
+            display_name: "Budget User".to_string(),
+            password_hash: "hash".to_string(),
+            role: networth_domain::UserRole::Owner,
+        })
+        .await
+        .unwrap();
+
+    repo.upsert_income(&NewBudgetIncome {
+        user_id: user.id,
+        year: 2026,
+        amount: Money::parse("120000.00", "USD").unwrap(),
+    })
+    .await
+    .unwrap();
+
+    let plan = repo
+        .upsert_plan(
+            user.id,
+            2026,
+            &Currency::usd(),
+            &[
+                BudgetAllocation {
+                    category: BudgetCategory::FixedCosts,
+                    percentage: "50".parse().unwrap(),
+                },
+                BudgetAllocation {
+                    category: BudgetCategory::Savings,
+                    percentage: "20".parse().unwrap(),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(plan.allocations.len(), 2);
+    assert_eq!(plan.total_percentage().to_string(), "70");
+
+    repo.upsert_spending(&NewBudgetSpending {
+        user_id: user.id,
+        year: 2026,
+        month: 1,
+        category: BudgetCategory::FixedCosts,
+        amount: Money::parse("1000.00", "USD").unwrap(),
+        note: None,
+    })
+    .await
+    .unwrap();
+
+    let loaded = repo.plan(user.id, 2026).await.unwrap().expect("plan");
+    assert_eq!(loaded.allocations.len(), 2);
+    let spending = repo.list_spending(user.id, 2026).await.unwrap();
+    assert_eq!(spending.len(), 1);
+    assert_eq!(spending[0].amount.amount_string(), "1000.00");
+    assert_eq!(
+        repo.income(user.id, 2026)
+            .await
+            .unwrap()
+            .expect("income")
+            .amount
+            .amount_string(),
+        "120000.00"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_aggregation_provenance(pool: PgPool) {
+    use networth_application::ports::AggregationRepository;
+    use networth_domain::{AccountType, Currency, Money, Quantity};
+    use time::OffsetDateTime;
+
+    let repo = PostgresAccountRepository::new(pool);
+    let account = repo
+        .insert_account(&account("Linked Brokerage", AccountType::TaxableBrokerage))
+        .await
+        .unwrap();
+
+    let config = repo
+        .save_config("fake", true, Some("ciphertext"), Some("nonce"))
+        .await
+        .unwrap();
+    assert!(config.enabled);
+    assert_eq!(config.token_ciphertext.as_deref(), Some("ciphertext"));
+
+    let link = repo
+        .upsert_link(
+            "fake",
+            "provider-1",
+            account.id,
+            "Linked Brokerage",
+            AccountType::TaxableBrokerage,
+            &Currency::usd(),
+        )
+        .await
+        .unwrap();
+
+    let now = OffsetDateTime::now_utc();
+    AggregationRepository::upsert_balance(
+        &repo,
+        link.id,
+        now.date(),
+        &Money::parse("12345.67", "USD").unwrap(),
+        now,
+    )
+    .await
+    .unwrap();
+    repo.upsert_holding(
+        link.id,
+        "VTI",
+        &Quantity::parse("10").unwrap(),
+        &Money::parse("1500.00", "USD").unwrap(),
+        now,
+    )
+    .await
+    .unwrap();
+    repo.touch_link(link.id, now).await.unwrap();
+
+    let loaded = repo.config().await.unwrap().expect("config");
+    assert_eq!(loaded.provider, "fake");
+    assert_eq!(repo.links().await.unwrap().len(), 1);
+    assert_eq!(
+        AggregationRepository::latest_balance(&repo, link.id)
+            .await
+            .unwrap()
+            .expect("balance")
+            .amount
+            .amount_string(),
+        "12345.67"
+    );
+    assert_eq!(repo.holdings(link.id).await.unwrap()[0].symbol, "VTI");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_crypto_lots_and_fifo_sales(pool: PgPool) {
+    use networth_application::ports::CryptoRepository;
+    use networth_domain::{
+        allocate_fifo, BasisQuality, Chain, CryptoWalletKind, Currency, LotSource, Money,
+        NewCryptoAsset, NewCryptoWallet, NewLot, NewSale, OwnershipScope, Quantity, SaleMethod,
+    };
+
+    let repo = PostgresAccountRepository::new(pool);
+    let asset = repo
+        .create_asset(&NewCryptoAsset {
+            symbol: "BTC".to_string(),
+            name: "Bitcoin".to_string(),
+            chain: Chain::Bitcoin,
+            contract_address: None,
+            decimals: 18,
+            currency: Currency::usd(),
+            price_provider_id: None,
+        })
+        .await
+        .unwrap();
+    let wallet = repo
+        .create_wallet(&NewCryptoWallet {
+            asset_id: asset.id,
+            kind: CryptoWalletKind::Manual,
+            chain: Chain::Bitcoin,
+            address: None,
+            label: "Tax wallet".to_string(),
+            ownership_scope: OwnershipScope::Household,
+            owner_user_id: None,
+        })
+        .await
+        .unwrap();
+
+    let lots = repo
+        .append_crypto_lots(
+            wallet.id,
+            asset.id,
+            &[
+                NewLot {
+                    acquired_on: date!(2026 - 01 - 01),
+                    quantity: Quantity::parse("10").unwrap(),
+                    cost_basis: Money::parse("1000.00", "USD").unwrap(),
+                    fees: None,
+                    source: LotSource::Purchase,
+                    basis_quality: BasisQuality::Actual,
+                    basis_note: None,
+                },
+                NewLot {
+                    acquired_on: date!(2026 - 02 - 01),
+                    quantity: Quantity::parse("5").unwrap(),
+                    cost_basis: Money::parse("600.00", "USD").unwrap(),
+                    fees: None,
+                    source: LotSource::Purchase,
+                    basis_quality: BasisQuality::Estimated,
+                    basis_note: Some("backfilled".to_string()),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(lots.len(), 2);
+
+    let sale = NewSale {
+        disposed_on: date!(2026 - 06 - 01),
+        quantity: Quantity::parse("12").unwrap(),
+        gross_proceeds: Money::parse("1800.00", "USD").unwrap(),
+        fees: Money::parse("12.00", "USD").unwrap(),
+        currency: Currency::usd(),
+        method: SaleMethod::Fifo,
+    };
+    let allocations = allocate_fifo(&lots, &sale).unwrap();
+    let recorded = repo
+        .record_crypto_sale(wallet.id, asset.id, &sale, &allocations)
+        .await
+        .unwrap();
+    assert_eq!(recorded.realized_gain().amount_string(), "548.00");
+    assert_eq!(recorded.disposals.len(), 2);
+
+    let remaining = repo.list_crypto_lots(wallet.id).await.unwrap();
+    assert_eq!(remaining[0].remaining_quantity.to_string(), "0");
+    assert_eq!(remaining[1].remaining_quantity.to_string(), "3");
+    assert_eq!(remaining[1].basis_quality, BasisQuality::Estimated);
+    assert_eq!(repo.list_crypto_sales(wallet.id).await.unwrap().len(), 1);
+}

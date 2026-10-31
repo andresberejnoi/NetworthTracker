@@ -3,10 +3,11 @@
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_domain::{
-    Account, Balance, Chain, CryptoAsset, CryptoBalance, CryptoWallet, Currency,
-    DisposalAllocation, Holding, Money, NewAccount, NewBalance, NewCryptoAsset, NewCryptoBalance,
+    Account, AccountType, Balance, BudgetAllocation, BudgetIncome, BudgetSpending, Chain,
+    CryptoAsset, CryptoBalance, CryptoWallet, Currency, DisposalAllocation, Holding, Lot, Money,
+    NewAccount, NewBalance, NewBudgetIncome, NewBudgetSpending, NewCryptoAsset, NewCryptoBalance,
     NewCryptoWallet, NewLot, NewSale, NewSecurity, NewSnapshot, NewUser, PriceSource, Quantity,
-    Sale, Security, Snapshot, SnapshotFilter, User, UserRole,
+    Sale, Security, Snapshot, SnapshotFilter, SpendingPlan, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -224,6 +225,29 @@ pub trait CryptoRepository: Send + Sync {
     /// Latest balance per wallet on or before `as_of`, preferring manual over
     /// chain over import on the same date.
     async fn latest_balances(&self, as_of: Date) -> Result<Vec<CryptoBalance>, RepositoryError>;
+
+    /// Append crypto purchase lots to the shared tax-lot ledger.
+    async fn append_crypto_lots(
+        &self,
+        wallet_id: Uuid,
+        asset_id: Uuid,
+        lots: &[NewLot],
+    ) -> Result<Vec<Lot>, RepositoryError>;
+
+    /// List crypto lots for a wallet.
+    async fn list_crypto_lots(&self, wallet_id: Uuid) -> Result<Vec<Lot>, RepositoryError>;
+
+    /// Record a FIFO crypto sale and its disposals.
+    async fn record_crypto_sale(
+        &self,
+        wallet_id: Uuid,
+        asset_id: Uuid,
+        sale: &NewSale,
+        allocations: &[DisposalAllocation],
+    ) -> Result<Sale, RepositoryError>;
+
+    /// List crypto sales for a wallet.
+    async fn list_crypto_sales(&self, wallet_id: Uuid) -> Result<Vec<Sale>, RepositoryError>;
 }
 
 /// A balance returned by a chain provider.
@@ -252,6 +276,218 @@ pub trait ChainDataProvider: Send + Sync {
         chain: Chain,
         address: &str,
     ) -> Result<Option<ChainBalance>, ProviderError>;
+}
+
+/// Persistence for income, spending plans, and category spending.
+#[async_trait]
+pub trait BudgetRepository: Send + Sync {
+    /// Insert or replace annual income.
+    async fn upsert_income(&self, new: &NewBudgetIncome) -> Result<BudgetIncome, RepositoryError>;
+
+    /// Annual income for a user/year.
+    async fn income(
+        &self,
+        user_id: Uuid,
+        year: i32,
+    ) -> Result<Option<BudgetIncome>, RepositoryError>;
+
+    /// Insert or replace a spending plan and its allocations.
+    async fn upsert_plan(
+        &self,
+        user_id: Uuid,
+        year: i32,
+        currency: &Currency,
+        allocations: &[BudgetAllocation],
+    ) -> Result<SpendingPlan, RepositoryError>;
+
+    /// A user's plan for a year.
+    async fn plan(&self, user_id: Uuid, year: i32)
+        -> Result<Option<SpendingPlan>, RepositoryError>;
+
+    /// Insert or replace a category/month spending record.
+    async fn upsert_spending(
+        &self,
+        new: &NewBudgetSpending,
+    ) -> Result<BudgetSpending, RepositoryError>;
+
+    /// All spending records for a user/year.
+    async fn list_spending(
+        &self,
+        user_id: Uuid,
+        year: i32,
+    ) -> Result<Vec<BudgetSpending>, RepositoryError>;
+}
+
+/// Stored aggregation configuration.
+#[derive(Debug, Clone)]
+pub struct AggregationConfig {
+    /// Provider name.
+    pub provider: String,
+    /// Whether sync is enabled.
+    pub enabled: bool,
+    /// Encrypted token.
+    pub token_ciphertext: Option<String>,
+    /// Token nonce.
+    pub token_nonce: Option<String>,
+}
+
+/// A provider account linked to a local account.
+#[derive(Debug, Clone)]
+pub struct AggregationLink {
+    /// Identifier.
+    pub id: Uuid,
+    /// Provider name.
+    pub provider: String,
+    /// Provider account id.
+    pub provider_account_id: String,
+    /// Local account.
+    pub account_id: Uuid,
+    /// Display name.
+    pub display_name: String,
+    /// Local account type.
+    pub account_type: AccountType,
+    /// Currency.
+    pub currency: Currency,
+    /// Last successful sync.
+    pub last_synced_at: Option<OffsetDateTime>,
+}
+
+/// A provider balance observation.
+#[derive(Debug, Clone)]
+pub struct AggregationBalance {
+    /// Link.
+    pub link_id: Uuid,
+    /// Observation date.
+    pub as_of: Date,
+    /// Amount.
+    pub amount: Money,
+    /// Sync time.
+    pub synced_at: OffsetDateTime,
+}
+
+/// A provider holding observation.
+#[derive(Debug, Clone)]
+pub struct AggregationHolding {
+    /// Link.
+    pub link_id: Uuid,
+    /// Symbol.
+    pub symbol: String,
+    /// Quantity.
+    pub quantity: Quantity,
+    /// Value.
+    pub value: Money,
+    /// Sync time.
+    pub synced_at: OffsetDateTime,
+}
+
+/// An account returned by an aggregation provider.
+#[derive(Debug, Clone)]
+pub struct ProviderAccount {
+    /// Provider account id.
+    pub provider_id: String,
+    /// Display name.
+    pub name: String,
+    /// Suggested local account type.
+    pub account_type: AccountType,
+    /// Currency.
+    pub currency: Currency,
+    /// Balance, if provided.
+    pub balance: Option<Money>,
+    /// Holdings, if provided.
+    pub holdings: Vec<ProviderHolding>,
+}
+
+/// A holding returned by an aggregation provider.
+#[derive(Debug, Clone)]
+pub struct ProviderHolding {
+    /// Symbol.
+    pub symbol: String,
+    /// Quantity.
+    pub quantity: Quantity,
+    /// Market value.
+    pub value: Money,
+}
+
+/// A provider snapshot.
+#[derive(Debug, Clone)]
+pub struct ProviderSnapshot {
+    /// Accounts.
+    pub accounts: Vec<ProviderAccount>,
+}
+
+/// A read-only aggregation provider. It cannot initiate writes at the provider.
+#[async_trait]
+pub trait AggregationProvider: Send + Sync {
+    /// Provider name.
+    fn name(&self) -> &'static str;
+
+    /// Fetch accounts using the user's token.
+    async fn fetch(&self, token: &str) -> Result<ProviderSnapshot, ProviderError>;
+}
+
+/// Persistence for aggregation config, links, balances, and holdings.
+#[async_trait]
+pub trait AggregationRepository: Send + Sync {
+    /// Current config.
+    async fn config(&self) -> Result<Option<AggregationConfig>, RepositoryError>;
+
+    /// Save config and encrypted token.
+    async fn save_config(
+        &self,
+        provider: &str,
+        enabled: bool,
+        token_ciphertext: Option<&str>,
+        token_nonce: Option<&str>,
+    ) -> Result<AggregationConfig, RepositoryError>;
+
+    /// All links.
+    async fn links(&self) -> Result<Vec<AggregationLink>, RepositoryError>;
+
+    /// Create or find a link for a provider account.
+    async fn upsert_link(
+        &self,
+        provider: &str,
+        provider_account_id: &str,
+        account_id: Uuid,
+        display_name: &str,
+        account_type: AccountType,
+        currency: &Currency,
+    ) -> Result<AggregationLink, RepositoryError>;
+
+    /// Upsert a provider balance.
+    async fn upsert_balance(
+        &self,
+        link_id: Uuid,
+        as_of: Date,
+        amount: &Money,
+        synced_at: OffsetDateTime,
+    ) -> Result<AggregationBalance, RepositoryError>;
+
+    /// Upsert a provider holding.
+    async fn upsert_holding(
+        &self,
+        link_id: Uuid,
+        symbol: &str,
+        quantity: &Quantity,
+        value: &Money,
+        synced_at: OffsetDateTime,
+    ) -> Result<AggregationHolding, RepositoryError>;
+
+    /// Latest provider balance for a link.
+    async fn latest_balance(
+        &self,
+        link_id: Uuid,
+    ) -> Result<Option<AggregationBalance>, RepositoryError>;
+
+    /// Provider holdings for a link.
+    async fn holdings(&self, link_id: Uuid) -> Result<Vec<AggregationHolding>, RepositoryError>;
+
+    /// Mark a link as synced.
+    async fn touch_link(
+        &self,
+        link_id: Uuid,
+        synced_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError>;
 }
 
 /// Persistence for cached and manual prices.

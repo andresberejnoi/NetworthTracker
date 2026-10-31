@@ -331,6 +331,19 @@ export type CryptoBalance = components["schemas"]["CryptoBalance"];
 export type RecordCryptoBalanceRequest = components["schemas"]["RecordCryptoBalanceRequest"];
 export type CryptoPosition = components["schemas"]["CryptoPosition"];
 export type ChainProviderStatus = components["schemas"]["ChainProviderStatus"];
+export type Lot = components["schemas"]["Lot"];
+export type BudgetView = components["schemas"]["BudgetView"];
+export type BudgetAllocation = components["schemas"]["BudgetAllocation"];
+export type BudgetSpending = components["schemas"]["BudgetSpending"];
+export type BudgetVariance = components["schemas"]["BudgetVariance"];
+export type BudgetIncomeRequest = components["schemas"]["BudgetIncomeRequest"];
+export type BudgetPlanRequest = components["schemas"]["BudgetPlanRequest"];
+export type BudgetSpendingRequest = components["schemas"]["BudgetSpendingRequest"];
+export type AggregationStatus = components["schemas"]["AggregationStatus"];
+export type AggregationView = components["schemas"]["AggregationView"];
+export type AggregationLink = components["schemas"]["AggregationLink"];
+export type AggregationHolding = components["schemas"]["AggregationHolding"];
+export type AggregationConfigRequest = components["schemas"]["AggregationConfigRequest"];
 export type Price = components["schemas"]["Price"];
 export type ProviderStatus = components["schemas"]["ProviderStatus"];
 
@@ -484,6 +497,91 @@ export function listCryptoPositions(
   if (params.as_of) query.set("as_of", params.as_of);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<CryptoPosition[]>(`/api/v1/crypto/positions${suffix}`);
+}
+
+export function getBudget(year: number): Promise<BudgetView> {
+  return request<BudgetView>(`/api/v1/budget?year=${year}`);
+}
+
+export function setBudgetIncome(body: BudgetIncomeRequest): Promise<void> {
+  return request<void>("/api/v1/budget/income", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function setBudgetPlan(body: BudgetPlanRequest): Promise<void> {
+  return request<void>("/api/v1/budget/plan", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function recordBudgetSpending(
+  body: BudgetSpendingRequest,
+): Promise<void> {
+  return request<void>("/api/v1/budget/spending", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getAggregation(): Promise<AggregationView> {
+  return request<AggregationView>("/api/v1/aggregation");
+}
+
+export function saveAggregationConfig(
+  body: AggregationConfigRequest,
+): Promise<AggregationStatus> {
+  return request<AggregationStatus>("/api/v1/aggregation/config", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function syncAggregation(): Promise<AggregationView> {
+  return request<AggregationView>("/api/v1/aggregation/sync", {
+    method: "POST",
+  });
+}
+
+export function listCryptoLots(walletId: string): Promise<Lot[]> {
+  return request<Lot[]>(`/api/v1/crypto/wallets/${walletId}/lots`);
+}
+
+export function createCryptoLot(
+  walletId: string,
+  body: LotRequest,
+): Promise<Lot[]> {
+  return request<Lot[]>(`/api/v1/crypto/wallets/${walletId}/lots`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listCryptoSales(
+  walletId: string,
+  params: { long_term_years?: number; long_term_days?: number } = {},
+): Promise<Sale[]> {
+  const query = new URLSearchParams();
+  if (params.long_term_years !== undefined) {
+    query.set("long_term_years", String(params.long_term_years));
+  }
+  if (params.long_term_days !== undefined) {
+    query.set("long_term_days", String(params.long_term_days));
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<Sale[]>(`/api/v1/crypto/wallets/${walletId}/sales${suffix}`);
+}
+
+export function createCryptoSale(
+  walletId: string,
+  body: SaleRequest,
+): Promise<Sale> {
+  return request<Sale>(`/api/v1/crypto/wallets/${walletId}/sales`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function getChainProvider(): Promise<ChainProviderStatus> {

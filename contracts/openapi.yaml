@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: NetworthTracker API
-  version: 0.1.20261029
+  version: 0.1.20261031
   description: |
     JSON API for the local-first NetworthTracker backend.
 
@@ -577,6 +577,230 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChainProviderStatus"
+  /api/v1/budget:
+    get:
+      tags: [budget]
+      operationId: getBudget
+      summary: Get income, plan, spending, and variance for a year
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Budget view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetView"
+  /api/v1/budget/income:
+    post:
+      tags: [budget]
+      operationId: setBudgetIncome
+      summary: Record or replace annual income
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetIncomeRequest"
+      responses:
+        "204":
+          description: Saved.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/budget/plan:
+    post:
+      tags: [budget]
+      operationId: setBudgetPlan
+      summary: Record or replace a spending plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetPlanRequest"
+      responses:
+        "204":
+          description: Saved.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/budget/spending:
+    post:
+      tags: [budget]
+      operationId: recordBudgetSpending
+      summary: Record or replace category spending
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetSpendingRequest"
+      responses:
+        "204":
+          description: Saved.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/aggregation:
+    get:
+      tags: [aggregation]
+      operationId: getAggregation
+      summary: Get aggregation status and linked-account provenance
+      responses:
+        "200":
+          description: Aggregation view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregationView"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/aggregation/config:
+    post:
+      tags: [aggregation]
+      operationId: saveAggregationConfig
+      summary: Save provider config and an encrypted token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AggregationConfigRequest"
+      responses:
+        "200":
+          description: Updated status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregationStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/aggregation/sync:
+    post:
+      tags: [aggregation]
+      operationId: syncAggregation
+      summary: Sync linked accounts from the provider
+      responses:
+        "200":
+          description: Updated aggregation view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregationView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/crypto/wallets/{id}/lots:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [crypto]
+      operationId: listCryptoLots
+      summary: List a wallet's tax lots
+      responses:
+        "200":
+          description: Lots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lot"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [crypto]
+      operationId: createCryptoLot
+      summary: Append a crypto purchase lot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotRequest"
+      responses:
+        "201":
+          description: The appended lots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/crypto/wallets/{id}/sales:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [crypto]
+      operationId: listCryptoSales
+      summary: List crypto sales and realized gains
+      parameters:
+        - name: long_term_years
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 1
+        - name: long_term_days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "200":
+          description: Sales.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sale"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [crypto]
+      operationId: createCryptoSale
+      summary: Record a FIFO crypto sale
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaleRequest"
+      responses:
+        "201":
+          description: The recorded sale.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/prices/provider:
     get:
       tags: [investments]
@@ -1039,7 +1263,7 @@ components:
           examples: [NetworthTracker]
         version:
           type: string
-          examples: ["0.1.20261029"]
+          examples: ["0.1.20261031"]
     ApiError:
       type: object
       additionalProperties: false
@@ -1807,6 +2031,247 @@ components:
         configured:
           type: boolean
         name:
+          type: [string, "null"]
+    BudgetAllocation:
+      type: object
+      additionalProperties: false
+      required: [category, percentage, planned]
+      properties:
+        category:
+          type: string
+          enum: [fixed_costs, investments, savings, discretionary, other]
+        percentage:
+          type: string
+        planned:
+          type: string
+    BudgetSpending:
+      type: object
+      additionalProperties: false
+      required: [id, year, month, category, amount, currency, note]
+      properties:
+        id:
+          type: string
+          format: uuid
+        year:
+          type: integer
+        month:
+          type: integer
+        category:
+          type: string
+          enum: [fixed_costs, investments, savings, discretionary, other]
+        amount:
+          type: string
+        currency:
+          type: string
+        note:
+          type: [string, "null"]
+    BudgetVariance:
+      type: object
+      additionalProperties: false
+      required: [category, planned, actual, variance_amount, variance_percent]
+      properties:
+        category:
+          type: string
+          enum: [fixed_costs, investments, savings, discretionary, other]
+        planned:
+          type: string
+        actual:
+          type: string
+        variance_amount:
+          type: string
+        variance_percent:
+          type: [string, "null"]
+    BudgetView:
+      type: object
+      additionalProperties: false
+      required:
+        - year
+        - currency
+        - income
+        - allocations
+        - total_percentage
+        - balanced
+        - over_allocated
+        - spending
+        - variance
+      properties:
+        year:
+          type: integer
+        currency:
+          type: string
+        income:
+          type: [string, "null"]
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetAllocation"
+        total_percentage:
+          type: string
+        balanced:
+          type: boolean
+        over_allocated:
+          type: boolean
+        spending:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetSpending"
+        variance:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetVariance"
+    BudgetIncomeRequest:
+      type: object
+      additionalProperties: false
+      required: [year, amount]
+      properties:
+        year:
+          type: integer
+        amount:
+          type: string
+        currency:
+          type: [string, "null"]
+    BudgetAllocationRequest:
+      type: object
+      additionalProperties: false
+      required: [category, percentage]
+      properties:
+        category:
+          type: string
+          enum: [fixed_costs, investments, savings, discretionary, other]
+        percentage:
+          type: string
+    BudgetPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [year, allocations]
+      properties:
+        year:
+          type: integer
+        currency:
+          type: [string, "null"]
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetAllocationRequest"
+    BudgetSpendingRequest:
+      type: object
+      additionalProperties: false
+      required: [year, month, category, amount]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        category:
+          type: string
+          enum: [fixed_costs, investments, savings, discretionary, other]
+        amount:
+          type: string
+        currency:
+          type: [string, "null"]
+        note:
+          type: [string, "null"]
+    AggregationStatus:
+      type: object
+      additionalProperties: false
+      required: [provider, enabled, has_token, provider_available]
+      properties:
+        provider:
+          type: [string, "null"]
+        enabled:
+          type: boolean
+        has_token:
+          type: boolean
+        provider_available:
+          type: boolean
+    AggregationHolding:
+      type: object
+      additionalProperties: false
+      required: [symbol, quantity, value, currency, synced_at]
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: string
+        value:
+          type: string
+        currency:
+          type: string
+        synced_at:
+          type: string
+    AggregationLink:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - provider
+        - provider_account_id
+        - account_id
+        - display_name
+        - account_type
+        - currency
+        - last_synced_at
+        - provider_balance
+        - provider_as_of
+        - local_balance
+        - local_source
+        - in_effect
+        - holdings
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        provider_account_id:
+          type: string
+        account_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          type: string
+        last_synced_at:
+          type: [string, "null"]
+        provider_balance:
+          type: [string, "null"]
+        provider_as_of:
+          type: [string, "null"]
+        local_balance:
+          type: [string, "null"]
+        local_source:
+          type: [string, "null"]
+        in_effect:
+          type: string
+          enum: [manual, provider, none]
+        holdings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AggregationHolding"
+    AggregationView:
+      type: object
+      additionalProperties: false
+      required: [status, links]
+      properties:
+        status:
+          $ref: "#/components/schemas/AggregationStatus"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/AggregationLink"
+    AggregationConfigRequest:
+      type: object
+      additionalProperties: false
+      required: [provider, enabled]
+      properties:
+        provider:
+          type: string
+        enabled:
+          type: boolean
+        token:
           type: [string, "null"]
     Price:
       type: object

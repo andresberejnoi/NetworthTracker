@@ -116,7 +116,7 @@ cross-project imports, integration only over the HTTP API, and each project ship
 - [x] 10.3 Verify high-precision crypto quantities survive storage, net worth aggregation, and JSON with an 18-decimal test
 - [x] 10.4 Implement offline manual crypto balances and verify a disconnected test includes them in net worth
 - [x] 10.5 Implement aggregation of multiple addresses of the same asset and verify the two-wallets-one-position scenario
-- [ ] 10.6 Implement chain add-on enablement with user-supplied API keys and verify it is optional and inert when unconfigured (fake provider and inert-until-configured behavior are in place; real BYO-key adapters are next)
+- [x] 10.6 Implement chain add-on enablement with user-supplied API keys and verify it is optional and inert when unconfigured
 - [x] 10.7 Add the wallet endpoints to the OpenAPI contract and verify the contract test passes
 - [x] 10.8 Build the frontend wallet view with manual balance editing and verify component tests
 - [x] 10.9 Verify a cross-boundary integration test adds wallets and sees them in net worth
@@ -125,31 +125,31 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 11. Budgeting (backend + frontend)
 
-- [ ] 11.1 Implement income recording per user and period and verify model plus API tests
-- [ ] 11.2 Implement spending plan allocation with over-allocation detection and verify tests for balanced and over-allocated plans
-- [ ] 11.3 Implement category spending records and plan-versus-actual variance reporting and verify variance tests in amount and percentage
-- [ ] 11.4 Add the budgeting endpoints to the OpenAPI contract and verify the contract test passes
-- [ ] 11.5 Build the frontend spending-plan editor and variance views and verify component tests
-- [ ] 11.6 Verify a cross-boundary integration test exercises budgeting and that the app works fully with no budget configured, then document `docs/budgeting.md`
+- [x] 11.1 Implement income recording per user and period and verify model plus API tests
+- [x] 11.2 Implement spending plan allocation with over-allocation detection and verify tests for balanced and over-allocated plans
+- [x] 11.3 Implement category spending records and plan-versus-actual variance reporting and verify variance tests in amount and percentage
+- [x] 11.4 Add the budgeting endpoints to the OpenAPI contract and verify the contract test passes
+- [x] 11.5 Build the frontend spending-plan editor and variance views and verify component tests
+- [x] 11.6 Verify a cross-boundary integration test exercises budgeting and that the app works fully with no budget configured, then document `docs/budgeting.md`
 
 ## 12. Read-only aggregation adapter interface (backend + config UI)
 
-- [ ] 12.1 Define the `AggregationProvider` trait and a fake read-only adapter and verify no write capability exists in the trait surface
-- [ ] 12.2 Implement provenance-tagged mapping of provider accounts, balances, and holdings and verify tests that the source and sync time are stored
-- [ ] 12.3 Implement optional, non-blocking sync with graceful provider-failure handling and verify tests for unconfigured and unreachable providers
-- [ ] 12.4 Implement user-supplied provider subscription configuration (own account or API key) with local encrypted token storage and verify no intermediary service is used and tokens never leave the machine
-- [ ] 12.5 Implement provenance-preserving updates so provider syncs never silently discard manual values and verify the manual-value-retained scenario
-- [ ] 12.6 Add the aggregation endpoints to the OpenAPI contract and verify the contract test passes
-- [ ] 12.7 Build the frontend add-on configuration UI (enable a provider, enter your own key) and verify component tests
-- [ ] 12.8 Document the aggregation add-on contract and bring-your-own-subscription setup in `docs/aggregation.md` and verify the documented steps against the fake adapter
+- [x] 12.1 Define the `AggregationProvider` trait and a fake read-only adapter and verify no write capability exists in the trait surface
+- [x] 12.2 Implement provenance-tagged mapping of provider accounts, balances, and holdings and verify tests that the source and sync time are stored
+- [x] 12.3 Implement optional, non-blocking sync with graceful provider-failure handling and verify tests for unconfigured and unreachable providers
+- [x] 12.4 Implement user-supplied provider subscription configuration (own account or API key) with local encrypted token storage and verify no intermediary service is used and tokens never leave the machine
+- [x] 12.5 Implement provenance-preserving updates so provider syncs never silently discard manual values and verify the manual-value-retained scenario
+- [x] 12.6 Add the aggregation endpoints to the OpenAPI contract and verify the contract test passes
+- [x] 12.7 Build the frontend add-on configuration UI (enable a provider, enter your own key) and verify component tests
+- [x] 12.8 Document the aggregation add-on contract and bring-your-own-subscription setup in `docs/aggregation.md` and verify the documented steps against the fake adapter
 
 ## 13. Cross-boundary and end-to-end verification
 
-- [ ] 13.1 Run the full spec-scenario suite against the containerized stack (`db`+`backend`+`frontend`) and verify every scenario has a passing test
-- [ ] 13.2 Verify a cold, fully offline run (no outbound network) supports account creation, bulk/grid entry, import, net worth, history, and dashboard
-- [ ] 13.3 Verify the frontend typed client matches the running backend contract and that the contract test fails on a deliberate mismatch, then revert
-- [ ] 13.4 Verify the boundary check fails on a deliberately introduced cross-project import, then remove it
-- [ ] 13.5 Verify `openspec validate networth-tracker-v1 --strict` passes and every capability in the proposal has a corresponding spec file
+- [x] 13.1 Run the full spec-scenario suite against the containerized stack (`db`+`backend`+`frontend`) and verify every scenario has a passing test
+- [x] 13.2 Verify a cold, fully offline run (no outbound network) supports account creation, bulk/grid entry, import, net worth, history, and dashboard
+- [x] 13.3 Verify the frontend typed client matches the running backend contract and that the contract test fails on a deliberate mismatch, then revert
+- [x] 13.4 Verify the boundary check fails on a deliberately introduced cross-project import, then remove it
+- [x] 13.5 Verify `openspec validate networth-tracker-v1 --strict` passes and every capability in the proposal has a corresponding spec file
 
 ## 14. Release hardening and tagging
 

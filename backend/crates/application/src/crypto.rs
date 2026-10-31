@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use networth_domain::{
-    validate_address, Account, AccountType, Balance, BalanceSource, Chain, CryptoAddressError,
-    CryptoAsset, CryptoBalance, CryptoBalanceSource, CryptoWallet, CryptoWalletKind, Currency,
-    Money, NewCryptoAsset, NewCryptoBalance, NewCryptoWallet, OwnershipScope, PriceQuote, Quantity,
+    allocate_fifo, validate_address, Account, AccountType, Balance, BalanceSource, Chain,
+    CryptoAddressError, CryptoAsset, CryptoBalance, CryptoBalanceSource, CryptoWallet,
+    CryptoWalletKind, Currency, Lot, LotError, Money, NewCryptoAsset, NewCryptoBalance,
+    NewCryptoWallet, NewLot, NewSale, OwnershipScope, PriceQuote, Quantity, Sale, SaleMethod,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -235,6 +236,110 @@ impl CryptoService {
                 fetched_at: Some(balance.as_of),
             })
             .await?)
+    }
+
+    /// Append purchase lots for a crypto wallet.
+    pub async fn append_lots(
+        &self,
+        wallet_id: Uuid,
+        lots: Vec<NewLot>,
+    ) -> Result<Vec<Lot>, CryptoError> {
+        let wallet = self
+            .repo
+            .find_wallet(wallet_id)
+            .await?
+            .ok_or_else(|| CryptoError::NotFound(format!("wallet not found: {wallet_id}")))?;
+        for lot in &lots {
+            if lot.quantity.is_zero() {
+                return Err(CryptoError::Validation(
+                    "lot quantity must be positive".to_string(),
+                ));
+            }
+            if lot.cost_basis.is_negative() {
+                return Err(CryptoError::Validation(
+                    "lot cost basis must not be negative".to_string(),
+                ));
+            }
+            if lot.cost_basis.currency() != &wallet.asset.currency {
+                return Err(CryptoError::Validation(format!(
+                    "lot currency {} does not match asset currency {}",
+                    lot.cost_basis.currency(),
+                    wallet.asset.currency
+                )));
+            }
+            if let Some(fees) = &lot.fees {
+                if fees.currency() != &wallet.asset.currency {
+                    return Err(CryptoError::Validation(format!(
+                        "fee currency {} does not match asset currency {}",
+                        fees.currency(),
+                        wallet.asset.currency
+                    )));
+                }
+            }
+        }
+        Ok(self
+            .repo
+            .append_crypto_lots(wallet.id, wallet.asset.id, &lots)
+            .await?)
+    }
+
+    /// List crypto tax lots for a wallet.
+    pub async fn list_lots(&self, wallet_id: Uuid) -> Result<Vec<Lot>, CryptoError> {
+        if self.repo.find_wallet(wallet_id).await?.is_none() {
+            return Err(CryptoError::NotFound(format!(
+                "wallet not found: {wallet_id}"
+            )));
+        }
+        Ok(self.repo.list_crypto_lots(wallet_id).await?)
+    }
+
+    /// Record a FIFO crypto sale.
+    pub async fn record_sale(&self, wallet_id: Uuid, sale: NewSale) -> Result<Sale, CryptoError> {
+        if sale.method != SaleMethod::Fifo {
+            return Err(CryptoError::Validation(
+                "only FIFO sales are supported".to_string(),
+            ));
+        }
+        if sale.gross_proceeds.is_negative() || sale.fees.is_negative() {
+            return Err(CryptoError::Validation(
+                "proceeds and fees must not be negative".to_string(),
+            ));
+        }
+        let wallet = self
+            .repo
+            .find_wallet(wallet_id)
+            .await?
+            .ok_or_else(|| CryptoError::NotFound(format!("wallet not found: {wallet_id}")))?;
+        if sale.currency != wallet.asset.currency {
+            return Err(CryptoError::Validation(format!(
+                "sale currency {} does not match asset currency {}",
+                sale.currency, wallet.asset.currency
+            )));
+        }
+        let lots = self.repo.list_crypto_lots(wallet_id).await?;
+        let allocations = allocate_fifo(&lots, &sale).map_err(|error| match error {
+            LotError::InsufficientQuantity {
+                requested,
+                available,
+            } => CryptoError::Validation(format!(
+                "cannot sell {requested}: only {available} available"
+            )),
+            other => CryptoError::Validation(other.to_string()),
+        })?;
+        Ok(self
+            .repo
+            .record_crypto_sale(wallet.id, wallet.asset.id, &sale, &allocations)
+            .await?)
+    }
+
+    /// List crypto sales for a wallet.
+    pub async fn list_sales(&self, wallet_id: Uuid) -> Result<Vec<Sale>, CryptoError> {
+        if self.repo.find_wallet(wallet_id).await?.is_none() {
+            return Err(CryptoError::NotFound(format!(
+                "wallet not found: {wallet_id}"
+            )));
+        }
+        Ok(self.repo.list_crypto_sales(wallet_id).await?)
     }
 
     /// Aggregate the latest balances by asset and value them.

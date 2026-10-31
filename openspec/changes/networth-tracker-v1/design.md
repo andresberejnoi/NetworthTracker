@@ -378,6 +378,42 @@ excluding it from net worth (rejected: crypto is marketable and the user wants
 one net worth view); bundling a chain provider (rejected: no central service or
 credentials).
 
+### D19. Budgeting is per-user, percentage-based, and derived
+
+**Decision:** Store one annual income per user/year, a plan of category
+percentages, and monthly category spending. Planned amounts and variance are
+derived from income and percentages; over-allocation is flagged but not
+silently corrected. Budgeting is optional and never required for accounts,
+net worth, or history.
+
+**Rationale:** The spec's conscious-spending model is percentage-first. Keeping
+amounts derived avoids storing the same fact twice and lets a user change income
+without rewriting every allocation. Per-user rows match the existing identity
+scoping, and monthly spending supports a simple annual variance.
+
+**Alternatives considered:** Storing only allocated amounts (rejected: changing
+income would require rewriting every row); household-wide budgets (deferred:
+the spec says per user); a full double-entry budget ledger (overkill).
+
+### D20. Aggregation is read-only, provenance-first, and locally encrypted
+
+**Decision:** Define a read-only `AggregationProvider` trait that can only fetch
+accounts, balances, and holdings. Store provider values in dedicated provenance
+tables and write them to a linked local account only when no manual balance
+exists for that date. Provider tokens are AES-256-GCM encrypted with a local key
+from `.env`. The add-on is inert until configured, and provider failures never
+remove existing data.
+
+**Rationale:** Linking real accounts must not create a write path or a central
+relay. Provenance-first storage satisfies the manual-value-retained scenario and
+keeps provider data auditable. Local encryption protects tokens at rest while
+keeping the user in control of their own provider subscription.
+
+**Alternatives considered:** Overwriting account balances on sync (rejected:
+silently discards manual values); storing tokens in plaintext (rejected:
+sensitive credentials); a hosted aggregation relay (rejected: violates
+local-first and no-central-service constraints).
+
 ## Risks / Trade-offs
 
 - **Accessible net worth is inherently approximate, and tax estimation multiplies the assumptions** →

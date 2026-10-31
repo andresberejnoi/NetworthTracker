@@ -5,8 +5,10 @@
 //! persistence details. It must not depend on Axum or on a specific database.
 
 pub mod accounts;
+pub mod aggregation;
 pub mod auth;
 pub mod backup;
+pub mod budget;
 pub mod crypto;
 pub mod data_exchange;
 pub mod investments;
@@ -18,11 +20,16 @@ pub use accounts::{
     AccountError, AccountService, BatchMode, BatchRow, BatchSave, CreateAccount, RecordBalance,
     RowError,
 };
+pub use aggregation::{
+    AggregationError, AggregationLinkView, AggregationService, AggregationStatus, AggregationView,
+    TokenCipher,
+};
 pub use auth::{implicit_user, AuthError, AuthService, AuthStatus, Session};
 pub use backup::{
     Backup, BackupAccount, BackupBalance, BackupError, BackupService, BackupSnapshot,
     RestoreReport, BACKUP_VERSION,
 };
+pub use budget::{BudgetAllocationView, BudgetError, BudgetService, BudgetView};
 pub use crypto::{validate_public_address, CryptoError, CryptoPosition, CryptoService};
 pub use data_exchange::{
     ImportError, ImportReport, ImportRowError, ImportService, Table, COLUMNS, SCHEMA_VERSION,
@@ -33,9 +40,11 @@ pub use market_data::{
 };
 pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
 pub use ports::{
-    AccountRepository, ChainBalance, ChainDataProvider, CryptoRepository, FxRepository,
-    IdentityRepository, InvestmentRepository, NetWorthRepository, PriceProvider, PriceRepository,
-    ProviderError, ProviderQuote, RepositoryError, StoredPrice, StoredRate, UserWithHash,
+    AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
+    AggregationProvider, AggregationRepository, BudgetRepository, ChainBalance, ChainDataProvider,
+    CryptoRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
+    PriceProvider, PriceRepository, ProviderAccount, ProviderError, ProviderHolding, ProviderQuote,
+    ProviderSnapshot, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 
 use networth_domain::APP_NAME;

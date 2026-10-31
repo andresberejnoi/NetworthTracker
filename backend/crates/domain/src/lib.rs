@@ -10,6 +10,7 @@
 //! decision D3) for the layering rules and `docs/money.md` for the money rules.
 
 pub mod accounts;
+pub mod budget;
 pub mod crypto;
 pub mod currency;
 pub mod identity;
@@ -23,6 +24,10 @@ mod decimal;
 pub use accounts::{
     Account, AccountClassification, AccountType, Balance, BalanceSource, Liquidity, NewAccount,
     NewBalance, OwnershipScope,
+};
+pub use budget::{
+    BudgetAllocation, BudgetCategory, BudgetCategoryParseError, BudgetIncome, BudgetSpending,
+    BudgetVariance, NewBudgetIncome, NewBudgetSpending, SpendingPlan,
 };
 pub use crypto::{
     validate_address, Chain, ChainParseError, CryptoAddressError, CryptoAsset, CryptoBalance,

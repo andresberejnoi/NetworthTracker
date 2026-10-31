@@ -5,8 +5,10 @@
 //! backend code; it consumes these endpoints over HTTP.
 
 mod accounts;
+mod aggregation;
 mod auth;
 mod backup;
+mod budget;
 mod crypto;
 mod data;
 mod dto;
@@ -29,10 +31,12 @@ use axum::{
     Json, Router,
 };
 use networth_application::{
-    AccountRepository, AccountService, AuthService, BackupService, ChainDataProvider,
-    CryptoRepository, CryptoService, FxRepository, FxService, IdentityRepository, ImportService,
-    InvestmentRepository, InvestmentsService, NetWorthRepository, NetWorthService, PriceProvider,
-    PriceRepository, PriceService, DEFAULT_MAX_AGE_SECS,
+    AccountRepository, AccountService, AggregationProvider, AggregationRepository,
+    AggregationService, AuthService, BackupService, BudgetRepository, BudgetService,
+    ChainDataProvider, CryptoRepository, CryptoService, FxRepository, FxService,
+    IdentityRepository, ImportService, InvestmentRepository, InvestmentsService,
+    NetWorthRepository, NetWorthService, PriceProvider, PriceRepository, PriceService, TokenCipher,
+    DEFAULT_MAX_AGE_SECS,
 };
 use serde::Serialize;
 use tower_http::{
@@ -58,6 +62,10 @@ pub struct Repositories {
     pub investments: Arc<dyn InvestmentRepository>,
     /// Crypto assets, wallets, and balances.
     pub crypto: Arc<dyn CryptoRepository>,
+    /// Income, spending plans, and spending records.
+    pub budget: Arc<dyn BudgetRepository>,
+    /// Aggregation config, links, and provenance.
+    pub aggregation: Arc<dyn AggregationRepository>,
     /// Cached and manual prices.
     pub prices: Arc<dyn PriceRepository>,
     /// FX rates.
@@ -81,6 +89,10 @@ pub struct AppState {
     pub investments: Arc<InvestmentsService>,
     /// Crypto assets, wallets, and balances.
     pub crypto: Arc<CryptoService>,
+    /// Budgeting use cases.
+    pub budget: Arc<BudgetService>,
+    /// Optional read-only aggregation.
+    pub aggregation: Arc<AggregationService>,
     /// Prices.
     pub prices: Arc<PriceService>,
     /// FX conversion.
@@ -93,6 +105,8 @@ impl AppState {
         repositories: Repositories,
         provider: Option<Arc<dyn PriceProvider>>,
         chain_provider: Option<Arc<dyn ChainDataProvider>>,
+        aggregation_provider: Option<Arc<dyn AggregationProvider>>,
+        aggregation_cipher: Option<TokenCipher>,
         auth_enabled: bool,
     ) -> Self {
         let prices = Arc::new(PriceService::new(
@@ -108,6 +122,13 @@ impl AppState {
             repositories.crypto,
             prices.clone(),
             chain_provider,
+        ));
+        let budget = Arc::new(BudgetService::new(repositories.budget));
+        let aggregation = Arc::new(AggregationService::new(
+            repositories.aggregation,
+            repositories.accounts.clone(),
+            aggregation_provider,
+            aggregation_cipher,
         ));
         let fx = Arc::new(FxService::new(repositories.fx));
 
@@ -129,6 +150,8 @@ impl AppState {
             )),
             investments,
             crypto,
+            budget,
+            aggregation,
             prices,
             fx,
         }
@@ -218,8 +241,23 @@ pub fn app(state: AppState) -> Router {
             "/api/v1/crypto/wallets/{id}/sync",
             post(crypto::sync_wallet),
         )
+        .route(
+            "/api/v1/crypto/wallets/{id}/lots",
+            get(crypto::list_lots).post(crypto::create_lot),
+        )
+        .route(
+            "/api/v1/crypto/wallets/{id}/sales",
+            get(crypto::list_sales).post(crypto::create_sale),
+        )
         .route("/api/v1/crypto/positions", get(crypto::list_positions))
         .route("/api/v1/crypto/provider", get(crypto::provider_status))
+        .route("/api/v1/budget", get(budget::get_budget))
+        .route("/api/v1/budget/income", post(budget::set_income))
+        .route("/api/v1/budget/plan", post(budget::set_plan))
+        .route("/api/v1/budget/spending", post(budget::record_spending))
+        .route("/api/v1/aggregation", get(aggregation::get_aggregation))
+        .route("/api/v1/aggregation/config", post(aggregation::save_config))
+        .route("/api/v1/aggregation/sync", post(aggregation::sync))
         .route(
             "/api/v1/accounts/{id}/holdings/batch",
             post(investments::record_holdings_batch),

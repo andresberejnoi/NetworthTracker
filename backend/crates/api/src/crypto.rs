@@ -466,3 +466,117 @@ fn parse_crypto_date(value: &str) -> Result<Date, ApiError> {
 
 #[allow(dead_code)]
 fn _error_type_check(_: CryptoError) {}
+
+/// `GET /api/v1/crypto/wallets/{id}/lots`
+pub async fn list_lots(
+    State(state): State<AppState>,
+    Path(wallet_id): Path<Uuid>,
+    current: CurrentUser,
+) -> Result<Json<Vec<crate::investments::LotDto>>, ApiError> {
+    visible_wallet(&state, &current, wallet_id).await?;
+    let lots = state.crypto.list_lots(wallet_id).await?;
+    Ok(Json(
+        lots.into_iter()
+            .map(crate::investments::LotDto::from)
+            .collect(),
+    ))
+}
+
+/// `POST /api/v1/crypto/wallets/{id}/lots`
+pub async fn create_lot(
+    State(state): State<AppState>,
+    Path(wallet_id): Path<Uuid>,
+    current: CurrentUser,
+    Json(request): Json<crate::investments::LotRequest>,
+) -> Result<(StatusCode, Json<Vec<crate::investments::LotDto>>), ApiError> {
+    require_writer(&current)?;
+    visible_wallet(&state, &current, wallet_id).await?;
+    let lot = crate::investments::parse_lot(crate::investments::RawLot {
+        acquired_on: &request.acquired_on,
+        quantity: &request.quantity,
+        cost_basis: &request.cost_basis,
+        currency: request.currency.as_deref(),
+        fees: request.fees.as_deref(),
+        source: request.source.as_deref(),
+        basis_quality: request.basis_quality.as_deref(),
+        basis_note: request.basis_note.as_deref(),
+    })
+    .map_err(ApiError::BadRequest)?;
+    let lots = state.crypto.append_lots(wallet_id, vec![lot]).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            lots.into_iter()
+                .map(crate::investments::LotDto::from)
+                .collect(),
+        ),
+    ))
+}
+
+/// `GET /api/v1/crypto/wallets/{id}/sales`
+pub async fn list_sales(
+    State(state): State<AppState>,
+    Path(wallet_id): Path<Uuid>,
+    Query(query): Query<crate::investments::SaleQuery>,
+    current: CurrentUser,
+) -> Result<Json<Vec<crate::investments::SaleDto>>, ApiError> {
+    visible_wallet(&state, &current, wallet_id).await?;
+    let rule = crate::investments::long_term_rule(query.long_term_years, query.long_term_days)?;
+    let sales = state.crypto.list_sales(wallet_id).await?;
+    Ok(Json(
+        sales
+            .into_iter()
+            .map(|sale| crate::investments::SaleDto::from_sale(sale, rule))
+            .collect(),
+    ))
+}
+
+/// `POST /api/v1/crypto/wallets/{id}/sales`
+pub async fn create_sale(
+    State(state): State<AppState>,
+    Path(wallet_id): Path<Uuid>,
+    current: CurrentUser,
+    Json(request): Json<crate::investments::SaleRequest>,
+) -> Result<(StatusCode, Json<crate::investments::SaleDto>), ApiError> {
+    require_writer(&current)?;
+    visible_wallet(&state, &current, wallet_id).await?;
+    let rule = crate::investments::long_term_rule(request.long_term_years, request.long_term_days)?;
+    let disposed_on = Date::parse(
+        &request.disposed_on,
+        &time::format_description::well_known::Iso8601::DATE,
+    )
+    .map_err(|error| ApiError::BadRequest(format!("invalid disposed_on date: {error}")))?;
+    let quantity = Quantity::parse(&request.quantity)
+        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    let currency = match request.currency {
+        Some(code) => {
+            Currency::new(code).map_err(|error| ApiError::BadRequest(error.to_string()))?
+        }
+        None => Currency::usd(),
+    };
+    let gross_proceeds = networth_domain::Money::parse(&request.gross_proceeds, currency.as_str())
+        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    let fees = match request.fees.as_deref() {
+        Some(fees) => networth_domain::Money::parse(fees, currency.as_str())
+            .map_err(|error| ApiError::BadRequest(error.to_string()))?,
+        None => networth_domain::Money::zero(currency.clone()),
+    };
+    let sale = state
+        .crypto
+        .record_sale(
+            wallet_id,
+            networth_domain::NewSale {
+                disposed_on,
+                quantity,
+                gross_proceeds,
+                fees,
+                currency,
+                method: networth_domain::SaleMethod::Fifo,
+            },
+        )
+        .await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(crate::investments::SaleDto::from_sale(sale, rule)),
+    ))
+}

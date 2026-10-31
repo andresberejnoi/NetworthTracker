@@ -6,24 +6,35 @@ import {
   API_BASE_URL,
   createAccount,
   createCryptoAsset,
+  createCryptoLot,
+  createCryptoSale,
   createCryptoWallet,
   createHolding,
   createSale,
   createSecurity,
   createSnapshot,
+  getAggregation,
+  getBudget,
   getNetWorth,
   getPing,
   listAccounts,
-  listCryptoPositions,
   listBalances,
+  listCryptoLots,
+  listCryptoPositions,
+  listCryptoSales,
   listHoldings,
   listSales,
   listSnapshots,
   importSpreadsheet,
   recordBalance,
   recordBalancesBatch,
+  recordBudgetSpending,
   recordCryptoBalance,
+  saveAggregationConfig,
+  setBudgetIncome,
+  setBudgetPlan,
   setPrice,
+  syncAggregation,
   syncCryptoWallet,
 } from "./client";
 
@@ -269,6 +280,26 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     });
     await setPrice({ symbol: "BTC", price: "70000.00" });
 
+    await createCryptoLot(manual.id, {
+      acquired_on: "2026-01-01",
+      quantity: "0.003",
+      cost_basis: "210.00",
+      basis_quality: "actual",
+    });
+    const lots = await listCryptoLots(manual.id);
+    expect(lots).toHaveLength(1);
+    expect(lots[0].quantity).toBe("0.003");
+
+    const cryptoSale = await createCryptoSale(manual.id, {
+      symbol: "BTC",
+      disposed_on: "2026-06-01",
+      quantity: "0.001",
+      gross_proceeds: "80.00",
+      fees: "1.00",
+    });
+    expect(cryptoSale.realized_gain).toBe("9.00");
+    expect((await listCryptoSales(manual.id)).length).toBe(1);
+
     let positions = await listCryptoPositions({ as_of: "2026-01-01" });
     let btc = positions.find((item) => item.asset_id === asset.id);
     expect(btc?.quantity).toBe("0.003");
@@ -293,6 +324,62 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
 
     const networth = await getNetWorth({ as_of: "2026-01-01", owner_age: 35 });
     expect(Number(networth.total)).toBeGreaterThanOrEqual(210);
+  });
+
+  it("records income, a spending plan, and variance over HTTP", async () => {
+    const year = 2026;
+    const empty = await getBudget(year);
+    expect(empty.year).toBe(year);
+
+    await setBudgetIncome({ year, amount: "120000.00" });
+    await setBudgetPlan({
+      year,
+      allocations: [
+        { category: "fixed_costs", percentage: "50" },
+        { category: "savings", percentage: "20" },
+        { category: "discretionary", percentage: "30" },
+      ],
+    });
+    await recordBudgetSpending({
+      year,
+      month: 1,
+      category: "fixed_costs",
+      amount: "1000.00",
+    });
+
+    const budget = await getBudget(year);
+    expect(budget.income).toBe("120000.00");
+    expect(budget.balanced).toBe(true);
+    const fixed = budget.variance.find((row) => row.category === "fixed_costs");
+    expect(fixed?.planned).toBe("60000.00");
+    expect(fixed?.actual).toBe("1000.00");
+    expect(fixed?.variance_amount).toBe("59000.00");
+  });
+
+  it("syncs a fake read-only aggregation provider over HTTP", async () => {
+    const empty = await getAggregation();
+    expect(empty.status.provider_available).toBe(true);
+
+    await saveAggregationConfig({
+      provider: "fake",
+      enabled: true,
+      token: "integration-token",
+    });
+    const view = await syncAggregation();
+    expect(view.status.enabled).toBe(true);
+    expect(view.status.has_token).toBe(true);
+    expect(view.links).toHaveLength(1);
+    expect(view.links[0].display_name).toBe("Fake Brokerage");
+    expect(view.links[0].provider_balance).toBe("12345.67");
+    expect(view.links[0].holdings[0].symbol).toBe("VTI");
+
+    await recordBalance(view.links[0].account_id, {
+      as_of: "2026-10-31",
+      amount: "999.00",
+    });
+    const after = await syncAggregation();
+    expect(after.links[0].local_balance).toBe("999.00");
+    expect(after.links[0].in_effect).toBe("manual");
   });
 
   it("matches the shared OpenAPI contract for GET endpoints", async () => {

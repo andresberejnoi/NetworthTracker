@@ -400,6 +400,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get income, plan, spending, and variance for a year */
+        get: operations["getBudget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget/income": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record or replace annual income */
+        post: operations["setBudgetIncome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record or replace a spending plan */
+        post: operations["setBudgetPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget/spending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record or replace category spending */
+        post: operations["recordBudgetSpending"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aggregation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregation status and linked-account provenance */
+        get: operations["getAggregation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aggregation/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save provider config and an encrypted token */
+        post: operations["saveAggregationConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/aggregation/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync linked accounts from the provider */
+        post: operations["syncAggregation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/wallets/{id}/lots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List a wallet's tax lots */
+        get: operations["listCryptoLots"];
+        put?: never;
+        /** Append a crypto purchase lot */
+        post: operations["createCryptoLot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/wallets/{id}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List crypto sales and realized gains */
+        get: operations["listCryptoSales"];
+        put?: never;
+        /** Record a FIFO crypto sale */
+        post: operations["createCryptoSale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/prices/provider": {
         parameters: {
             query?: never;
@@ -665,7 +824,7 @@ export interface components {
             message: string;
             /** @example NetworthTracker */
             service: string;
-            /** @example 0.1.20261029 */
+            /** @example 0.1.20261031 */
             version: string;
         };
         ApiError: {
@@ -992,6 +1151,107 @@ export interface components {
         ChainProviderStatus: {
             configured: boolean;
             name: string | null;
+        };
+        BudgetAllocation: {
+            /** @enum {string} */
+            category: "fixed_costs" | "investments" | "savings" | "discretionary" | "other";
+            percentage: string;
+            planned: string;
+        };
+        BudgetSpending: {
+            /** Format: uuid */
+            id: string;
+            year: number;
+            month: number;
+            /** @enum {string} */
+            category: "fixed_costs" | "investments" | "savings" | "discretionary" | "other";
+            amount: string;
+            currency: string;
+            note: string | null;
+        };
+        BudgetVariance: {
+            /** @enum {string} */
+            category: "fixed_costs" | "investments" | "savings" | "discretionary" | "other";
+            planned: string;
+            actual: string;
+            variance_amount: string;
+            variance_percent: string | null;
+        };
+        BudgetView: {
+            year: number;
+            currency: string;
+            income: string | null;
+            allocations: components["schemas"]["BudgetAllocation"][];
+            total_percentage: string;
+            balanced: boolean;
+            over_allocated: boolean;
+            spending: components["schemas"]["BudgetSpending"][];
+            variance: components["schemas"]["BudgetVariance"][];
+        };
+        BudgetIncomeRequest: {
+            year: number;
+            amount: string;
+            currency?: string | null;
+        };
+        BudgetAllocationRequest: {
+            /** @enum {string} */
+            category: "fixed_costs" | "investments" | "savings" | "discretionary" | "other";
+            percentage: string;
+        };
+        BudgetPlanRequest: {
+            year: number;
+            currency?: string | null;
+            allocations: components["schemas"]["BudgetAllocationRequest"][];
+        };
+        BudgetSpendingRequest: {
+            year: number;
+            month: number;
+            /** @enum {string} */
+            category: "fixed_costs" | "investments" | "savings" | "discretionary" | "other";
+            amount: string;
+            currency?: string | null;
+            note?: string | null;
+        };
+        AggregationStatus: {
+            provider: string | null;
+            enabled: boolean;
+            has_token: boolean;
+            provider_available: boolean;
+        };
+        AggregationHolding: {
+            symbol: string;
+            quantity: string;
+            value: string;
+            currency: string;
+            synced_at: string;
+        };
+        AggregationLink: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            provider_account_id: string;
+            /** Format: uuid */
+            account_id: string;
+            display_name: string;
+            account_type: components["schemas"]["AccountType"];
+            currency: string;
+            last_synced_at: string | null;
+            provider_balance: string | null;
+            provider_as_of: string | null;
+            local_balance: string | null;
+            local_source: string | null;
+            /** @enum {string} */
+            in_effect: "manual" | "provider" | "none";
+            holdings: components["schemas"]["AggregationHolding"][];
+        };
+        AggregationView: {
+            status: components["schemas"]["AggregationStatus"];
+            links: components["schemas"]["AggregationLink"][];
+        };
+        AggregationConfigRequest: {
+            provider: string;
+            enabled: boolean;
+            token?: string | null;
         };
         Price: {
             symbol: string;
@@ -1899,6 +2159,272 @@ export interface operations {
                     "application/json": components["schemas"]["ChainProviderStatus"];
                 };
             };
+        };
+    };
+    getBudget: {
+        parameters: {
+            query?: {
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Budget view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetView"];
+                };
+            };
+        };
+    };
+    setBudgetIncome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetIncomeRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    setBudgetPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    recordBudgetSpending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetSpendingRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getAggregation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregation view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AggregationView"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    saveAggregationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AggregationConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AggregationStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    syncAggregation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated aggregation view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AggregationView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listCryptoLots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lots. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lot"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCryptoLot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LotRequest"];
+            };
+        };
+        responses: {
+            /** @description The appended lots. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lot"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCryptoSales: {
+        parameters: {
+            query?: {
+                long_term_years?: number;
+                long_term_days?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sales. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sale"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCryptoSale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaleRequest"];
+            };
+        };
+        responses: {
+            /** @description The recorded sale. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sale"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getPriceProvider: {

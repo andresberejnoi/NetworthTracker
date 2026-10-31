@@ -450,7 +450,7 @@ pub struct SaleDto {
 }
 
 impl SaleDto {
-    fn from_sale(sale: Sale, rule: LongTermRule) -> Self {
+    pub(crate) fn from_sale(sale: Sale, rule: LongTermRule) -> Self {
         Self {
             id: sale.id,
             account_id: sale.account_id,
@@ -475,7 +475,10 @@ impl SaleDto {
     }
 }
 
-fn long_term_rule(years: Option<u16>, days: Option<u32>) -> Result<LongTermRule, ApiError> {
+pub(crate) fn long_term_rule(
+    years: Option<u16>,
+    days: Option<u32>,
+) -> Result<LongTermRule, ApiError> {
     match (years, days) {
         (Some(_), Some(_)) => Err(ApiError::BadRequest(
             "long_term_years and long_term_days are mutually exclusive".to_string(),
@@ -898,18 +901,18 @@ fn parse_lots(requests: Vec<LotRequest>) -> Result<Vec<NewLot>, ApiError> {
         .collect()
 }
 
-struct RawLot<'a> {
-    acquired_on: &'a str,
-    quantity: &'a str,
-    cost_basis: &'a str,
-    currency: Option<&'a str>,
-    fees: Option<&'a str>,
-    source: Option<&'a str>,
-    basis_quality: Option<&'a str>,
-    basis_note: Option<&'a str>,
+pub(crate) struct RawLot<'a> {
+    pub(crate) acquired_on: &'a str,
+    pub(crate) quantity: &'a str,
+    pub(crate) cost_basis: &'a str,
+    pub(crate) currency: Option<&'a str>,
+    pub(crate) fees: Option<&'a str>,
+    pub(crate) source: Option<&'a str>,
+    pub(crate) basis_quality: Option<&'a str>,
+    pub(crate) basis_note: Option<&'a str>,
 }
 
-fn parse_lot(raw: RawLot<'_>) -> Result<NewLot, String> {
+pub(crate) fn parse_lot(raw: RawLot<'_>) -> Result<NewLot, String> {
     let acquired_on = Date::parse(raw.acquired_on, &Iso8601::DATE)
         .map_err(|error| format!("invalid acquired_on date: {error}"))?;
     let quantity = Quantity::parse(raw.quantity).map_err(|error| error.to_string())?;
