@@ -5,14 +5,17 @@ import {
   SECURITY_ASSET_CLASSES,
   SECTORS,
   createHolding,
+  createSale,
   createSecurity,
   deleteHolding,
   getPriceProvider,
   listAccounts,
   listHoldings,
+  listSales,
   listSecurities,
   recordHoldingsBatch,
   setPrice,
+  type Sale,
   type SecurityAssetClass,
   type Sector,
 } from "../../api/client";
@@ -60,6 +63,16 @@ const BULK_COLUMNS: GridColumn[] = [
     placeholder: "YYYY-MM-DD",
     validate: (value) => (value === "" ? "date is required" : null),
   },
+  {
+    key: "fees",
+    label: "Fees",
+    placeholder: "0.00",
+  },
+  {
+    key: "basis_quality",
+    label: "Basis",
+    placeholder: "actual",
+  },
 ];
 
 export default function HoldingsView() {
@@ -93,6 +106,15 @@ export default function HoldingsView() {
     queryKey: ["price-provider"],
     queryFn: getPriceProvider,
   });
+  const [longTermYears, setLongTermYears] = useState("1");
+  const sales = useQuery({
+    queryKey: ["sales", selectedAccount, longTermYears],
+    queryFn: () =>
+      listSales(selectedAccount, {
+        long_term_years: Number(longTermYears) || 1,
+      }),
+    enabled: Boolean(selectedAccount),
+  });
 
   const [securitySymbol, setSecuritySymbol] = useState("");
   const [securityName, setSecurityName] = useState("");
@@ -103,13 +125,22 @@ export default function HoldingsView() {
   const [quantity, setQuantity] = useState("");
   const [costBasis, setCostBasis] = useState("");
   const [acquiredOn, setAcquiredOn] = useState("");
+  const [lotFees, setLotFees] = useState("");
+  const [estimatedBasis, setEstimatedBasis] = useState(false);
 
   const [priceSymbol, setPriceSymbol] = useState("");
   const [priceValue, setPriceValue] = useState("");
 
+  const [saleSymbol, setSaleSymbol] = useState("");
+  const [saleDate, setSaleDate] = useState("");
+  const [saleQuantity, setSaleQuantity] = useState("");
+  const [saleProceeds, setSaleProceeds] = useState("");
+  const [saleFees, setSaleFees] = useState("");
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["securities"] });
     queryClient.invalidateQueries({ queryKey: ["holdings"] });
+    queryClient.invalidateQueries({ queryKey: ["sales"] });
     queryClient.invalidateQueries({ queryKey: ["networth"] });
   };
 
@@ -132,12 +163,41 @@ export default function HoldingsView() {
     mutationFn: () =>
       createHolding(selectedAccount, {
         symbol: holdingSymbol,
-        lots: [{ acquired_on: acquiredOn, quantity, cost_basis: costBasis }],
+        lots: [
+          {
+            acquired_on: acquiredOn,
+            quantity,
+            cost_basis: costBasis,
+            fees: lotFees || null,
+            basis_quality: estimatedBasis ? "estimated" : "actual",
+          },
+        ],
       }),
     onSuccess: () => {
       setQuantity("");
       setCostBasis("");
       setAcquiredOn("");
+      setLotFees("");
+      setEstimatedBasis(false);
+      refresh();
+    },
+  });
+
+  const recordSale = useMutation({
+    mutationFn: () =>
+      createSale(selectedAccount, {
+        symbol: saleSymbol,
+        disposed_on: saleDate,
+        quantity: saleQuantity,
+        gross_proceeds: saleProceeds,
+        fees: saleFees || null,
+        long_term_years: Number(longTermYears) || 1,
+      }),
+    onSuccess: () => {
+      setSaleQuantity("");
+      setSaleProceeds("");
+      setSaleFees("");
+      setSaleDate("");
       refresh();
     },
   });
@@ -163,6 +223,9 @@ export default function HoldingsView() {
         acquired_on: row.acquired_on,
         quantity: row.quantity,
         cost_basis: row.cost_basis,
+        fees: row.fees || null,
+        basis_quality:
+          row.basis_quality === "estimated" ? "estimated" : "actual",
       })),
     );
     refresh();
@@ -285,6 +348,47 @@ export default function HoldingsView() {
               </table>
             )}
 
+            {holdings.data?.some((holding) => holding.lots.length > 0) && (
+              <section aria-label="tax lots">
+                <h3>Tax lots</h3>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Acquired</th>
+                      <th>Remaining</th>
+                      <th>Original</th>
+                      <th>Remaining basis</th>
+                      <th>Source</th>
+                      <th>Basis</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holdings.data.flatMap((holding) =>
+                      holding.lots.map((lot) => (
+                        <tr key={lot.id}>
+                          <td>{holding.symbol}</td>
+                          <td>{lot.acquired_on}</td>
+                          <td>{lot.quantity}</td>
+                          <td>{lot.original_quantity}</td>
+                          <td>{formatAmount(lot.cost_basis, currency)}</td>
+                          <td>{lot.source}</td>
+                          <td>
+                            {lot.basis_quality}
+                            {lot.basis_quality === "estimated" && (
+                              <span className="badge badge-warn"> estimated</span>
+                            )}
+                          </td>
+                          <td>{lot.basis_note ?? "—"}</td>
+                        </tr>
+                      )),
+                    )}
+                  </tbody>
+                </table>
+              </section>
+            )}
+
             <div className="allocation">
               <section>
                 <h3>By asset class</h3>
@@ -390,7 +494,7 @@ export default function HoldingsView() {
           </section>
 
           <section className="card" aria-label="add holding">
-            <h2>Add holding</h2>
+            <h2>Add purchase lot</h2>
             <form
               className="row"
               onSubmit={(event) => {
@@ -422,7 +526,7 @@ export default function HoldingsView() {
                 />
               </label>
               <label>
-                <span>Cost basis</span>
+                <span>Cost basis (incl. fees)</span>
                 <input
                   aria-label="holding cost basis"
                   value={costBasis}
@@ -438,13 +542,118 @@ export default function HoldingsView() {
                   onChange={(event) => setAcquiredOn(event.target.value)}
                 />
               </label>
+              <label>
+                <span>Fees</span>
+                <input
+                  aria-label="holding fees"
+                  placeholder="0.00"
+                  value={lotFees}
+                  onChange={(event) => setLotFees(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Basis</span>
+                <select
+                  aria-label="holding basis quality"
+                  value={estimatedBasis ? "estimated" : "actual"}
+                  onChange={(event) => setEstimatedBasis(event.target.value === "estimated")}
+                >
+                  <option value="actual">actual</option>
+                  <option value="estimated">estimated</option>
+                </select>
+              </label>
               <button type="submit" disabled={!canWrite || addHolding.isPending}>
-                Add holding
+                Add purchase lot
               </button>
             </form>
             {addHolding.isError && (
               <p className="error" role="alert">
                 {(addHolding.error as Error).message}
+              </p>
+            )}
+          </section>
+
+          <section className="card" aria-label="record sale">
+            <h2>Record sale</h2>
+            <p className="muted">
+              Lots are consumed FIFO. The sale and each consumed lot are kept for
+              tax reporting.
+            </p>
+            <form
+              className="row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                recordSale.mutate();
+              }}
+            >
+              <label>
+                <span>Security</span>
+                <select
+                  aria-label="sale security"
+                  value={saleSymbol}
+                  onChange={(event) => setSaleSymbol(event.target.value)}
+                >
+                  <option value="">Select …</option>
+                  {(securities.data ?? []).map((security) => (
+                    <option key={security.id} value={security.symbol}>
+                      {security.symbol}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Disposed</span>
+                <input
+                  aria-label="sale disposed date"
+                  placeholder="YYYY-MM-DD"
+                  value={saleDate}
+                  onChange={(event) => setSaleDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Quantity</span>
+                <input
+                  aria-label="sale quantity"
+                  value={saleQuantity}
+                  onChange={(event) => setSaleQuantity(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Gross proceeds</span>
+                <input
+                  aria-label="sale proceeds"
+                  value={saleProceeds}
+                  onChange={(event) => setSaleProceeds(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Fees</span>
+                <input
+                  aria-label="sale fees"
+                  value={saleFees}
+                  onChange={(event) => setSaleFees(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Long-term years</span>
+                <input
+                  aria-label="sale long-term years"
+                  value={longTermYears}
+                  onChange={(event) => setLongTermYears(event.target.value)}
+                />
+              </label>
+              <button type="submit" disabled={!canWrite || recordSale.isPending}>
+                Record sale
+              </button>
+            </form>
+            {recordSale.isError && (
+              <p className="error" role="alert">
+                {(recordSale.error as Error).message}
+              </p>
+            )}
+            {recordSale.data && (
+              <p role="status">
+                Realized gain: {formatAmount(recordSale.data.realized_gain, currency)}
               </p>
             )}
           </section>
@@ -489,6 +698,52 @@ export default function HoldingsView() {
               <p className="error" role="alert">
                 {(savePrice.error as Error).message}
               </p>
+            )}
+          </section>
+
+          <section className="card" aria-label="realized gains">
+            <h2>Realized gains</h2>
+            {sales.data && sales.data.length === 0 && (
+              <p className="muted">No sales recorded yet.</p>
+            )}
+            {sales.data && sales.data.length > 0 && (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Disposed</th>
+                    <th>Symbol</th>
+                    <th>Acquired</th>
+                    <th>Quantity</th>
+                    <th>Proceeds</th>
+                    <th>Cost basis</th>
+                    <th>Gain</th>
+                    <th>Term</th>
+                    <th>Basis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sales.data.flatMap((sale: Sale) =>
+                    sale.disposals.map((disposal) => (
+                      <tr key={disposal.id}>
+                        <td>{sale.disposed_on}</td>
+                        <td>{sale.symbol}</td>
+                        <td>{disposal.acquired_on}</td>
+                        <td>{disposal.quantity}</td>
+                        <td>{formatAmount(disposal.net_proceeds, currency)}</td>
+                        <td>{formatAmount(disposal.cost_basis, currency)}</td>
+                        <td>{formatAmount(disposal.realized_gain, currency)}</td>
+                        <td>{disposal.term}</td>
+                        <td>
+                          {disposal.basis_quality}
+                          {disposal.basis_quality === "estimated" && (
+                            <span className="badge badge-warn"> estimated</span>
+                          )}
+                        </td>
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
             )}
           </section>
 

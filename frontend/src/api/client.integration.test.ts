@@ -6,6 +6,7 @@ import {
   API_BASE_URL,
   createAccount,
   createHolding,
+  createSale,
   createSecurity,
   createSnapshot,
   getNetWorth,
@@ -13,6 +14,7 @@ import {
   listAccounts,
   listBalances,
   listHoldings,
+  listSales,
   listSnapshots,
   importSpreadsheet,
   recordBalance,
@@ -172,6 +174,74 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     expect(holding?.quantity).toBe("15");
     expect(holding?.market_value).toBe("2250.00");
     expect(holding?.unrealized_gain).toBe("650.00");
+  });
+
+  it("appends lots and sells FIFO over HTTP", async () => {
+    const stamp = Date.now();
+    const account = await createAccount({
+      name: `Tax lots ${stamp}`,
+      account_type: "taxable_brokerage",
+    });
+    const symbol = `L${stamp}`.slice(0, 12);
+
+    await createSecurity({
+      symbol,
+      name: "Lot Integration",
+      asset_class: "equity",
+      sector: "other",
+    });
+    await createHolding(account.id, {
+      symbol,
+      lots: [
+        {
+          acquired_on: "2026-01-01",
+          quantity: "10",
+          cost_basis: "1000.00",
+          basis_quality: "actual",
+        },
+      ],
+    });
+    // A second append must preserve the first lot.
+    await createHolding(account.id, {
+      symbol,
+      lots: [
+        {
+          acquired_on: "2026-02-01",
+          quantity: "5",
+          cost_basis: "600.00",
+          basis_quality: "estimated",
+          basis_note: "backfilled",
+        },
+      ],
+    });
+
+    const before = (await listHoldings(account.id)).find(
+      (item) => item.symbol === symbol,
+    );
+    expect(before?.quantity).toBe("15");
+    expect(before?.lots).toHaveLength(2);
+
+    const sale = await createSale(account.id, {
+      symbol,
+      disposed_on: "2026-06-01",
+      quantity: "12",
+      gross_proceeds: "1800.00",
+      fees: "12.00",
+      long_term_years: 1,
+    });
+    expect(sale.realized_gain).toBe("548.00");
+    expect(sale.disposals).toHaveLength(2);
+    expect(sale.disposals[0].quantity).toBe("10");
+    expect(sale.disposals[1].basis_quality).toBe("estimated");
+
+    const after = (await listHoldings(account.id)).find(
+      (item) => item.symbol === symbol,
+    );
+    expect(after?.quantity).toBe("3");
+    expect(after?.cost_basis).toBe("360.00");
+
+    const sales = await listSales(account.id);
+    expect(sales.some((item) => item.id === sale.id)).toBe(true);
   });
 
   it("matches the shared OpenAPI contract for GET endpoints", async () => {

@@ -32,7 +32,32 @@ const holding = {
   price_source: "manual",
   market_value: "1500.00",
   unrealized_gain: "500.00",
-  lots: [],
+  lots: [
+    {
+      id: "55555555-5555-5555-5555-555555555555",
+      acquired_on: "2026-01-01",
+      quantity: "10",
+      original_quantity: "10",
+      cost_basis: "1000.00",
+      original_cost_basis: "1000.00",
+      fees: "0.00",
+      source: "purchase",
+      basis_quality: "actual",
+      basis_note: null,
+    },
+    {
+      id: "66666666-6666-6666-6666-666666666666",
+      acquired_on: "2026-02-01",
+      quantity: "5",
+      original_quantity: "5",
+      cost_basis: "600.00",
+      original_cost_basis: "600.00",
+      fees: "0.00",
+      source: "import",
+      basis_quality: "estimated",
+      basis_note: "backfilled",
+    },
+  ],
 };
 
 const security = {
@@ -56,6 +81,43 @@ function stubApi() {
     const url = String(input);
     if (url.includes("/api/v1/accounts/") && url.includes("/holdings")) {
       return jsonResponse([holding]);
+    }
+    if (url.includes("/sales")) {
+      if (init?.method === "POST") {
+        return jsonResponse({
+          id: "77777777-7777-7777-7777-777777777777",
+          account_id: account.id,
+          holding_id: holding.id,
+          symbol: "VTI",
+          name: "Total Market",
+          disposed_on: "2026-06-01",
+          quantity: "12",
+          gross_proceeds: "1800.00",
+          fees: "12.00",
+          net_proceeds: "1788.00",
+          cost_basis: "1240.00",
+          realized_gain: "548.00",
+          currency: "USD",
+          method: "fifo",
+          disposals: [
+            {
+              id: "88888888-8888-8888-8888-888888888888",
+              lot_id: holding.lots[0].id,
+              acquired_on: "2026-01-01",
+              quantity: "10",
+              gross_proceeds: "1500.00",
+              fees: "10.00",
+              net_proceeds: "1490.00",
+              cost_basis: "1000.00",
+              realized_gain: "490.00",
+              holding_period_days: 151,
+              term: "short",
+              basis_quality: "actual",
+            },
+          ],
+        });
+      }
+      return jsonResponse([]);
     }
     if (url.includes("/api/v1/accounts")) {
       return jsonResponse([account]);
@@ -106,6 +168,9 @@ describe("HoldingsView", () => {
     expect(screen.getAllByText("1,500.00 USD").length).toBeGreaterThan(0);
     expect(screen.getByText("500.00 USD")).toBeInTheDocument();
     expect(screen.getByText("manual prices only")).toBeInTheDocument();
+    expect(screen.getByText("Tax lots")).toBeInTheDocument();
+    expect(screen.getAllByText("estimated").length).toBeGreaterThan(0);
+    expect(screen.getByText("backfilled")).toBeInTheDocument();
   });
 
   it("creates a security", async () => {
@@ -135,4 +200,25 @@ describe("HoldingsView", () => {
     expect(deleteButton).toBeDisabled();
     expect(screen.getByRole("button", { name: "Add security" })).toBeDisabled();
   });
+  it("records a FIFO sale and shows the realized gain", async () => {
+    const fetchMock = stubApi();
+    renderView();
+
+    await screen.findByRole("button", { name: /delete VTI/i });
+    await userEvent.selectOptions(screen.getByLabelText("sale security"), "VTI");
+    await userEvent.type(screen.getByLabelText("sale disposed date"), "2026-06-01");
+    await userEvent.type(screen.getByLabelText("sale quantity"), "12");
+    await userEvent.type(screen.getByLabelText("sale proceeds"), "1800.00");
+    await userEvent.type(screen.getByLabelText("sale fees"), "12.00");
+    await userEvent.click(screen.getByRole("button", { name: "Record sale" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Realized gain: 548.00 USD/)).toBeInTheDocument(),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/accounts/"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
 });
