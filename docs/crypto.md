@@ -46,10 +46,11 @@ CHAIN_FAKE_BALANCES=bitcoin:bc1q...=0.000000000000000001,ethereum:0x...=2.5
 Real adapters implement the same `ChainDataProvider` trait. Recommended free
 options:
 
-- **Bitcoin:** `mempool.space` or Blockstream Esplora. No key; Esplora is
-  self-hostable.
-- **Ethereum/EVM:** Blockscout (no key, self-hostable) or Etherscan V2 with a
-  free user key (3 req/s, 100k/day, selected chains).
+- **Bitcoin:** `mempool.space` (no key).
+- **Ethereum:** Blockscout (no key) or Etherscan V2 with a free user key
+  (`CHAIN_PROVIDER=etherscan`, `CHAIN_PROVIDER_API_KEY=...`).
+- `CHAIN_PROVIDER=public` uses mempool.space + Blockscout; `fake` is for
+  tests/demos; unset is inert.
 - **Solana:** public RPC or a free Helius key, when Solana is added.
 
 The provider is optional. A sync failure never removes manual data; the latest
@@ -73,9 +74,10 @@ curl -s -X POST localhost:8080/api/v1/prices \
   -d '{"symbol":"BTC","price":"70000.00"}'
 ```
 
-For a real price add-on, the existing `PRICE_PROVIDER`/`PRICE_PROVIDER_API_KEY`
-configuration applies. CoinPaprika is a good keyless default; CoinGecko Demo is
-a free optional adapter. The app does not bundle credentials.
+For a real price add-on, set `PRICE_PROVIDER=coinpaprika` for the keyless
+CoinPaprika adapter (common crypto symbols), or use `static`/manual prices.
+`PRICE_PROVIDER_API_KEY` is available for providers that need one. The app does
+not bundle credentials.
 
 ## API
 
@@ -130,10 +132,12 @@ The **Crypto** view supports:
 
 ## Tax lots
 
-The shared `tax_lots` table already has nullable `crypto_asset_id` and
-`wallet_id` columns, so crypto lots can use the same FIFO/disposal engine as
-securities. Wiring the crypto lot/sale UI is the next slice; until then, the
-Crypto view tracks balances and the Investments view tracks security lots.
+Crypto purchase lots and FIFO sales use the same shared `tax_lots` /
+`tax_sales` / `tax_disposals` ledger as securities. The Crypto view has a
+wallet-scoped tax-lot section: append purchase lots (with actual or estimated
+basis), record FIFO sales, and review realized gains by disposal and term.
+Balances and lots remain separate records; a wallet can have one without the
+other.
 
 ## Limitations
 
@@ -141,7 +145,7 @@ Crypto view tracks balances and the Investments view tracks security lots.
 - Household wallets only; private crypto wallets are rejected for now.
 - Current chain balances and transaction history, not reconstructed historical
   on-chain balances.
-- Real chain adapters and a real free price adapter are follow-ups behind the
-  existing traits.
+- Solana and token/ERC-20 adapters are follow-ups; Bitcoin and Ethereum native
+  public adapters plus the keyless CoinPaprika price adapter are included.
 - The JSON backup does not yet include crypto/investment detail; the full
   `pg_dump` backup does.

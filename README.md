@@ -23,6 +23,10 @@ selling costs).
   estimated-basis tags, and configurable short/long-term holding-period rules.
 - **Crypto wallets** — manual buckets or public addresses for native BTC/ETH,
   optional address sync, exact 18-decimal quantities, and manual/cached prices.
+- **Budgeting** — annual income, category spending plans, actual spending, and
+  plan-versus-actual variance. Fully optional.
+- **Read-only aggregation** — optional user-supplied provider linking with
+  encrypted local tokens, provenance, and manual-value preservation.
 - **Four net worth figures** — total, liquid (cash + brokerage + retirement),
   liquidity (cash available now), and accessible (net proceeds after estimated
   taxes, penalties, and selling costs).
@@ -173,7 +177,7 @@ still planned.
 ## Versioning
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
-The current version is `0.1.20261029`. The authoritative value lives in
+The current version is `0.1.20261031`. The authoritative value lives in
 `backend/Cargo.toml`; `make version` prints it. See `AGENTS.md` and
 [`CHANGELOG.md`](CHANGELOG.md) for the release process and per-release notes.
 
@@ -189,6 +193,8 @@ The current version is `0.1.20261029`. The authoritative value lives in
 - `docs/analytics.md` — read-only SQL/Python analysis
 - `docs/tax-lots.md` — purchase lots, FIFO sales, realized gains, estimated basis
 - `docs/crypto.md` — manual/address wallets, chain providers, prices, limits
+- `docs/budgeting.md` — income, plans, spending, variance
+- `docs/aggregation.md` — read-only provider interface, provenance, tokens
 - [`CHANGELOG.md`](CHANGELOG.md) — per-release history
 - `openspec/changes/networth-tracker-v1/` — proposal, specs, design, tasks
 

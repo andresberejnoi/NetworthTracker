@@ -8,12 +8,26 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261031] - 2026-10-31
+
+This release adds the shared tax-lot ledger, native BTC/ETH crypto tracking,
+optional budgeting, and optional read-only aggregation.
+
 ### Added
 
+- Optional per-user budgeting: annual income, category spending plans,
+  over-allocation flags, actual spending, and plan-versus-actual variance.
+- Optional read-only account aggregation with a fake adapter, encrypted local
+  tokens, provenance-tagged balances/holdings, and manual-value preservation.
+- A Budget view and an owner-only Aggregation view.
 - Cryptocurrency tracking with manual wallets/buckets and public-address
   wallets for native BTC/ETH, dated balances, address validation that rejects
-  seed phrases/private keys, optional fake chain-provider sync, aggregated
+  seed phrases/private keys, optional chain-provider sync, aggregated
   positions, and net worth integration as marketable crypto assets.
+- Crypto purchase lots and FIFO sales on the shared tax-lot ledger, with
+  wallet-scoped realized gains.
+- Real free adapters: mempool.space/Blockscout for addresses, Etherscan with a
+  user key, and keyless CoinPaprika for crypto prices.
 - A Crypto view with asset/wallet/balance forms, manual prices, provider status,
   and a bulk wallet grid.
 - A shared append-only tax-lot ledger for securities: original and remaining
@@ -102,6 +116,7 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261029...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261031...HEAD
+[0.1.20261031]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261029...v0.1.20261031
 [0.1.20261029]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261028...v0.1.20261029
 [0.1.20261028]: https://github.com/andresberejnoi/NetworthTracker/releases/tag/v0.1.20261028

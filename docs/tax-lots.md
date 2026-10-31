@@ -98,8 +98,8 @@ curl -s 'localhost:8080/api/v1/accounts/<id>/sales?long_term_years=1' \
 
 - FIFO only. LIFO and specific-lot identification are deferred.
 - FIFO is per account. Global asset-wide FIFO is deferred.
-- Crypto wallets will use the same ledger; transfers preserve acquisition date
-  and proportional basis.
+- Crypto wallets use the same ledger for purchase lots, FIFO sales, and realized
+  gains; transfers preserving acquisition date/basis are still deferred.
 - Wash sales, stock splits/mergers, crypto-to-crypto conversions, income lots,
   and fees paid in crypto are deferred.
 - The JSON backup does not yet include investments; the full `pg_dump` backup

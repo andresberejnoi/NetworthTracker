@@ -86,6 +86,7 @@ PRICE_PROVIDER_API_KEY=your-own-key
 
 - `PRICE_PROVIDER` unset or `none` → manual/cached prices only.
 - `static` is a development add-on with a fixed table.
+- `coinpaprika` is a keyless free crypto price adapter for common symbols.
 - A real provider is an adapter implementing the `PriceProvider` trait; it is
   compiled in and enabled by configuration, never loaded as third-party code.
 - Credentials stay in `.env`, are never returned by the API, and are never
