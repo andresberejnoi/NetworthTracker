@@ -15,10 +15,12 @@ import {
   recordCryptoBalance,
   setPrice,
   syncCryptoWallet,
+  type CryptoAsset,
   type CryptoWallet,
   type Lot,
   type Sale,
 } from "../../api/client";
+import { groupWalletRows } from "./bulk";
 import BulkGrid, {
   type GridColumn,
   type GridRow,
@@ -26,6 +28,57 @@ import BulkGrid, {
 } from "../bulk-entry/BulkGrid";
 
 const CHAINS = ["bitcoin", "ethereum"] as const;
+
+const BULK_LOT_COLUMNS: GridColumn[] = [
+  {
+    key: "asset",
+    label: "Asset",
+    placeholder: "BTC",
+    validate: (value) => (value === "" ? "asset is required" : null),
+  },
+  {
+    key: "label",
+    label: "Wallet",
+    placeholder: "Coinbase",
+    validate: (value) => (value === "" ? "wallet is required" : null),
+  },
+  {
+    key: "kind",
+    label: "Kind",
+    placeholder: "manual",
+  },
+  {
+    key: "address",
+    label: "Address",
+    placeholder: "public address (address mode)",
+  },
+  {
+    key: "acquired_on",
+    label: "Acquired",
+    placeholder: "YYYY-MM-DD",
+    validate: (value) => (value === "" ? "date is required" : null),
+  },
+  {
+    key: "quantity",
+    label: "Quantity",
+    validate: (value) => (value === "" ? "quantity is required" : null),
+  },
+  {
+    key: "cost_basis",
+    label: "Cost basis",
+    validate: (value) => (value === "" ? "cost basis is required" : null),
+  },
+  {
+    key: "fees",
+    label: "Fees",
+    placeholder: "0.00",
+  },
+  {
+    key: "basis_quality",
+    label: "Basis",
+    placeholder: "actual",
+  },
+];
 
 const BULK_COLUMNS: GridColumn[] = [
   {
@@ -229,35 +282,130 @@ export default function CryptoView() {
     },
   });
 
+  const findOrCreateWallet = async (
+    asset: CryptoAsset,
+    kind: "manual" | "address",
+    label: string,
+    address: string,
+  ): Promise<CryptoWallet> => {
+    const existing = (wallets.data ?? []).find(
+      (wallet) =>
+        wallet.asset_id === asset.id &&
+        wallet.kind === kind &&
+        (kind === "address"
+          ? wallet.address?.toLowerCase() === address.toLowerCase()
+          : wallet.label.toLowerCase() === label.toLowerCase()),
+    );
+    if (existing) {
+      return existing;
+    }
+    return createCryptoWallet({
+      asset_id: asset.id,
+      kind,
+      chain: asset.chain,
+      label,
+      address: kind === "address" ? address : null,
+    });
+  };
+
   const handleBulk = async (rows: GridRow[]): Promise<SaveResult> => {
     const errors: { index: number; error: string }[] = [];
     let savedCount = 0;
-    for (const [index, row] of rows.entries()) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    for (const group of groupWalletRows(rows)) {
+      const first = group.entries[0];
       const asset = (assets.data ?? []).find(
-        (item) => item.symbol.toUpperCase() === row.asset.toUpperCase(),
+        (item) => item.symbol.toUpperCase() === first.row.asset.toUpperCase(),
       );
       if (!asset) {
-        errors.push({ index, error: `unknown asset '${row.asset}'` });
+        for (const { index } of group.entries) {
+          errors.push({ index, error: `unknown asset '${first.row.asset}'` });
+        }
         continue;
       }
-      const kind = row.kind === "address" ? "address" : "manual";
+      const kind = first.row.kind === "address" ? "address" : "manual";
+      const label = first.row.label?.trim() ?? "";
+      const address = first.row.address?.trim() ?? "";
+      let wallet: CryptoWallet;
       try {
-        const wallet = await createCryptoWallet({
-          asset_id: asset.id,
-          kind,
-          chain: asset.chain,
-          label: row.label,
-          address: kind === "address" ? row.address : null,
-        });
-        if (kind === "manual" && row.quantity) {
+        wallet = await findOrCreateWallet(asset, kind, label, address);
+      } catch (error) {
+        for (const { index } of group.entries) {
+          errors.push({ index, error: (error as Error).message });
+        }
+        continue;
+      }
+
+      const dates = new Set<string>();
+      for (const { row, index } of group.entries) {
+        if (!row.quantity) {
+          savedCount += 1;
+          continue;
+        }
+        const asOf = row.as_of || today;
+        if (dates.has(asOf)) {
+          errors.push({ index, error: "duplicate date for this wallet" });
+          continue;
+        }
+        dates.add(asOf);
+        try {
           await recordCryptoBalance(wallet.id, {
-            as_of: row.as_of || new Date().toISOString().slice(0, 10),
+            as_of: asOf,
             quantity: row.quantity,
           });
+          savedCount += 1;
+        } catch (error) {
+          errors.push({ index, error: (error as Error).message });
         }
-        savedCount += 1;
+      }
+    }
+    refresh();
+    return { savedCount, errors };
+  };
+
+  const handleLotBulk = async (rows: GridRow[]): Promise<SaveResult> => {
+    const errors: { index: number; error: string }[] = [];
+    let savedCount = 0;
+
+    for (const group of groupWalletRows(rows)) {
+      const first = group.entries[0];
+      const asset = (assets.data ?? []).find(
+        (item) => item.symbol.toUpperCase() === first.row.asset.toUpperCase(),
+      );
+      if (!asset) {
+        for (const { index } of group.entries) {
+          errors.push({ index, error: `unknown asset '${first.row.asset}'` });
+        }
+        continue;
+      }
+      const kind = first.row.kind === "address" ? "address" : "manual";
+      const label = first.row.label?.trim() ?? "";
+      const address = first.row.address?.trim() ?? "";
+      let wallet: CryptoWallet;
+      try {
+        wallet = await findOrCreateWallet(asset, kind, label, address);
       } catch (error) {
-        errors.push({ index, error: (error as Error).message });
+        for (const { index } of group.entries) {
+          errors.push({ index, error: (error as Error).message });
+        }
+        continue;
+      }
+
+      for (const { row, index } of group.entries) {
+        try {
+          await createCryptoLot(wallet.id, {
+            acquired_on: row.acquired_on,
+            quantity: row.quantity,
+            cost_basis: row.cost_basis,
+            fees: row.fees || null,
+            basis_quality:
+              row.basis_quality === "estimated" ? "estimated" : "actual",
+          });
+          savedCount += 1;
+        } catch (error) {
+          errors.push({ index, error: (error as Error).message });
+        }
       }
     }
     refresh();
@@ -823,16 +971,31 @@ export default function CryptoView() {
       </section>
 
       <section className="card" aria-label="crypto bulk entry">
-        <h2>Bulk wallets</h2>
+        <h2>Bulk wallet totals</h2>
         <p className="muted">
-          Paste address rows or manual wallet amounts. Each row creates a wallet;
-          manual rows also record the quantity.
+          Rows for the same asset/label (or address) share one wallet. Each dated
+          quantity is a balance observation, not a purchase transaction.
         </p>
         <BulkGrid
           columns={BULK_COLUMNS}
           minRows={1}
           onSave={handleBulk}
-          saveLabel="Save wallets"
+          saveLabel="Save totals"
+          readOnly={!canWrite}
+        />
+      </section>
+
+      <section className="card" aria-label="crypto bulk lots">
+        <h2>Bulk purchase lots</h2>
+        <p className="muted">
+          Each row is a purchase lot/transaction. Multiple rows for the same
+          wallet are preserved as separate lots for FIFO and tax reporting.
+        </p>
+        <BulkGrid
+          columns={BULK_LOT_COLUMNS}
+          minRows={1}
+          onSave={handleLotBulk}
+          saveLabel="Save lots"
           readOnly={!canWrite}
         />
       </section>

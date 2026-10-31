@@ -298,3 +298,23 @@ async fn crypto_lots_and_fifo_sales_use_the_shared_ledger() {
         .collect();
     assert_eq!(remaining, vec!["0", "3"]);
 }
+
+#[tokio::test]
+async fn rejects_duplicate_manual_wallet_labels_for_the_same_asset() {
+    let app = common::router();
+    let asset_id = create_asset(&app, "BTC", "bitcoin").await;
+    create_wallet(&app, &asset_id, "manual", "bitcoin", "Coinbase", None).await;
+
+    let (status, body) = common::post_json(
+        &app,
+        "/api/v1/crypto/wallets",
+        json!({
+            "asset_id": asset_id,
+            "kind": "manual",
+            "chain": "bitcoin",
+            "label": "coinbase"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "duplicate: {body}");
+}

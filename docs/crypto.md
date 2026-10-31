@@ -128,7 +128,10 @@ The **Crypto** view supports:
 - syncing address wallets when a chain add-on is configured,
 - setting manual prices,
 - aggregated positions by asset,
-- bulk-pasting wallet rows (address or manual amount).
+- bulk wallet totals, grouped by asset/label or address so repeated rows do
+  not create duplicate wallets (each dated row is a balance observation),
+- bulk purchase lots, where each row is a separate transaction/lot and
+  multiple rows for the same wallet are preserved for FIFO/tax reporting.
 
 ## Tax lots
 

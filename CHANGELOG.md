@@ -8,6 +8,17 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+### Added
+
+- A bulk purchase-lot grid for crypto wallets; multiple rows for one wallet
+  become separate FIFO/tax lots.
+
+### Fixed
+
+- Crypto bulk wallet totals now group rows by asset/label or address instead
+  of creating a new wallet per row. Duplicate manual labels for the same asset
+  are rejected, and repeated dates for one wallet are reported as row errors.
+
 ## [0.1.20261031] - 2026-10-31
 
 This release adds the shared tax-lot ledger, native BTC/ETH crypto tracking,

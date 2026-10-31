@@ -136,7 +136,18 @@ impl CryptoService {
                         .map_err(|error| CryptoError::Validation(error.to_string()))?,
                 )
             }
-            CryptoWalletKind::Manual => None,
+            CryptoWalletKind::Manual => {
+                if self.repo.list_wallets().await?.iter().any(|wallet| {
+                    wallet.asset.id == asset.id
+                        && wallet.kind == CryptoWalletKind::Manual
+                        && wallet.label.eq_ignore_ascii_case(new.label.trim())
+                }) {
+                    return Err(CryptoError::Validation(
+                        "a manual wallet with that asset and label already exists".to_string(),
+                    ));
+                }
+                None
+            }
         };
 
         Ok(self
