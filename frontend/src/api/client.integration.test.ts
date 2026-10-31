@@ -5,6 +5,8 @@ import { parse } from "yaml";
 import {
   API_BASE_URL,
   createAccount,
+  createCryptoAsset,
+  createCryptoWallet,
   createHolding,
   createSale,
   createSecurity,
@@ -12,6 +14,7 @@ import {
   getNetWorth,
   getPing,
   listAccounts,
+  listCryptoPositions,
   listBalances,
   listHoldings,
   listSales,
@@ -19,7 +22,9 @@ import {
   importSpreadsheet,
   recordBalance,
   recordBalancesBatch,
+  recordCryptoBalance,
   setPrice,
+  syncCryptoWallet,
 } from "./client";
 
 /**
@@ -244,6 +249,52 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     expect(sales.some((item) => item.id === sale.id)).toBe(true);
   });
 
+  it("tracks manual and address crypto wallets over HTTP", async () => {
+    const stamp = Date.now();
+    const asset = await createCryptoAsset({
+      symbol: "BTC",
+      name: `Bitcoin ${stamp}`,
+      chain: "bitcoin",
+      decimals: 18,
+    });
+    const manual = await createCryptoWallet({
+      asset_id: asset.id,
+      kind: "manual",
+      chain: "bitcoin",
+      label: `Coinbase ${stamp}`,
+    });
+    await recordCryptoBalance(manual.id, {
+      as_of: "2026-01-01",
+      quantity: "0.003",
+    });
+    await setPrice({ symbol: "BTC", price: "70000.00" });
+
+    let positions = await listCryptoPositions({ as_of: "2026-01-01" });
+    let btc = positions.find((item) => item.asset_id === asset.id);
+    expect(btc?.quantity).toBe("0.003");
+    expect(btc?.value).toBe("210.00");
+
+    const address = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq";
+    const addressWallet = await createCryptoWallet({
+      asset_id: asset.id,
+      kind: "address",
+      chain: "bitcoin",
+      label: `Cold ${stamp}`,
+      address,
+    });
+    const synced = await syncCryptoWallet(addressWallet.id);
+    expect(synced.quantity).toBe("0.000000000000000001");
+    expect(synced.source).toBe("chain");
+
+    positions = await listCryptoPositions();
+    btc = positions.find((item) => item.asset_id === asset.id);
+    expect(btc?.wallet_count).toBe(2);
+    expect(btc?.quantity).toBe("0.003000000000000001");
+
+    const networth = await getNetWorth({ as_of: "2026-01-01", owner_age: 35 });
+    expect(Number(networth.total)).toBeGreaterThanOrEqual(210);
+  });
+
   it("matches the shared OpenAPI contract for GET endpoints", async () => {
     const contract = parse(readFileSync(contractPath, "utf8")) as Contract;
 
@@ -261,6 +312,18 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
       sector: "other",
     });
     await setPrice({ symbol, price: "100.00" });
+    const cryptoAsset = await createCryptoAsset({
+      symbol: `B${Date.now()}`.slice(0, 12),
+      name: "Contract Crypto",
+      chain: "bitcoin",
+      decimals: 18,
+    });
+    const cryptoWallet = await createCryptoWallet({
+      asset_id: cryptoAsset.id,
+      kind: "manual",
+      chain: "bitcoin",
+      label: "Contract Wallet",
+    });
     await fetch(`${API_BASE_URL}/api/v1/fx-rates`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -276,6 +339,9 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
       let concretePath = path
         .replace("{id}", account.id)
         .replace("{symbol}", symbol);
+      if (path.startsWith("/api/v1/crypto/wallets/")) {
+        concretePath = path.replace("{id}", cryptoWallet.id);
+      }
       if (concretePath === "/api/v1/fx-rates") {
         concretePath += "?base=USD&quote=EUR";
       }

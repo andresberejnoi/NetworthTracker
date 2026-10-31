@@ -39,6 +39,8 @@ echo "Starting backend on ${url} ..."
 DATABASE_URL="postgres://networth:${db_password}@127.0.0.1:${db_port}/networth" \
   BACKEND_ADDR="127.0.0.1:${port}" \
   AUTH_DISABLED=true \
+  CHAIN_PROVIDER=fake \
+  CHAIN_FAKE_BALANCES="bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq=0.000000000000000001" \
   "$root/backend/target/debug/networth-api" &
 backend_pid=$!
 

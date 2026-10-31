@@ -104,6 +104,10 @@ assert_data() {
     echo "tax_lots: expected 1 row, got ${tax_lots}" >&2
     return 1
   }
+  [[ "$(psql_db -tAc "SELECT to_regclass('public.crypto_assets') IS NOT NULL")" == "t" ]] || {
+    echo "crypto_assets table is missing" >&2
+    return 1
+  }
   [[ "$lot_remaining" == "10" ]] || {
     echo "tax_lots: expected remaining 10, got ${lot_remaining}" >&2
     return 1
@@ -138,9 +142,9 @@ if [[ ${#migrations[@]} -lt 2 ]]; then
   echo "Need at least two migrations to test an upgrade" >&2
   exit 1
 fi
-last_index=$((${#migrations[@]} - 1))
+previous_count=$((${#migrations[@]} - 2))
 
-echo "Creating the previous schema (${last_index} of ${#migrations[@]} migrations) ..."
+echo "Creating the previous schema (${previous_count} of ${#migrations[@]} migrations) ..."
 psql_db -c "
   CREATE TABLE _sqlx_migrations (
     version BIGINT PRIMARY KEY,
@@ -152,7 +156,7 @@ psql_db -c "
   );" >/dev/null
 
 for i in "${!migrations[@]}"; do
-  [[ "$i" -eq "$last_index" ]] && continue
+  [[ "$i" -ge "$previous_count" ]] && continue
 
   file="${migrations[$i]}"
   base="$(basename "$file" .sql)"
@@ -209,7 +213,7 @@ if [[ "$(psql_db -tAc "SELECT to_regclass('public.tax_lots') IS NOT NULL")" != "
   echo "The previous schema unexpectedly already has tax_lots" >&2
   exit 1
 fi
-if [[ "$(psql_db -tAc 'SELECT COUNT(*) FROM _sqlx_migrations')" != "$last_index" ]]; then
+if [[ "$(psql_db -tAc 'SELECT COUNT(*) FROM _sqlx_migrations')" != "$previous_count" ]]; then
   echo "The previous schema has the wrong migration count" >&2
   exit 1
 fi
