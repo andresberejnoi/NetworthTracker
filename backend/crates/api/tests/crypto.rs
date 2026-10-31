@@ -318,3 +318,66 @@ async fn rejects_duplicate_manual_wallet_labels_for_the_same_asset() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "duplicate: {body}");
 }
+
+#[tokio::test]
+async fn manual_lot_batches_update_the_wallet_balance() {
+    let app = common::router();
+    let asset_id = create_asset(&app, "BTC", "bitcoin").await;
+    let wallet_id = create_wallet(&app, &asset_id, "manual", "bitcoin", "Coinbase", None).await;
+
+    // Start with a total-only position.
+    let (status, _) = common::post_json(
+        &app,
+        &format!("/api/v1/crypto/wallets/{wallet_id}/balances"),
+        json!({ "as_of": "2026-01-01", "quantity": "1.5" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    // Opening lot matching the total.
+    for (date, quantity, cost) in [("2025-01-01", "1.5", "90000.00")] {
+        let (status, _) = common::post_json(
+            &app,
+            &format!("/api/v1/crypto/wallets/{wallet_id}/lots"),
+            json!({ "acquired_on": date, "quantity": quantity, "cost_basis": cost }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+
+    // A later batch updates the balance to the lots total.
+    let (status, _) = common::post_json(
+        &app,
+        &format!("/api/v1/crypto/wallets/{wallet_id}/lots"),
+        json!({ "acquired_on": "2026-02-01", "quantity": "0.1", "cost_basis": "7000.00" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let (_, balances) = common::get(
+        &app,
+        &format!("/api/v1/crypto/wallets/{wallet_id}/balances"),
+    )
+    .await;
+    assert_eq!(balances[0]["quantity"], "1.6");
+
+    let (status, sale) = common::post_json(
+        &app,
+        &format!("/api/v1/crypto/wallets/{wallet_id}/sales"),
+        json!({
+            "symbol": "BTC",
+            "disposed_on": "2026-06-01",
+            "quantity": "0.2",
+            "gross_proceeds": "14000.00"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "sale: {sale}");
+
+    let (_, balances) = common::get(
+        &app,
+        &format!("/api/v1/crypto/wallets/{wallet_id}/balances"),
+    )
+    .await;
+    assert_eq!(balances[0]["quantity"], "1.4");
+}

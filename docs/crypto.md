@@ -101,6 +101,11 @@ Balances and lots are still independent records. The tax-lot section shows the
 wallet balance, the remaining lots total, and a warning when they differ. This
 prevents a silent mismatch between "how much I hold" and "what I paid".
 
+For manual wallets, once lots exist, appending a purchase lot or recording a
+sale updates the wallet's manual balance to the remaining lots total. A
+total-only wallet is not overwritten by a batch until an opening lot is added,
+so the initial total is preserved while you decide its basis.
+
 ## API
 
 ```bash

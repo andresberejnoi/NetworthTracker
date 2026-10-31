@@ -20,6 +20,9 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 - Crypto bulk wallet totals now group rows by asset/label or address instead
   of creating a new wallet per row. Duplicate manual labels for the same asset
   are rejected, and repeated dates for one wallet are reported as row errors.
+- Manual crypto wallet balances now follow the remaining tax-lot total after
+  an opening lot exists; adding batches or selling updates the balance without
+  overwriting a total-only position before its opening lot is created.
 
 ## [0.1.20261031] - 2026-10-31
 

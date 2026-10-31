@@ -288,10 +288,21 @@ impl CryptoService {
                 }
             }
         }
-        Ok(self
+        let had_lots = self
+            .repo
+            .list_crypto_lots(wallet_id)
+            .await?
+            .iter()
+            .any(|lot| !lot.remaining_quantity.is_zero());
+        let had_balance = !self.repo.list_balances(wallet_id).await?.is_empty();
+        let created = self
             .repo
             .append_crypto_lots(wallet.id, wallet.asset.id, &lots)
-            .await?)
+            .await?;
+        if wallet.kind == CryptoWalletKind::Manual && (!had_balance || had_lots) {
+            self.sync_manual_balance(wallet_id).await?;
+        }
+        Ok(created)
     }
 
     /// List crypto tax lots for a wallet.
@@ -337,10 +348,36 @@ impl CryptoService {
             )),
             other => CryptoError::Validation(other.to_string()),
         })?;
-        Ok(self
+        let recorded = self
             .repo
             .record_crypto_sale(wallet.id, wallet.asset.id, &sale, &allocations)
-            .await?)
+            .await?;
+        if wallet.kind == CryptoWalletKind::Manual {
+            self.sync_manual_balance(wallet_id).await?;
+        }
+        Ok(recorded)
+    }
+
+    async fn sync_manual_balance(&self, wallet_id: Uuid) -> Result<(), CryptoError> {
+        let total = self
+            .repo
+            .list_crypto_lots(wallet_id)
+            .await?
+            .iter()
+            .fold(Quantity::zero(), |sum, lot| {
+                sum.checked_add(&lot.remaining_quantity)
+            });
+        self.repo
+            .upsert_crypto_balance(&NewCryptoBalance {
+                wallet_id,
+                as_of: OffsetDateTime::now_utc().date(),
+                quantity: total,
+                source: CryptoBalanceSource::Manual,
+                provider: None,
+                fetched_at: None,
+            })
+            .await?;
+        Ok(())
     }
 
     /// List crypto sales for a wallet.
