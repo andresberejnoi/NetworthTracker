@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use networth_domain::{
-    compute_net_worth_with_holdings, AggregationScope, ComputeParams, Currency, Money,
-    NetWorthBreakdown, NewSnapshot, RedemptionPolicy, Snapshot, SnapshotFilter,
+    compute_net_worth_with_holdings, Account, AggregationScope, Balance, ComputeParams, Currency,
+    Money, NetWorthBreakdown, NewSnapshot, RedemptionPolicy, Snapshot, SnapshotFilter,
 };
 use time::Date;
 use uuid::Uuid;
@@ -64,7 +64,7 @@ impl NetWorthService {
         &self,
         request: NetWorthRequest,
     ) -> Result<NetWorthBreakdown, NetWorthError> {
-        self.compute_with_holding_values(request, &HashMap::new())
+        self.compute_with_assets(request, &HashMap::new(), &[], &[])
             .await
     }
 
@@ -74,10 +74,25 @@ impl NetWorthService {
         request: NetWorthRequest,
         holding_values: &HashMap<Uuid, Money>,
     ) -> Result<NetWorthBreakdown, NetWorthError> {
+        self.compute_with_assets(request, holding_values, &[], &[])
+            .await
+    }
+
+    /// Compute net worth, adding synthetic accounts/balances (for example
+    /// crypto positions) to the persisted accounts.
+    pub async fn compute_with_assets(
+        &self,
+        request: NetWorthRequest,
+        holding_values: &HashMap<Uuid, Money>,
+        extra_accounts: &[Account],
+        extra_balances: &[Balance],
+    ) -> Result<NetWorthBreakdown, NetWorthError> {
         validate(&request)?;
 
-        let accounts = self.accounts.list_accounts(true).await?;
-        let balances = self.networth.latest_balances(request.as_of).await?;
+        let mut accounts = self.accounts.list_accounts(true).await?;
+        accounts.extend_from_slice(extra_accounts);
+        let mut balances = self.networth.latest_balances(request.as_of).await?;
+        balances.extend_from_slice(extra_balances);
 
         let params = ComputeParams {
             as_of: request.as_of,
@@ -100,7 +115,7 @@ impl NetWorthService {
 
     /// Compute net worth and persist an immutable snapshot.
     pub async fn take_snapshot(&self, request: NetWorthRequest) -> Result<Snapshot, NetWorthError> {
-        self.take_snapshot_with_holding_values(request, &HashMap::new())
+        self.take_snapshot_with_assets(request, &HashMap::new(), &[], &[])
             .await
     }
 
@@ -110,8 +125,25 @@ impl NetWorthService {
         request: NetWorthRequest,
         holding_values: &HashMap<Uuid, Money>,
     ) -> Result<Snapshot, NetWorthError> {
+        self.take_snapshot_with_assets(request, holding_values, &[], &[])
+            .await
+    }
+
+    /// Compute and persist a snapshot with extra synthetic accounts/balances.
+    pub async fn take_snapshot_with_assets(
+        &self,
+        request: NetWorthRequest,
+        holding_values: &HashMap<Uuid, Money>,
+        extra_accounts: &[Account],
+        extra_balances: &[Balance],
+    ) -> Result<Snapshot, NetWorthError> {
         let breakdown = self
-            .compute_with_holding_values(request.clone(), holding_values)
+            .compute_with_assets(
+                request.clone(),
+                holding_values,
+                extra_accounts,
+                extra_balances,
+            )
             .await?;
 
         let new = NewSnapshot {

@@ -4,6 +4,7 @@
 //! helper is used by every binary.
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{
@@ -12,8 +13,10 @@ use axum::{
     Router,
 };
 use http_body_util::BodyExt;
-use networth_adapters::InMemoryAccountRepository;
+use networth_adapters::{FakeChainProvider, InMemoryAccountRepository};
 use networth_api::{app, AppState, Repositories};
+use networth_application::ChainDataProvider;
+use networth_domain::{Chain, Quantity};
 use tower::ServiceExt;
 
 /// Build an app over a fresh in-memory repository, with auth disabled.
@@ -26,17 +29,41 @@ pub fn router_with_auth() -> Router {
     build(true)
 }
 
+/// Build an app with a fake chain provider that knows one Bitcoin balance.
+pub fn router_with_chain(address: &str, quantity: &str) -> Router {
+    let mut table = HashMap::new();
+    table.insert(
+        (Chain::Bitcoin, address.to_string()),
+        Quantity::parse(quantity).expect("test quantity"),
+    );
+    let provider: Arc<dyn ChainDataProvider> = Arc::new(FakeChainProvider::new(table));
+    build_with_chain(false, Some(provider))
+}
+
 fn build(auth_enabled: bool) -> Router {
+    build_with_chain(auth_enabled, None)
+}
+
+fn build_with_chain(
+    auth_enabled: bool,
+    chain_provider: Option<Arc<dyn ChainDataProvider>>,
+) -> Router {
     let repository = Arc::new(InMemoryAccountRepository::new());
     let repositories = Repositories {
         accounts: repository.clone(),
         networth: repository.clone(),
         identity: repository.clone(),
         investments: repository.clone(),
+        crypto: repository.clone(),
         prices: repository.clone(),
         fx: repository,
     };
-    app(AppState::new(repositories, None, auth_enabled))
+    app(AppState::new(
+        repositories,
+        None,
+        chain_provider,
+        auth_enabled,
+    ))
 }
 
 /// Send a request and decode any JSON body.

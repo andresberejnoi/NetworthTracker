@@ -51,11 +51,13 @@ async fn applying_a_new_migration_preserves_existing_data() {
         })
         .collect();
     files.sort();
-    assert!(files.len() >= 2, "need at least two migrations");
+    assert!(files.len() >= 3, "need at least three migrations");
 
+    // Exercise the last two migrations (tax lots and crypto) in sequence.
+    let previous_count = files.len() - 2;
     let previous_dir = std::env::temp_dir().join(format!("networth-previous-{db_name}"));
     std::fs::create_dir_all(&previous_dir).expect("create temp migrations dir");
-    for file in &files[..files.len() - 1] {
+    for file in &files[..previous_count] {
         std::fs::copy(file, previous_dir.join(file.file_name().unwrap())).expect("copy migration");
     }
 
@@ -199,6 +201,20 @@ async fn applying_a_new_migration_preserves_existing_data() {
         .await
         .expect("count securities");
     assert_eq!(securities.0, 2);
+
+    // The crypto migration also ran.
+    let crypto_assets: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM crypto_assets")
+        .fetch_one(&pool)
+        .await
+        .expect("count crypto assets");
+    assert_eq!(crypto_assets.0, 0);
+    sqlx::query(
+        "INSERT INTO crypto_assets (symbol, name, chain, decimals, currency) \
+         VALUES ('BTC', 'Bitcoin', 'bitcoin', 18, 'USD')",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert crypto asset");
 
     pool.close().await;
     sqlx::query(&format!("DROP DATABASE \"{db_name}\" WITH (FORCE)"))

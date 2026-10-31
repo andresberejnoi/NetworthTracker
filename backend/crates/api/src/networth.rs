@@ -36,11 +36,17 @@ pub async fn get_net_worth(
         &current,
     )?;
 
+    let (crypto_accounts, crypto_balances) = state
+        .crypto
+        .account_values(request.as_of, &request.currency)
+        .await?;
     let breakdown = state
         .networth
-        .compute_with_holding_values(
+        .compute_with_assets(
             request,
             &state.investments.account_values(&Currency::usd()).await?,
+            &crypto_accounts,
+            &crypto_balances,
         )
         .await?;
     Ok(Json(NetWorthDto::from(breakdown)))
@@ -67,11 +73,17 @@ pub async fn create_snapshot(
         &current,
     )?;
 
+    let (crypto_accounts, crypto_balances) = state
+        .crypto
+        .account_values(request.as_of, &request.currency)
+        .await?;
     let snapshot = state
         .networth
-        .take_snapshot_with_holding_values(
+        .take_snapshot_with_assets(
             request,
             &state.investments.account_values(&Currency::usd()).await?,
+            &crypto_accounts,
+            &crypto_balances,
         )
         .await?;
     Ok((StatusCode::CREATED, Json(SnapshotDto::from(snapshot))))

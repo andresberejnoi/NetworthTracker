@@ -7,6 +7,7 @@
 mod accounts;
 mod auth;
 mod backup;
+mod crypto;
 mod data;
 mod dto;
 mod error;
@@ -28,10 +29,10 @@ use axum::{
     Json, Router,
 };
 use networth_application::{
-    AccountRepository, AccountService, AuthService, BackupService, FxRepository, FxService,
-    IdentityRepository, ImportService, InvestmentRepository, InvestmentsService,
-    NetWorthRepository, NetWorthService, PriceProvider, PriceRepository, PriceService,
-    DEFAULT_MAX_AGE_SECS,
+    AccountRepository, AccountService, AuthService, BackupService, ChainDataProvider,
+    CryptoRepository, CryptoService, FxRepository, FxService, IdentityRepository, ImportService,
+    InvestmentRepository, InvestmentsService, NetWorthRepository, NetWorthService, PriceProvider,
+    PriceRepository, PriceService, DEFAULT_MAX_AGE_SECS,
 };
 use serde::Serialize;
 use tower_http::{
@@ -55,6 +56,8 @@ pub struct Repositories {
     pub identity: Arc<dyn IdentityRepository>,
     /// Securities and holdings.
     pub investments: Arc<dyn InvestmentRepository>,
+    /// Crypto assets, wallets, and balances.
+    pub crypto: Arc<dyn CryptoRepository>,
     /// Cached and manual prices.
     pub prices: Arc<dyn PriceRepository>,
     /// FX rates.
@@ -76,6 +79,8 @@ pub struct AppState {
     pub backup: Arc<BackupService>,
     /// Securities and holdings.
     pub investments: Arc<InvestmentsService>,
+    /// Crypto assets, wallets, and balances.
+    pub crypto: Arc<CryptoService>,
     /// Prices.
     pub prices: Arc<PriceService>,
     /// FX conversion.
@@ -87,6 +92,7 @@ impl AppState {
     pub fn new(
         repositories: Repositories,
         provider: Option<Arc<dyn PriceProvider>>,
+        chain_provider: Option<Arc<dyn ChainDataProvider>>,
         auth_enabled: bool,
     ) -> Self {
         let prices = Arc::new(PriceService::new(
@@ -97,6 +103,11 @@ impl AppState {
         let investments = Arc::new(InvestmentsService::new(
             repositories.investments,
             prices.clone(),
+        ));
+        let crypto = Arc::new(CryptoService::new(
+            repositories.crypto,
+            prices.clone(),
+            chain_provider,
         ));
         let fx = Arc::new(FxService::new(repositories.fx));
 
@@ -117,6 +128,7 @@ impl AppState {
                 repositories.identity,
             )),
             investments,
+            crypto,
             prices,
             fx,
         }
@@ -190,6 +202,24 @@ pub fn app(state: AppState) -> Router {
             "/api/v1/accounts/{id}/sales",
             get(investments::list_sales).post(investments::create_sale),
         )
+        .route(
+            "/api/v1/crypto/assets",
+            get(crypto::list_assets).post(crypto::create_asset),
+        )
+        .route(
+            "/api/v1/crypto/wallets",
+            get(crypto::list_wallets).post(crypto::create_wallet),
+        )
+        .route(
+            "/api/v1/crypto/wallets/{id}/balances",
+            get(crypto::list_balances).post(crypto::record_balance),
+        )
+        .route(
+            "/api/v1/crypto/wallets/{id}/sync",
+            post(crypto::sync_wallet),
+        )
+        .route("/api/v1/crypto/positions", get(crypto::list_positions))
+        .route("/api/v1/crypto/provider", get(crypto::provider_status))
         .route(
             "/api/v1/accounts/{id}/holdings/batch",
             post(investments::record_holdings_batch),

@@ -91,6 +91,9 @@ pub enum AccountType {
     /// Any other asset not covered above.
     #[serde(rename = "other_asset")]
     OtherAsset,
+    /// Cryptocurrency positions aggregated from wallets.
+    #[serde(rename = "crypto")]
+    Crypto,
     /// A mortgage.
     #[serde(rename = "mortgage")]
     Mortgage,
@@ -101,7 +104,7 @@ pub enum AccountType {
 
 impl AccountType {
     /// Every account type, useful for exhaustive tests.
-    pub const ALL: [AccountType; 11] = [
+    pub const ALL: [AccountType; 12] = [
         AccountType::Retirement401k,
         AccountType::TraditionalIra,
         AccountType::RothIra,
@@ -111,6 +114,7 @@ impl AccountType {
         AccountType::Cash,
         AccountType::RealEstate,
         AccountType::OtherAsset,
+        AccountType::Crypto,
         AccountType::Mortgage,
         AccountType::Loan,
     ];
@@ -120,7 +124,7 @@ impl AccountType {
         use AccountType::*;
         match self {
             Retirement401k | TraditionalIra | RothIra | TaxableBrokerage | Checking | Savings
-            | Cash | RealEstate | OtherAsset => AccountClassification::Asset,
+            | Cash | RealEstate | OtherAsset | Crypto => AccountClassification::Asset,
             Mortgage | Loan => AccountClassification::Liability,
         }
     }
@@ -132,7 +136,9 @@ impl AccountType {
             Checking | Savings | Cash => Liquidity::Immediate,
             // Retirement accounts can be sold quickly (with tax/penalty), so
             // they count as liquid net worth, but not as cash on hand.
-            Retirement401k | TraditionalIra | RothIra | TaxableBrokerage => Liquidity::Marketable,
+            Retirement401k | TraditionalIra | RothIra | TaxableBrokerage | Crypto => {
+                Liquidity::Marketable
+            }
             RealEstate | OtherAsset | Mortgage | Loan => Liquidity::Illiquid,
         }
     }
@@ -150,6 +156,7 @@ impl AccountType {
             Cash => "cash",
             RealEstate => "real_estate",
             OtherAsset => "other_asset",
+            Crypto => "crypto",
             Mortgage => "mortgage",
             Loan => "loan",
         }
@@ -360,6 +367,7 @@ mod tests {
         assert_eq!(AccountType::Savings.liquidity(), Immediate);
         assert_eq!(AccountType::Cash.liquidity(), Immediate);
         assert_eq!(AccountType::TaxableBrokerage.liquidity(), Marketable);
+        assert_eq!(AccountType::Crypto.liquidity(), Marketable);
         assert_eq!(AccountType::Retirement401k.liquidity(), Marketable);
         assert_eq!(AccountType::RothIra.liquidity(), Marketable);
         assert_eq!(AccountType::RealEstate.liquidity(), Illiquid);

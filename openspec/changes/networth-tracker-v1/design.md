@@ -351,6 +351,33 @@ the rule outside the schema avoids baking one jurisdiction into the data.
 rule (rejected: leap-year edge cases and future jurisdictions); storing the
 holding-period days (rejected: also derivable from dates).
 
+### D18. Crypto balances and tax lots are separate, with manual and address pools
+
+**Decision:** A crypto wallet is either a **manual bucket** (exchange, hardware
+wallet, or total) or a **public-address wallet**. Both hold dated balance facts;
+address wallets can be synced through an optional `ChainDataProvider`, while
+manual balances always work offline. Balances drive valuation and net worth;
+tax lots remain in the shared `tax_lots` ledger with nullable `crypto_asset_id`
+and `wallet_id` columns, because a chain explorer knows quantities but not what
+the user paid. v1 supports native Bitcoin and Ethereum only. Prices reuse the
+existing manual/provider cache. For net worth, each priced asset becomes a
+synthetic `crypto` account classified as marketable (liquid, but not cash on
+hand); unpriced assets are excluded and flagged rather than silently valued at
+zero.
+
+**Rationale:** This keeps the two questions separate — "how much do I hold?"
+and "what did it cost?" — which is essential for tax prep. It also lets the app
+be fully useful offline with manual balances while keeping address sync as an
+optional, inert-until-configured add-on. Reusing the price service and tax-lot
+ledger avoids parallel valuation and FIFO implementations.
+
+**Alternatives considered:** A single lot-only model for address wallets
+(rejected: explorers cannot supply cost basis); a separate crypto-only tax
+engine (rejected: duplicates FIFO/disposals); making crypto illiquid or
+excluding it from net worth (rejected: crypto is marketable and the user wants
+one net worth view); bundling a chain provider (rejected: no central service or
+credentials).
+
 ## Risks / Trade-offs
 
 - **Accessible net worth is inherently approximate, and tax estimation multiplies the assumptions** →

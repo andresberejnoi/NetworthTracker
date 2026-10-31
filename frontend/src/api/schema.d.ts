@@ -291,6 +291,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crypto/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crypto assets */
+        get: operations["listCryptoAssets"];
+        put?: never;
+        /** Create a crypto asset */
+        post: operations["createCryptoAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/wallets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crypto wallets */
+        get: operations["listCryptoWallets"];
+        put?: never;
+        /** Create a manual or address wallet */
+        post: operations["createCryptoWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/wallets/{id}/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List a wallet's dated balances */
+        get: operations["listCryptoBalances"];
+        put?: never;
+        /** Record a manual balance */
+        post: operations["recordCryptoBalance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/wallets/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync an address wallet from the configured chain provider */
+        post: operations["syncCryptoWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aggregate latest wallet balances by asset */
+        get: operations["listCryptoPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crypto/provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a chain add-on is configured */
+        get: operations["getChainProvider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/prices/provider": {
         parameters: {
             query?: never;
@@ -793,6 +902,97 @@ export interface components {
             long_term_years?: number | null;
             long_term_days?: number | null;
         };
+        CryptoAsset: {
+            /** Format: uuid */
+            id: string;
+            symbol: string;
+            name: string;
+            /** @enum {string} */
+            chain: "bitcoin" | "ethereum";
+            contract_address: string | null;
+            decimals: number;
+            currency: string;
+            price_provider_id: string | null;
+        };
+        CreateCryptoAssetRequest: {
+            symbol: string;
+            name: string;
+            /** @enum {string} */
+            chain: "bitcoin" | "ethereum";
+            contract_address?: string | null;
+            decimals?: number | null;
+            currency?: string | null;
+            price_provider_id?: string | null;
+        };
+        CryptoWallet: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            asset_id: string;
+            symbol: string;
+            name: string;
+            /** @enum {string} */
+            chain: "bitcoin" | "ethereum";
+            /** @enum {string} */
+            kind: "address" | "manual";
+            address: string | null;
+            label: string;
+            /** @enum {string} */
+            ownership_scope: "household" | "user";
+            /** Format: uuid */
+            owner_user_id: string | null;
+            archived: boolean;
+        };
+        CreateCryptoWalletRequest: {
+            /** Format: uuid */
+            asset_id: string;
+            /** @enum {string} */
+            kind: "address" | "manual";
+            /** @enum {string} */
+            chain: "bitcoin" | "ethereum";
+            address?: string | null;
+            label: string;
+            /** @enum {string|null} */
+            ownership_scope?: "household" | "user" | null;
+        };
+        CryptoBalance: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            wallet_id: string;
+            /** Format: date */
+            as_of: string;
+            quantity: string;
+            /** @enum {string} */
+            source: "manual" | "chain" | "import";
+            provider: string | null;
+            fetched_at: string | null;
+        };
+        RecordCryptoBalanceRequest: {
+            /** Format: date */
+            as_of: string;
+            quantity: string;
+        };
+        CryptoPosition: {
+            /** Format: uuid */
+            asset_id: string;
+            symbol: string;
+            name: string;
+            /** @enum {string} */
+            chain: "bitcoin" | "ethereum";
+            quantity: string;
+            wallet_count: number;
+            price: string | null;
+            price_as_of: string | null;
+            price_stale: boolean;
+            price_source: string | null;
+            value: string | null;
+            currency: string;
+        };
+        ChainProviderStatus: {
+            configured: boolean;
+            name: string | null;
+        };
         Price: {
             symbol: string;
             price: string;
@@ -822,7 +1022,7 @@ export interface components {
             rate: string;
         };
         /** @enum {string} */
-        AccountType: "401k" | "traditional_ira" | "roth_ira" | "taxable_brokerage" | "checking" | "savings" | "cash" | "real_estate" | "other_asset" | "mortgage" | "loan";
+        AccountType: "401k" | "traditional_ira" | "roth_ira" | "taxable_brokerage" | "checking" | "savings" | "cash" | "real_estate" | "other_asset" | "crypto" | "mortgage" | "loan";
         /** @enum {string} */
         OwnershipScope: "household" | "user";
         /** @enum {string} */
@@ -1489,6 +1689,216 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listCryptoAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoAsset"][];
+                };
+            };
+        };
+    };
+    createCryptoAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCryptoAssetRequest"];
+            };
+        };
+        responses: {
+            /** @description The created asset. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoAsset"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listCryptoWallets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Wallets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoWallet"][];
+                };
+            };
+        };
+    };
+    createCryptoWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCryptoWalletRequest"];
+            };
+        };
+        responses: {
+            /** @description The created wallet. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoWallet"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listCryptoBalances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Balances, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoBalance"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordCryptoBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordCryptoBalanceRequest"];
+            };
+        };
+        responses: {
+            /** @description The recorded balance. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoBalance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    syncCryptoWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The fetched balance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoBalance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCryptoPositions: {
+        parameters: {
+            query?: {
+                as_of?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Positions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CryptoPosition"][];
+                };
+            };
+        };
+    };
+    getChainProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainProviderStatus"];
+                };
+            };
         };
     };
     getPriceProvider: {

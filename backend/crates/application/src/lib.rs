@@ -7,6 +7,7 @@
 pub mod accounts;
 pub mod auth;
 pub mod backup;
+pub mod crypto;
 pub mod data_exchange;
 pub mod investments;
 pub mod market_data;
@@ -22,6 +23,7 @@ pub use backup::{
     Backup, BackupAccount, BackupBalance, BackupError, BackupService, BackupSnapshot,
     RestoreReport, BACKUP_VERSION,
 };
+pub use crypto::{validate_public_address, CryptoError, CryptoPosition, CryptoService};
 pub use data_exchange::{
     ImportError, ImportReport, ImportRowError, ImportService, Table, COLUMNS, SCHEMA_VERSION,
 };
@@ -31,9 +33,9 @@ pub use market_data::{
 };
 pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
 pub use ports::{
-    AccountRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
-    PriceProvider, PriceRepository, ProviderError, ProviderQuote, RepositoryError, StoredPrice,
-    StoredRate, UserWithHash,
+    AccountRepository, ChainBalance, ChainDataProvider, CryptoRepository, FxRepository,
+    IdentityRepository, InvestmentRepository, NetWorthRepository, PriceProvider, PriceRepository,
+    ProviderError, ProviderQuote, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 
 use networth_domain::APP_NAME;

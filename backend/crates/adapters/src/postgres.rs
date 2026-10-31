@@ -5,12 +5,13 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_application::ports::{
-    AccountRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
-    PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
+    AccountRepository, CryptoRepository, FxRepository, IdentityRepository, InvestmentRepository,
+    NetWorthRepository, PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, AggregationScope, Balance, BalanceSource, Currency, Disposal, DisposalAllocation,
-    Holding, Lot, Money, NewAccount, NewBalance, NewLot, NewSale, NewSecurity, NewSnapshot,
+    Account, AggregationScope, Balance, BalanceSource, CryptoAsset, CryptoBalance, CryptoWallet,
+    Currency, Disposal, DisposalAllocation, Holding, Lot, Money, NewAccount, NewBalance,
+    NewCryptoAsset, NewCryptoBalance, NewCryptoWallet, NewLot, NewSale, NewSecurity, NewSnapshot,
     NewUser, OwnershipScope, PriceSource, RedemptionPolicy, Sale, Security, Snapshot,
     SnapshotFilter, User, UserRole,
 };
@@ -1197,6 +1198,295 @@ impl InvestmentRepository for PostgresAccountRepository {
             .await
             .map_err(map_sqlx_error)?;
         Ok(result.rows_affected() > 0)
+    }
+}
+
+const CRYPTO_ASSET_COLUMNS: &str =
+    "id, symbol, name, chain, contract_address, decimals, currency, price_provider_id";
+
+#[derive(sqlx::FromRow)]
+struct CryptoAssetRow {
+    id: Uuid,
+    symbol: String,
+    name: String,
+    chain: String,
+    contract_address: Option<String>,
+    decimals: i32,
+    currency: String,
+    price_provider_id: Option<String>,
+}
+
+impl TryFrom<CryptoAssetRow> for CryptoAsset {
+    type Error = RepositoryError;
+
+    fn try_from(row: CryptoAssetRow) -> Result<Self, Self::Error> {
+        Ok(CryptoAsset {
+            id: row.id,
+            symbol: row.symbol,
+            name: row.name,
+            chain: row
+                .chain
+                .parse()
+                .map_err(|e: networth_domain::crypto::ChainParseError| {
+                    RepositoryError::Storage(e.to_string())
+                })?,
+            contract_address: row.contract_address,
+            decimals: u32::try_from(row.decimals)
+                .map_err(|_| RepositoryError::Storage("invalid decimals".to_string()))?,
+            currency: Currency::new(row.currency)
+                .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            price_provider_id: row.price_provider_id,
+        })
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct CryptoWalletRow {
+    id: Uuid,
+    kind: String,
+    chain: String,
+    address: Option<String>,
+    label: String,
+    ownership_scope: String,
+    owner_user_id: Option<Uuid>,
+    archived: bool,
+    asset_id: Uuid,
+    symbol: String,
+    name: String,
+    contract_address: Option<String>,
+    decimals: i32,
+    currency: String,
+    price_provider_id: Option<String>,
+}
+
+impl TryFrom<CryptoWalletRow> for CryptoWallet {
+    type Error = RepositoryError;
+
+    fn try_from(row: CryptoWalletRow) -> Result<Self, Self::Error> {
+        Ok(CryptoWallet {
+            id: row.id,
+            asset: CryptoAsset {
+                id: row.asset_id,
+                symbol: row.symbol,
+                name: row.name,
+                chain: row.chain.parse().map_err(
+                    |e: networth_domain::crypto::ChainParseError| {
+                        RepositoryError::Storage(e.to_string())
+                    },
+                )?,
+                contract_address: row.contract_address,
+                decimals: u32::try_from(row.decimals)
+                    .map_err(|_| RepositoryError::Storage("invalid decimals".to_string()))?,
+                currency: Currency::new(row.currency)
+                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                price_provider_id: row.price_provider_id,
+            },
+            kind: row.kind.parse().map_err(
+                |e: networth_domain::crypto::CryptoWalletKindParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            chain: row
+                .chain
+                .parse()
+                .map_err(|e: networth_domain::crypto::ChainParseError| {
+                    RepositoryError::Storage(e.to_string())
+                })?,
+            address: row.address,
+            label: row.label,
+            ownership_scope: row.ownership_scope.parse().map_err(
+                |e: networth_domain::accounts::OwnershipScopeParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            owner_user_id: row.owner_user_id,
+            archived: row.archived,
+        })
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct CryptoBalanceRow {
+    id: Uuid,
+    wallet_id: Uuid,
+    as_of: Date,
+    quantity: String,
+    source: String,
+    provider: Option<String>,
+    fetched_at: Option<OffsetDateTime>,
+}
+
+impl TryFrom<CryptoBalanceRow> for CryptoBalance {
+    type Error = RepositoryError;
+
+    fn try_from(row: CryptoBalanceRow) -> Result<Self, Self::Error> {
+        Ok(CryptoBalance {
+            id: row.id,
+            wallet_id: row.wallet_id,
+            as_of: row.as_of,
+            quantity: networth_domain::Quantity::new(parse_decimal(&row.quantity)?)
+                .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+            source: row.source.parse().map_err(
+                |e: networth_domain::crypto::CryptoBalanceSourceParseError| {
+                    RepositoryError::Storage(e.to_string())
+                },
+            )?,
+            provider: row.provider,
+            fetched_at: row.fetched_at,
+        })
+    }
+}
+
+const CRYPTO_WALLET_COLUMNS: &str = "w.id, w.kind, w.chain, w.address, w.label, \
+    w.ownership_scope, w.owner_user_id, w.archived, a.id AS asset_id, a.symbol, a.name, \
+    a.contract_address, a.decimals, a.currency, a.price_provider_id";
+
+fn wallet_sql() -> String {
+    format!(
+        "SELECT {CRYPTO_WALLET_COLUMNS} FROM crypto_wallets w \
+         JOIN crypto_assets a ON a.id = w.asset_id"
+    )
+}
+
+#[async_trait]
+impl CryptoRepository for PostgresAccountRepository {
+    async fn create_asset(&self, new: &NewCryptoAsset) -> Result<CryptoAsset, RepositoryError> {
+        let sql = format!(
+            "INSERT INTO crypto_assets \
+             (symbol, name, chain, contract_address, decimals, currency, price_provider_id) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING {CRYPTO_ASSET_COLUMNS}"
+        );
+        let row: CryptoAssetRow = sqlx::query_as(&sql)
+            .bind(&new.symbol)
+            .bind(&new.name)
+            .bind(new.chain.as_str())
+            .bind(new.contract_address.as_deref())
+            .bind(i32::try_from(new.decimals).unwrap_or(18))
+            .bind(new.currency.as_str())
+            .bind(new.price_provider_id.as_deref())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        row.try_into()
+    }
+
+    async fn find_asset_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<Option<CryptoAsset>, RepositoryError> {
+        let sql = format!(
+            "SELECT {CRYPTO_ASSET_COLUMNS} FROM crypto_assets WHERE upper(symbol) = upper($1)"
+        );
+        let row: Option<CryptoAssetRow> = sqlx::query_as(&sql)
+            .bind(symbol)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        row.map(TryInto::try_into).transpose()
+    }
+
+    async fn list_assets(&self) -> Result<Vec<CryptoAsset>, RepositoryError> {
+        let sql = format!("SELECT {CRYPTO_ASSET_COLUMNS} FROM crypto_assets ORDER BY symbol");
+        let rows: Vec<CryptoAssetRow> = sqlx::query_as(&sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn create_wallet(&self, new: &NewCryptoWallet) -> Result<CryptoWallet, RepositoryError> {
+        let (wallet_id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO crypto_wallets \
+             (asset_id, kind, chain, address, label, ownership_scope, owner_user_id) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+        )
+        .bind(new.asset_id)
+        .bind(new.kind.as_str())
+        .bind(new.chain.as_str())
+        .bind(new.address.as_deref())
+        .bind(&new.label)
+        .bind(new.ownership_scope.as_str())
+        .bind(new.owner_user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        self.find_wallet(wallet_id)
+            .await?
+            .ok_or_else(|| RepositoryError::Storage("wallet not found after insert".to_string()))
+    }
+
+    async fn find_wallet(&self, id: Uuid) -> Result<Option<CryptoWallet>, RepositoryError> {
+        let sql = format!("{} WHERE w.id = $1", wallet_sql());
+        let row: Option<CryptoWalletRow> = sqlx::query_as(&sql)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        row.map(TryInto::try_into).transpose()
+    }
+
+    async fn list_wallets(&self) -> Result<Vec<CryptoWallet>, RepositoryError> {
+        let sql = format!("{} ORDER BY w.label, w.id", wallet_sql());
+        let rows: Vec<CryptoWalletRow> = sqlx::query_as(&sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn upsert_crypto_balance(
+        &self,
+        new: &NewCryptoBalance,
+    ) -> Result<CryptoBalance, RepositoryError> {
+        let row: CryptoBalanceRow = sqlx::query_as(
+            "INSERT INTO crypto_balances \
+             (wallet_id, as_of, quantity, source, provider, fetched_at) \
+             VALUES ($1, $2, CAST($3 AS numeric), $4, $5, $6) \
+             ON CONFLICT (wallet_id, as_of, source) DO UPDATE SET \
+               quantity = EXCLUDED.quantity, provider = EXCLUDED.provider, \
+               fetched_at = EXCLUDED.fetched_at \
+             RETURNING id, wallet_id, as_of, quantity::text AS quantity, source, \
+                       provider, fetched_at",
+        )
+        .bind(new.wallet_id)
+        .bind(new.as_of)
+        .bind(new.quantity.to_string())
+        .bind(new.source.as_str())
+        .bind(new.provider.as_deref())
+        .bind(new.fetched_at)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        row.try_into()
+    }
+
+    async fn list_balances(&self, wallet_id: Uuid) -> Result<Vec<CryptoBalance>, RepositoryError> {
+        let rows: Vec<CryptoBalanceRow> = sqlx::query_as(
+            "SELECT id, wallet_id, as_of, quantity::text AS quantity, source, provider, fetched_at \
+             FROM crypto_balances WHERE wallet_id = $1 \
+             ORDER BY as_of DESC, CASE source WHEN 'manual' THEN 0 WHEN 'chain' THEN 1 ELSE 2 END",
+        )
+        .bind(wallet_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn latest_balances(&self, as_of: Date) -> Result<Vec<CryptoBalance>, RepositoryError> {
+        let rows: Vec<CryptoBalanceRow> = sqlx::query_as(
+            "SELECT DISTINCT ON (wallet_id) id, wallet_id, as_of, \
+                    quantity::text AS quantity, source, provider, fetched_at \
+             FROM crypto_balances WHERE as_of <= $1 \
+             ORDER BY wallet_id, as_of DESC, \
+                      CASE source WHEN 'manual' THEN 0 WHEN 'chain' THEN 1 ELSE 2 END",
+        )
+        .bind(as_of)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
     }
 }
 

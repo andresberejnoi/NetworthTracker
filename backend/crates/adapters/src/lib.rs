@@ -5,11 +5,13 @@
 //! HTTP transport. Adapters depend inward on the domain and application; the
 //! domain never depends on them.
 
+pub mod chain_provider;
 pub mod memory;
 pub mod postgres;
 pub mod price_provider;
 pub mod spreadsheet;
 
+pub use chain_provider::FakeChainProvider;
 pub use memory::InMemoryAccountRepository;
 pub use postgres::PostgresAccountRepository;
 pub use price_provider::StaticPriceProvider;

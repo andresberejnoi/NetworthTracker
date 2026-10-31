@@ -405,6 +405,178 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /api/v1/crypto/assets:
+    get:
+      tags: [crypto]
+      operationId: listCryptoAssets
+      summary: List crypto assets
+      responses:
+        "200":
+          description: Assets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CryptoAsset"
+    post:
+      tags: [crypto]
+      operationId: createCryptoAsset
+      summary: Create a crypto asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCryptoAssetRequest"
+      responses:
+        "201":
+          description: The created asset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CryptoAsset"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/crypto/wallets:
+    get:
+      tags: [crypto]
+      operationId: listCryptoWallets
+      summary: List crypto wallets
+      responses:
+        "200":
+          description: Wallets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CryptoWallet"
+    post:
+      tags: [crypto]
+      operationId: createCryptoWallet
+      summary: Create a manual or address wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCryptoWalletRequest"
+      responses:
+        "201":
+          description: The created wallet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CryptoWallet"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/crypto/wallets/{id}/balances:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [crypto]
+      operationId: listCryptoBalances
+      summary: List a wallet's dated balances
+      responses:
+        "200":
+          description: Balances, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CryptoBalance"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [crypto]
+      operationId: recordCryptoBalance
+      summary: Record a manual balance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordCryptoBalanceRequest"
+      responses:
+        "201":
+          description: The recorded balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CryptoBalance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/crypto/wallets/{id}/sync:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [crypto]
+      operationId: syncCryptoWallet
+      summary: Sync an address wallet from the configured chain provider
+      responses:
+        "200":
+          description: The fetched balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CryptoBalance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/crypto/positions:
+    get:
+      tags: [crypto]
+      operationId: listCryptoPositions
+      summary: Aggregate latest wallet balances by asset
+      parameters:
+        - name: as_of
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Positions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CryptoPosition"
+  /api/v1/crypto/provider:
+    get:
+      tags: [crypto]
+      operationId: getChainProvider
+      summary: Whether a chain add-on is configured
+      responses:
+        "200":
+          description: Provider status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainProviderStatus"
   /api/v1/prices/provider:
     get:
       tags: [investments]
@@ -1435,6 +1607,207 @@ components:
         long_term_days:
           type: [integer, "null"]
           minimum: 0
+    CryptoAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - symbol
+        - name
+        - chain
+        - contract_address
+        - decimals
+        - currency
+        - price_provider_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        name:
+          type: string
+        chain:
+          type: string
+          enum: [bitcoin, ethereum]
+        contract_address:
+          type: [string, "null"]
+        decimals:
+          type: integer
+        currency:
+          type: string
+        price_provider_id:
+          type: [string, "null"]
+    CreateCryptoAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [symbol, name, chain]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        chain:
+          type: string
+          enum: [bitcoin, ethereum]
+        contract_address:
+          type: [string, "null"]
+        decimals:
+          type: [integer, "null"]
+        currency:
+          type: [string, "null"]
+        price_provider_id:
+          type: [string, "null"]
+    CryptoWallet:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - asset_id
+        - symbol
+        - name
+        - chain
+        - kind
+        - address
+        - label
+        - ownership_scope
+        - owner_user_id
+        - archived
+      properties:
+        id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        name:
+          type: string
+        chain:
+          type: string
+          enum: [bitcoin, ethereum]
+        kind:
+          type: string
+          enum: [address, manual]
+        address:
+          type: [string, "null"]
+        label:
+          type: string
+        ownership_scope:
+          type: string
+          enum: [household, user]
+        owner_user_id:
+          type: [string, "null"]
+          format: uuid
+        archived:
+          type: boolean
+    CreateCryptoWalletRequest:
+      type: object
+      additionalProperties: false
+      required: [asset_id, kind, chain, label]
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [address, manual]
+        chain:
+          type: string
+          enum: [bitcoin, ethereum]
+        address:
+          type: [string, "null"]
+        label:
+          type: string
+        ownership_scope:
+          type: [string, "null"]
+          enum: [household, user, null]
+    CryptoBalance:
+      type: object
+      additionalProperties: false
+      required: [id, wallet_id, as_of, quantity, source, provider, fetched_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        wallet_id:
+          type: string
+          format: uuid
+        as_of:
+          type: string
+          format: date
+        quantity:
+          type: string
+        source:
+          type: string
+          enum: [manual, chain, import]
+        provider:
+          type: [string, "null"]
+        fetched_at:
+          type: [string, "null"]
+    RecordCryptoBalanceRequest:
+      type: object
+      additionalProperties: false
+      required: [as_of, quantity]
+      properties:
+        as_of:
+          type: string
+          format: date
+        quantity:
+          type: string
+    CryptoPosition:
+      type: object
+      additionalProperties: false
+      required:
+        - asset_id
+        - symbol
+        - name
+        - chain
+        - quantity
+        - wallet_count
+        - price
+        - price_as_of
+        - price_stale
+        - price_source
+        - value
+        - currency
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        name:
+          type: string
+        chain:
+          type: string
+          enum: [bitcoin, ethereum]
+        quantity:
+          type: string
+        wallet_count:
+          type: integer
+        price:
+          type: [string, "null"]
+        price_as_of:
+          type: [string, "null"]
+        price_stale:
+          type: boolean
+        price_source:
+          type: [string, "null"]
+        value:
+          type: [string, "null"]
+        currency:
+          type: string
+    ChainProviderStatus:
+      type: object
+      additionalProperties: false
+      required: [configured, name]
+      properties:
+        configured:
+          type: boolean
+        name:
+          type: [string, "null"]
     Price:
       type: object
       additionalProperties: false
@@ -1507,6 +1880,7 @@ components:
         - cash
         - real_estate
         - other_asset
+        - crypto
         - mortgage
         - loan
     OwnershipScope:

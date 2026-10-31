@@ -10,13 +10,14 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_application::ports::{
-    AccountRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
-    PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
+    AccountRepository, CryptoRepository, FxRepository, IdentityRepository, InvestmentRepository,
+    NetWorthRepository, PriceRepository, RepositoryError, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
-    Account, Balance, Currency, Disposal, DisposalAllocation, Holding, Lot, Money, NewAccount,
-    NewBalance, NewLot, NewSale, NewSecurity, NewSnapshot, NewUser, PriceSource, Sale, Security,
-    Snapshot, SnapshotFilter, User, UserRole,
+    Account, Balance, CryptoAsset, CryptoBalance, CryptoBalanceSource, CryptoWallet, Currency,
+    Disposal, DisposalAllocation, Holding, Lot, Money, NewAccount, NewBalance, NewCryptoAsset,
+    NewCryptoBalance, NewCryptoWallet, NewLot, NewSale, NewSecurity, NewSnapshot, NewUser,
+    PriceSource, Sale, Security, Snapshot, SnapshotFilter, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -37,6 +38,9 @@ struct Inner {
     securities: Vec<Security>,
     holdings: Vec<Holding>,
     sales: Vec<Sale>,
+    crypto_assets: Vec<CryptoAsset>,
+    crypto_wallets: Vec<CryptoWallet>,
+    crypto_balances: Vec<CryptoBalance>,
     next_lot_sequence: i64,
     prices: Vec<PriceRecord>,
     fx_rates: Vec<FxRateRecord>,
@@ -557,6 +561,187 @@ impl InvestmentRepository for InMemoryAccountRepository {
         let before = inner.holdings.len();
         inner.holdings.retain(|holding| holding.id != holding_id);
         Ok(inner.holdings.len() != before)
+    }
+}
+
+#[async_trait]
+impl CryptoRepository for InMemoryAccountRepository {
+    async fn create_asset(&self, new: &NewCryptoAsset) -> Result<CryptoAsset, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if inner
+            .crypto_assets
+            .iter()
+            .any(|asset| asset.chain == new.chain && asset.symbol.eq_ignore_ascii_case(&new.symbol))
+        {
+            return Err(RepositoryError::Conflict(
+                "crypto asset already exists".to_string(),
+            ));
+        }
+        let asset = CryptoAsset {
+            id: Uuid::new_v4(),
+            symbol: new.symbol.to_ascii_uppercase(),
+            name: new.name.clone(),
+            chain: new.chain,
+            contract_address: new.contract_address.clone(),
+            decimals: new.decimals,
+            currency: new.currency.clone(),
+            price_provider_id: new.price_provider_id.clone(),
+        };
+        inner.crypto_assets.push(asset.clone());
+        Ok(asset)
+    }
+
+    async fn find_asset_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<Option<CryptoAsset>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .crypto_assets
+            .iter()
+            .find(|asset| asset.symbol.eq_ignore_ascii_case(symbol))
+            .cloned())
+    }
+
+    async fn list_assets(&self) -> Result<Vec<CryptoAsset>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut assets = inner.crypto_assets.clone();
+        assets.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+        Ok(assets)
+    }
+
+    async fn create_wallet(&self, new: &NewCryptoWallet) -> Result<CryptoWallet, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let asset = inner
+            .crypto_assets
+            .iter()
+            .find(|asset| asset.id == new.asset_id)
+            .cloned()
+            .ok_or_else(|| RepositoryError::Storage("asset not found".to_string()))?;
+        if let Some(address) = &new.address {
+            if inner.crypto_wallets.iter().any(|wallet| {
+                wallet.asset.id == new.asset_id
+                    && wallet.chain == new.chain
+                    && wallet.address.as_deref() == Some(address)
+            }) {
+                return Err(RepositoryError::Conflict(
+                    "wallet address already exists".to_string(),
+                ));
+            }
+        }
+        let wallet = CryptoWallet {
+            id: Uuid::new_v4(),
+            asset,
+            kind: new.kind,
+            chain: new.chain,
+            address: new.address.clone(),
+            label: new.label.clone(),
+            ownership_scope: new.ownership_scope,
+            owner_user_id: new.owner_user_id,
+            archived: false,
+        };
+        inner.crypto_wallets.push(wallet.clone());
+        Ok(wallet)
+    }
+
+    async fn find_wallet(&self, id: Uuid) -> Result<Option<CryptoWallet>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .crypto_wallets
+            .iter()
+            .find(|wallet| wallet.id == id)
+            .cloned())
+    }
+
+    async fn list_wallets(&self) -> Result<Vec<CryptoWallet>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut wallets = inner.crypto_wallets.clone();
+        wallets.sort_by(|a, b| a.label.cmp(&b.label));
+        Ok(wallets)
+    }
+
+    async fn upsert_crypto_balance(
+        &self,
+        new: &NewCryptoBalance,
+    ) -> Result<CryptoBalance, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if !inner
+            .crypto_wallets
+            .iter()
+            .any(|wallet| wallet.id == new.wallet_id)
+        {
+            return Err(RepositoryError::Storage("wallet not found".to_string()));
+        }
+        if let Some(existing) = inner.crypto_balances.iter_mut().find(|balance| {
+            balance.wallet_id == new.wallet_id
+                && balance.as_of == new.as_of
+                && balance.source == new.source
+        }) {
+            existing.quantity = new.quantity.clone();
+            existing.provider = new.provider.clone();
+            existing.fetched_at = new.fetched_at;
+            return Ok(existing.clone());
+        }
+        let balance = CryptoBalance {
+            id: Uuid::new_v4(),
+            wallet_id: new.wallet_id,
+            as_of: new.as_of,
+            quantity: new.quantity.clone(),
+            source: new.source,
+            provider: new.provider.clone(),
+            fetched_at: new.fetched_at,
+        };
+        inner.crypto_balances.push(balance.clone());
+        Ok(balance)
+    }
+
+    async fn list_balances(&self, wallet_id: Uuid) -> Result<Vec<CryptoBalance>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut balances: Vec<CryptoBalance> = inner
+            .crypto_balances
+            .iter()
+            .filter(|balance| balance.wallet_id == wallet_id)
+            .cloned()
+            .collect();
+        balances.sort_by(|a, b| {
+            b.as_of
+                .cmp(&a.as_of)
+                .then_with(|| source_priority(a.source).cmp(&source_priority(b.source)))
+        });
+        Ok(balances)
+    }
+
+    async fn latest_balances(
+        &self,
+        as_of: time::Date,
+    ) -> Result<Vec<CryptoBalance>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut by_wallet: HashMap<Uuid, CryptoBalance> = HashMap::new();
+        for balance in &inner.crypto_balances {
+            if balance.as_of > as_of {
+                continue;
+            }
+            by_wallet
+                .entry(balance.wallet_id)
+                .and_modify(|existing| {
+                    let newer = balance.as_of > existing.as_of
+                        || (balance.as_of == existing.as_of
+                            && source_priority(balance.source) < source_priority(existing.source));
+                    if newer {
+                        *existing = balance.clone();
+                    }
+                })
+                .or_insert_with(|| balance.clone());
+        }
+        Ok(by_wallet.into_values().collect())
+    }
+}
+
+fn source_priority(source: CryptoBalanceSource) -> u8 {
+    match source {
+        CryptoBalanceSource::Manual => 0,
+        CryptoBalanceSource::Chain => 1,
+        CryptoBalanceSource::Import => 2,
     }
 }
 

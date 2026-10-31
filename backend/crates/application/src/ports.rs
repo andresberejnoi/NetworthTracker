@@ -3,9 +3,10 @@
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_domain::{
-    Account, Balance, Currency, DisposalAllocation, Holding, Money, NewAccount, NewBalance, NewLot,
-    NewSale, NewSecurity, NewSnapshot, NewUser, PriceSource, Sale, Security, Snapshot,
-    SnapshotFilter, User, UserRole,
+    Account, Balance, Chain, CryptoAsset, CryptoBalance, CryptoWallet, Currency,
+    DisposalAllocation, Holding, Money, NewAccount, NewBalance, NewCryptoAsset, NewCryptoBalance,
+    NewCryptoWallet, NewLot, NewSale, NewSecurity, NewSnapshot, NewUser, PriceSource, Quantity,
+    Sale, Security, Snapshot, SnapshotFilter, User, UserRole,
 };
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -185,6 +186,72 @@ pub trait InvestmentRepository: Send + Sync {
 
     /// Delete a holding. Implementations must refuse if the holding has sales.
     async fn delete_holding(&self, holding_id: Uuid) -> Result<bool, RepositoryError>;
+}
+
+/// Persistence for crypto assets, wallets, and balances.
+#[async_trait]
+pub trait CryptoRepository: Send + Sync {
+    /// Create a crypto asset.
+    async fn create_asset(&self, new: &NewCryptoAsset) -> Result<CryptoAsset, RepositoryError>;
+
+    /// Find an asset by symbol (case-insensitive).
+    async fn find_asset_by_symbol(
+        &self,
+        symbol: &str,
+    ) -> Result<Option<CryptoAsset>, RepositoryError>;
+
+    /// List assets, ordered by symbol.
+    async fn list_assets(&self) -> Result<Vec<CryptoAsset>, RepositoryError>;
+
+    /// Create a wallet.
+    async fn create_wallet(&self, new: &NewCryptoWallet) -> Result<CryptoWallet, RepositoryError>;
+
+    /// Find a wallet by id.
+    async fn find_wallet(&self, id: Uuid) -> Result<Option<CryptoWallet>, RepositoryError>;
+
+    /// List wallets, ordered by label.
+    async fn list_wallets(&self) -> Result<Vec<CryptoWallet>, RepositoryError>;
+
+    /// Insert or replace a dated balance for a wallet/source.
+    async fn upsert_crypto_balance(
+        &self,
+        new: &NewCryptoBalance,
+    ) -> Result<CryptoBalance, RepositoryError>;
+
+    /// List a wallet's balances, newest first.
+    async fn list_balances(&self, wallet_id: Uuid) -> Result<Vec<CryptoBalance>, RepositoryError>;
+
+    /// Latest balance per wallet on or before `as_of`, preferring manual over
+    /// chain over import on the same date.
+    async fn latest_balances(&self, as_of: Date) -> Result<Vec<CryptoBalance>, RepositoryError>;
+}
+
+/// A balance returned by a chain provider.
+#[derive(Debug, Clone)]
+pub struct ChainBalance {
+    /// Exact native quantity.
+    pub quantity: Quantity,
+    /// When the provider observed it.
+    pub as_of: OffsetDateTime,
+    /// Provider name.
+    pub provider: String,
+}
+
+/// A pluggable, user-funded chain data source.
+#[async_trait]
+pub trait ChainDataProvider: Send + Sync {
+    /// Provider name for status reporting.
+    fn name(&self) -> &'static str;
+
+    /// Whether this provider handles a chain.
+    fn supports(&self, chain: Chain) -> bool;
+
+    /// Fetch the native balance for a public address.
+    async fn balance(
+        &self,
+        chain: Chain,
+        address: &str,
+    ) -> Result<Option<ChainBalance>, ProviderError>;
 }
 
 /// Persistence for cached and manual prices.

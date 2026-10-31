@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use networth_adapters::{PostgresAccountRepository, StaticPriceProvider};
+use networth_adapters::{FakeChainProvider, PostgresAccountRepository, StaticPriceProvider};
 use networth_api::{app, AppState, Repositories};
-use networth_application::{PriceProvider, ProviderConfig};
+use networth_application::{ChainDataProvider, PriceProvider, ProviderConfig};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
 
@@ -45,6 +45,7 @@ async fn main() {
         networth: repository.clone(),
         identity: repository.clone(),
         investments: repository.clone(),
+        crypto: repository.clone(),
         prices: repository.clone(),
         fx: repository,
     };
@@ -62,7 +63,20 @@ async fn main() {
         tracing::warn!("PRICE_PROVIDER_API_KEY is set but no provider is enabled");
     }
 
-    let state = AppState::new(repositories, provider, auth_enabled);
+    let chain_provider: Option<Arc<dyn ChainDataProvider>> = match std::env::var("CHAIN_PROVIDER")
+        .ok()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("fake") => Some(Arc::new(FakeChainProvider::from_env())),
+        Some("none") | None => None,
+        Some(other) => {
+            tracing::warn!("unknown CHAIN_PROVIDER '{other}'; address sync is disabled");
+            None
+        }
+    };
+
+    let state = AppState::new(repositories, provider, chain_provider, auth_enabled);
 
     let addr = std::env::var("BACKEND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = tokio::net::TcpListener::bind(&addr)

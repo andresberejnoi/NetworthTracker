@@ -111,17 +111,17 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 ## 10. Cryptocurrency tracking (backend + frontend)
 
-- [ ] 10.1 Implement wallet address registration per chain and verify input validation rejects private keys and seed phrases
-- [ ] 10.2 Implement the `ChainDataProvider` trait with a fake backend and derive address balances, verified by adapter tests
-- [ ] 10.3 Verify high-precision crypto quantities survive storage, net worth aggregation, and JSON with an 18-decimal test
-- [ ] 10.4 Implement offline manual crypto balances and verify a disconnected test includes them in net worth
-- [ ] 10.5 Implement aggregation of multiple addresses of the same asset and verify the two-wallets-one-position scenario
-- [ ] 10.6 Implement chain add-on enablement with user-supplied API keys and verify it is optional and inert when unconfigured
-- [ ] 10.7 Add the wallet endpoints to the OpenAPI contract and verify the contract test passes
-- [ ] 10.8 Build the frontend wallet view with manual balance editing and verify component tests
-- [ ] 10.9 Verify a cross-boundary integration test adds wallets and sees them in net worth
-- [ ] 10.10 Document adding a chain add-on in `docs/crypto.md` and verify the steps by adding the fake chain end to end
-- [ ] 10.11 Wire the bulk-entry grid to wallet addresses and verify a cross-boundary integration test
+- [x] 10.1 Implement wallet address registration per chain and verify input validation rejects private keys and seed phrases
+- [x] 10.2 Implement the `ChainDataProvider` trait with a fake backend and derive address balances, verified by adapter tests
+- [x] 10.3 Verify high-precision crypto quantities survive storage, net worth aggregation, and JSON with an 18-decimal test
+- [x] 10.4 Implement offline manual crypto balances and verify a disconnected test includes them in net worth
+- [x] 10.5 Implement aggregation of multiple addresses of the same asset and verify the two-wallets-one-position scenario
+- [ ] 10.6 Implement chain add-on enablement with user-supplied API keys and verify it is optional and inert when unconfigured (fake provider and inert-until-configured behavior are in place; real BYO-key adapters are next)
+- [x] 10.7 Add the wallet endpoints to the OpenAPI contract and verify the contract test passes
+- [x] 10.8 Build the frontend wallet view with manual balance editing and verify component tests
+- [x] 10.9 Verify a cross-boundary integration test adds wallets and sees them in net worth
+- [x] 10.10 Document adding a chain add-on in `docs/crypto.md` and verify the steps by adding the fake chain end to end
+- [x] 10.11 Wire the bulk-entry grid to wallet addresses and verify a cross-boundary integration test
 
 ## 11. Budgeting (backend + frontend)
 
@@ -171,6 +171,9 @@ cross-project imports, integration only over the HTTP API, and each project ship
 
 Deferred until after the v1 ledger slice:
 
+- Crypto purchase-lot/sale API and UI on top of the shared ledger.
+- Real chain adapters (mempool.space/Esplora, Blockscout/Etherscan) with
+  user-supplied keys, and real free price adapters (CoinPaprika/CoinGecko).
 - LIFO and specific-lot identification.
 - Global asset-wide FIFO versus per-account/per-wallet FIFO.
 - Crypto wallet transfers and address-sync lot matching.

@@ -80,6 +80,8 @@ pub enum AssetClass {
     RealEstate,
     /// Anything else.
     Other,
+    /// Cryptocurrency positions.
+    Crypto,
     /// Mortgages and loans.
     Debt,
 }
@@ -93,6 +95,7 @@ impl AssetClass {
             Retirement401k | TraditionalIra | RothIra | TaxableBrokerage => AssetClass::Market,
             RealEstate => AssetClass::RealEstate,
             OtherAsset => AssetClass::Other,
+            Crypto => AssetClass::Crypto,
             Mortgage | Loan => AssetClass::Debt,
         }
     }
@@ -104,6 +107,7 @@ impl AssetClass {
             AssetClass::Market => "market",
             AssetClass::RealEstate => "real_estate",
             AssetClass::Other => "other",
+            AssetClass::Crypto => "crypto",
             AssetClass::Debt => "debt",
         }
     }

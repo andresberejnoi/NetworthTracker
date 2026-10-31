@@ -488,3 +488,84 @@ async fn records_fifo_sales_and_keeps_lot_history(pool: PgPool) {
         networth_application::ports::RepositoryError::Conflict(_)
     ));
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_crypto_assets_wallets_and_balances(pool: PgPool) {
+    use networth_application::ports::CryptoRepository;
+    use networth_domain::{
+        Chain, CryptoBalanceSource, CryptoWalletKind, Currency, NewCryptoAsset, NewCryptoBalance,
+        NewCryptoWallet, OwnershipScope, Quantity,
+    };
+
+    let repo = PostgresAccountRepository::new(pool);
+    let asset = repo
+        .create_asset(&NewCryptoAsset {
+            symbol: "BTC".to_string(),
+            name: "Bitcoin".to_string(),
+            chain: Chain::Bitcoin,
+            contract_address: None,
+            decimals: 18,
+            currency: Currency::usd(),
+            price_provider_id: Some("btc-bitcoin".to_string()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(asset.symbol, "BTC");
+
+    let wallet = repo
+        .create_wallet(&NewCryptoWallet {
+            asset_id: asset.id,
+            kind: CryptoWalletKind::Manual,
+            chain: Chain::Bitcoin,
+            address: None,
+            label: "Coinbase".to_string(),
+            ownership_scope: OwnershipScope::Household,
+            owner_user_id: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(wallet.asset.symbol, "BTC");
+
+    for (date, quantity, source) in [
+        (date!(2026 - 01 - 01), "0.5", CryptoBalanceSource::Chain),
+        (date!(2026 - 01 - 01), "0.75", CryptoBalanceSource::Manual),
+        (date!(2026 - 02 - 01), "0.25", CryptoBalanceSource::Chain),
+    ] {
+        repo.upsert_crypto_balance(&NewCryptoBalance {
+            wallet_id: wallet.id,
+            as_of: date,
+            quantity: Quantity::parse(quantity).unwrap(),
+            source,
+            provider: Some("test".to_string()),
+            fetched_at: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    let latest = CryptoRepository::latest_balances(&repo, date!(2026 - 01 - 15))
+        .await
+        .unwrap();
+    assert_eq!(latest.len(), 1);
+    assert_eq!(latest[0].quantity.to_string(), "0.75");
+    assert_eq!(latest[0].source, CryptoBalanceSource::Manual);
+
+    let latest = CryptoRepository::latest_balances(&repo, date!(2026 - 03 - 01))
+        .await
+        .unwrap();
+    assert_eq!(latest[0].quantity.to_string(), "0.25");
+    assert_eq!(latest[0].source, CryptoBalanceSource::Chain);
+
+    let dust = repo
+        .upsert_crypto_balance(&NewCryptoBalance {
+            wallet_id: wallet.id,
+            as_of: date!(2026 - 03 - 02),
+            quantity: Quantity::parse("0.000000000000000001").unwrap(),
+            source: CryptoBalanceSource::Manual,
+            provider: None,
+            fetched_at: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(dust.quantity.to_string(), "0.000000000000000001");
+}

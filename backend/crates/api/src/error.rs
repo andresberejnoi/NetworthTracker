@@ -166,6 +166,30 @@ impl From<networth_application::PriceError> for ApiError {
     }
 }
 
+impl From<networth_application::CryptoError> for ApiError {
+    fn from(error: networth_application::CryptoError) -> Self {
+        use networth_application::{CryptoError, PriceError};
+        match error {
+            CryptoError::Validation(message) => ApiError::BadRequest(message),
+            CryptoError::NotFound(message) => ApiError::NotFound(message),
+            CryptoError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            CryptoError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+            CryptoError::Price(PriceError::Provider(message)) => ApiError::Internal(message),
+            CryptoError::Price(PriceError::Repository(RepositoryError::Conflict(message))) => {
+                ApiError::Conflict(message)
+            }
+            CryptoError::Price(PriceError::Repository(RepositoryError::Storage(message))) => {
+                ApiError::Internal(message)
+            }
+            CryptoError::Provider(message) => ApiError::Internal(message),
+        }
+    }
+}
+
 impl From<networth_application::FxError> for ApiError {
     fn from(error: networth_application::FxError) -> Self {
         use networth_application::FxError;

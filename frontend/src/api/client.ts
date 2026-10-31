@@ -67,6 +67,7 @@ export const ACCOUNT_TYPES: AccountType[] = [
   "cash",
   "real_estate",
   "other_asset",
+  "crypto",
   "mortgage",
   "loan",
 ];
@@ -322,6 +323,14 @@ export type HoldingBatchResult = components["schemas"]["HoldingBatchResult"];
 export type Sale = components["schemas"]["Sale"];
 export type Disposal = components["schemas"]["Disposal"];
 export type SaleRequest = components["schemas"]["SaleRequest"];
+export type CryptoAsset = components["schemas"]["CryptoAsset"];
+export type CreateCryptoAssetRequest = components["schemas"]["CreateCryptoAssetRequest"];
+export type CryptoWallet = components["schemas"]["CryptoWallet"];
+export type CreateCryptoWalletRequest = components["schemas"]["CreateCryptoWalletRequest"];
+export type CryptoBalance = components["schemas"]["CryptoBalance"];
+export type RecordCryptoBalanceRequest = components["schemas"]["RecordCryptoBalanceRequest"];
+export type CryptoPosition = components["schemas"]["CryptoPosition"];
+export type ChainProviderStatus = components["schemas"]["ChainProviderStatus"];
 export type Price = components["schemas"]["Price"];
 export type ProviderStatus = components["schemas"]["ProviderStatus"];
 
@@ -417,6 +426,68 @@ export function listSales(
   }
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<Sale[]>(`/api/v1/accounts/${accountId}/sales${suffix}`);
+}
+
+export function listCryptoAssets(): Promise<CryptoAsset[]> {
+  return request<CryptoAsset[]>("/api/v1/crypto/assets");
+}
+
+export function createCryptoAsset(
+  body: CreateCryptoAssetRequest,
+): Promise<CryptoAsset> {
+  return request<CryptoAsset>("/api/v1/crypto/assets", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listCryptoWallets(): Promise<CryptoWallet[]> {
+  return request<CryptoWallet[]>("/api/v1/crypto/wallets");
+}
+
+export function createCryptoWallet(
+  body: CreateCryptoWalletRequest,
+): Promise<CryptoWallet> {
+  return request<CryptoWallet>("/api/v1/crypto/wallets", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listCryptoBalances(walletId: string): Promise<CryptoBalance[]> {
+  return request<CryptoBalance[]>(
+    `/api/v1/crypto/wallets/${walletId}/balances`,
+  );
+}
+
+export function recordCryptoBalance(
+  walletId: string,
+  body: RecordCryptoBalanceRequest,
+): Promise<CryptoBalance> {
+  return request<CryptoBalance>(
+    `/api/v1/crypto/wallets/${walletId}/balances`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function syncCryptoWallet(walletId: string): Promise<CryptoBalance> {
+  return request<CryptoBalance>(
+    `/api/v1/crypto/wallets/${walletId}/sync`,
+    { method: "POST" },
+  );
+}
+
+export function listCryptoPositions(
+  params: { as_of?: string } = {},
+): Promise<CryptoPosition[]> {
+  const query = new URLSearchParams();
+  if (params.as_of) query.set("as_of", params.as_of);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<CryptoPosition[]>(`/api/v1/crypto/positions${suffix}`);
+}
+
+export function getChainProvider(): Promise<ChainProviderStatus> {
+  return request<ChainProviderStatus>("/api/v1/crypto/provider");
 }
 
 export function getPriceProvider(): Promise<ProviderStatus> {
