@@ -108,6 +108,14 @@ assert_data() {
     echo "crypto_assets table is missing" >&2
     return 1
   }
+  [[ "$(psql_db -tAc "SELECT to_regclass('public.budget_plans') IS NOT NULL")" == "t" ]] || {
+    echo "budget_plans table is missing" >&2
+    return 1
+  }
+  [[ "$(psql_db -tAc "SELECT to_regclass('public.aggregation_links') IS NOT NULL")" == "t" ]] || {
+    echo "aggregation_links table is missing" >&2
+    return 1
+  }
   [[ "$lot_remaining" == "10" ]] || {
     echo "tax_lots: expected remaining 10, got ${lot_remaining}" >&2
     return 1
@@ -142,7 +150,7 @@ if [[ ${#migrations[@]} -lt 2 ]]; then
   echo "Need at least two migrations to test an upgrade" >&2
   exit 1
 fi
-previous_count=$((${#migrations[@]} - 2))
+previous_count=$((${#migrations[@]} - 4))
 
 echo "Creating the previous schema (${previous_count} of ${#migrations[@]} migrations) ..."
 psql_db -c "
