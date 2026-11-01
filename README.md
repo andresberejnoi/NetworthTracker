@@ -208,8 +208,8 @@ scheduled/offsite backups, and published versioned images remain future work.
 
 ## Acknowledgements
 
-This project builds on ideas from earlier personal projects by
-[Andres Berejnoi](https://github.com/andresberejnoi):
+This project builds on ideas from earlier personal projects:
+[my github profile](https://github.com/andresberejnoi):
 
 - [**AssetPortfolio**](https://github.com/andresberejnoi/AssetPortfolio) — an
   early Flask portfolio tracker that shaped the account/holdings/portfolio UX
