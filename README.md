@@ -200,12 +200,26 @@ The current version is `0.1.20261031`. The authoritative value lives in
 
 ## Roadmap
 
-The v1 design also covers budgeting and read-only aggregation adapters. The
-current release covers accounts, net worth, history, bulk entry, import/export,
-backups, family access, investments and tax lots, and native BTC/ETH crypto
-wallets with manual or address-based tracking. Budgeting, real chain/price
-adapters, and aggregation land as their own slices. A guided data-migration tool
-for importing from other trackers is planned as a separate deliverable.
+The current release covers accounts, net worth, history, bulk entry,
+import/export, backups, family access, investments and tax lots, native BTC/ETH
+crypto wallets, budgeting, and read-only aggregation. Real bank aggregation
+adapters, a guided data-migration tool for importing from other trackers,
+scheduled/offsite backups, and published versioned images remain future work.
+
+## Acknowledgements
+
+This project builds on ideas from earlier personal projects by
+[Andres Berejnoi](https://github.com/andresberejnoi):
+
+- [**AssetPortfolio**](https://github.com/andresberejnoi/AssetPortfolio) — an
+  early Flask portfolio tracker that shaped the account/holdings/portfolio UX
+  and the motivation for exact decimal handling.
+- [**CryptoTaxTools**](https://github.com/andresberejnoi/CryptoTaxTools) — the
+  lot/pool, FIFO sale, and wallet-transfer concepts that informed the shared
+  tax-lot ledger and crypto wallet/pool model.
+
+These are separate projects; no code from them is vendored here. Thanks for the
+foundations.
 
 ## License
 

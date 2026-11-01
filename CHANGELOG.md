@@ -15,6 +15,11 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 - A wallet balance versus tax-lots reconciliation warning and a
   "Use balance as opening lot" helper in the crypto view.
 
+### Changed
+
+- README now acknowledges the earlier AssetPortfolio and CryptoTaxTools
+  projects and reflects the completed budgeting/aggregation slices.
+
 ### Fixed
 
 - Crypto bulk wallet totals now group rows by asset/label or address instead
