@@ -8,6 +8,11 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261101] - 2026-11-01
+
+Post-v1 fixes for crypto bulk entry and wallet/tax-lot reconciliation, plus
+documentation acknowledgements.
+
 ### Added
 
 - A bulk purchase-lot grid for crypto wallets; multiple rows for one wallet
@@ -137,7 +142,8 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261031...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261101...HEAD
+[0.1.20261101]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261031...v0.1.20261101
 [0.1.20261031]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261029...v0.1.20261031
 [0.1.20261029]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261028...v0.1.20261029
 [0.1.20261028]: https://github.com/andresberejnoi/NetworthTracker/releases/tag/v0.1.20261028

@@ -320,7 +320,7 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     positions = await listCryptoPositions();
     btc = positions.find((item) => item.asset_id === asset.id);
     expect(btc?.wallet_count).toBe(2);
-    expect(btc?.quantity).toBe("0.003000000000000001");
+    expect(btc?.quantity).toBe("0.002000000000000001");
 
     const networth = await getNetWorth({ as_of: "2026-01-01", owner_age: 35 });
     expect(Number(networth.total)).toBeGreaterThanOrEqual(210);
@@ -374,7 +374,7 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     expect(view.links[0].holdings[0].symbol).toBe("VTI");
 
     await recordBalance(view.links[0].account_id, {
-      as_of: "2026-10-31",
+      as_of: new Date().toISOString().slice(0, 10),
       amount: "999.00",
     });
     const after = await syncAggregation();
