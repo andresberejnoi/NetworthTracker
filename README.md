@@ -6,6 +6,10 @@ net worth is reported in the forms that actually matter: **total**, **liquid**,
 **liquidity** (cash on hand), and **accessible** (after taxes, penalties, and
 selling costs).
 
+I'm primarily using agentic development to work on this app. Some concepts build from my earlier repos (look at the acknowledgement section). I decided to explore Rust, a programming language in which I have little experience to learn more about it. 
+
+I wanted a tool to track networth in different ways and that allows me to keep my data private. I assume there will be other people who find it useful.
+
 ![Net worth dashboard](docs/screenshots/networth.png)
 
 | Mobile | Tablet |
