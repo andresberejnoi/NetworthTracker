@@ -81,6 +81,9 @@ docker compose up --build
 Open **http://localhost:3000**. On first run, create the household owner
 (username + password). The backend runs on `http://localhost:8080`.
 
+New to the app? Follow the [guided tutorial](docs/tutorial.md). For Docker and
+Podman deployment details, see [docs/deployment.md](docs/deployment.md).
+
 If port 3000 is already in use:
 
 ```bash
@@ -187,6 +190,8 @@ The current version is `0.1.20261101`. The authoritative value lives in
 
 ## Documentation
 
+- `docs/tutorial.md` — guided first setup and feature tour
+- `docs/deployment.md` — Docker Compose and Podman deployment
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
 - `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions

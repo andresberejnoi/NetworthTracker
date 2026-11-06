@@ -8,6 +8,12 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+### Added
+
+- A guided getting-started tutorial and a Docker/Podman deployment guide.
+- `COMPOSE_CMD` support in the operational scripts so pure-Podman setups can
+  use `podman compose`/`podman-compose` without the Docker shim.
+
 ## [0.1.20261101] - 2026-11-01
 
 Post-v1 fixes for crypto bulk entry and wallet/tax-lot reconciliation, plus
