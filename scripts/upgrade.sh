@@ -18,6 +18,7 @@ set -a
 set +a
 
 BACKEND_PORT="${BACKEND_PORT:-8080}"
+COMPOSE_CMD="${COMPOSE_CMD:-docker compose}"
 old_version="$(curl -s "http://localhost:${BACKEND_PORT}/api/v1/ping" \
   | python3 -c 'import sys,json; print(json.load(sys.stdin).get("version","unknown"))' \
   2>/dev/null || true)"
@@ -34,10 +35,10 @@ if [[ "${UPGRADE_GIT_PULL:-0}" == "1" ]]; then
 fi
 
 echo "==> Building images (${old_version})"
-docker compose build
+$COMPOSE_CMD build
 
 echo "==> Starting the stack"
-docker compose up -d
+$COMPOSE_CMD up -d
 
 echo "==> Waiting for the backend"
 for _ in $(seq 1 90); do

@@ -34,12 +34,13 @@ BACKEND_PORT="${BACKEND_PORT:-8080}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
 DB_CONTAINER="${DB_CONTAINER:-}"
 RESTORE_SKIP_BACKEND="${RESTORE_SKIP_BACKEND:-0}"
+COMPOSE_CMD="${COMPOSE_CMD:-docker compose}"
 
 db_psql() {
   if [[ -n "$DB_CONTAINER" ]]; then
     docker exec -i "$DB_CONTAINER" psql "$@"
   else
-    docker compose exec -T db psql "$@"
+    $COMPOSE_CMD exec -T db psql "$@"
   fi
 }
 
@@ -89,7 +90,7 @@ if [[ "$RESTORE_SKIP_BACKEND" == "1" ]]; then
   echo "Skipping backend stop/start (RESTORE_SKIP_BACKEND=1)."
 else
   echo "Stopping the backend ..."
-  docker compose stop backend >/dev/null
+  $COMPOSE_CMD stop backend >/dev/null
 fi
 
 echo "Recreating the database ..."
@@ -114,7 +115,7 @@ if [[ "$RESTORE_SKIP_BACKEND" == "1" ]]; then
 fi
 
 echo "Starting the backend ..."
-docker compose start backend >/dev/null
+$COMPOSE_CMD start backend >/dev/null
 
 for _ in $(seq 1 60); do
   if curl -sf "http://localhost:${BACKEND_PORT}/health" >/dev/null 2>&1; then
@@ -125,5 +126,5 @@ for _ in $(seq 1 60); do
 done
 
 echo "Restore finished but the backend is not healthy." >&2
-echo "Check 'docker compose logs backend'." >&2
+echo "Check '$COMPOSE_CMD logs backend'." >&2
 exit 1

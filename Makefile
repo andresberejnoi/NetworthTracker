@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+COMPOSE ?= docker compose
 
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
@@ -76,10 +77,10 @@ test: secrets backend-test frontend-test boundaries ## Run all tests and checks
 build: backend-build frontend-build ## Build both projects
 
 up: ## Start the full local stack (db, backend, frontend)
-	docker compose up --build
+	$(COMPOSE) up --build
 
 down: ## Stop the local stack (keeps the database volume)
-	docker compose down
+	$(COMPOSE) down
 
 backup: ## Back up the database to ./backups
 	./scripts/backup.sh

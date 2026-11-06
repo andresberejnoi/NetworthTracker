@@ -24,6 +24,7 @@ BACKUP_DIR="${BACKUP_DIR:-$root/backups}"
 BACKUP_KEEP="${BACKUP_KEEP:-14}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
 DB_CONTAINER="${DB_CONTAINER:-}"
+COMPOSE_CMD="${COMPOSE_CMD:-docker compose}"
 
 if [[ -z "$BACKUP_PASSPHRASE" || "$BACKUP_PASSPHRASE" == "change-me" ]]; then
   echo "BACKUP_PASSPHRASE is not set." >&2
@@ -59,11 +60,11 @@ if [[ -n "$DB_CONTAINER" ]]; then
   fi
   dump=(docker exec -i "$DB_CONTAINER" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB")
 else
-  if ! docker compose exec -T db true >/dev/null 2>&1; then
+  if ! $COMPOSE_CMD exec -T db true >/dev/null 2>&1; then
     echo "The db container is not running. Start the stack with 'make up' first." >&2
     exit 1
   fi
-  dump=(docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB")
+  dump=($COMPOSE_CMD exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB")
 fi
 
 mkdir -p "$BACKUP_DIR"
