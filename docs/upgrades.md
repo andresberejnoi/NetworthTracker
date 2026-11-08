@@ -194,21 +194,33 @@ The test uses temporary copies of the backup and restore scripts, a throwaway
 container, and a temporary backup directory, so it never touches your real
 database or `./backups`.
 
+`make upgrade-matrix` runs `scripts/test-upgrade-matrix.sh`. It selects the
+newest release tags that are ancestors of the current commit (four by default),
+checks each tag out into a temporary git worktree, applies that tag's migrations,
+seeds accounts, balances, snapshots, users, securities, holdings, and a lot, then
+starts the current backend. It asserts the data and exact decimals survived, the
+current crypto/budgeting/aggregation tables exist, and `GET /api/v1/ping` reports
+the current version. This is the tag-driven matrix that runs in CI.
+
+Use `UPGRADE_MATRIX_TAGS="v0.1.20261031 v0.1.20261101"` to test specific tags, or
+`UPGRADE_MATRIX_LIMIT=0` to test every ancestor release tag. The matrix uses
+throwaway Postgres containers and temporary worktrees, so it does not touch the
+real stack.
+
 ## What is not automated yet
 
 These are planned for the post-tag **robust upgrades** change:
 
 - scheduled backups and retention outside the manual script;
-- a multi-release upgrade matrix (the current test covers the previous schema
-  → current release);
-- a documented compatibility policy for breaking schema changes;
 - a guided data-migration tool for importing from other trackers.
 
 ## Commands
 
 ```bash
-make backup     # ./backups/networth-<timestamp>.sql.gz.gpg (encrypted)
-make upgrade    # backup + rebuild + restart + health check
-make restore    # FILE=backups/... (confirmation required)
-make destroy    # delete the volume (confirmation required)
+make backup          # ./backups/networth-<timestamp>.sql.gz.gpg (encrypted)
+make upgrade         # backup + rebuild + restart + health check
+make upgrade-test    # previous schema -> current, backup/restore drill
+make upgrade-matrix  # recent release tags -> current, fixture data
+make restore         # FILE=backups/... (confirmation required)
+make destroy         # delete the volume (confirmation required)
 ```

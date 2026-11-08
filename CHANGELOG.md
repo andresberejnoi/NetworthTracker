@@ -20,6 +20,8 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
   pull the pinned images instead of building locally.
 - An N-1 upgrade compatibility policy, expand/contract migration guidance, and
   explicit unknown-migration refusal behavior.
+- A tag-driven multi-release upgrade matrix that seeds fixture data at recent
+  release tags and verifies data, schema, and version after upgrading.
 
 ### Security
 

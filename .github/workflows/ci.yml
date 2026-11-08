@@ -91,6 +91,20 @@ jobs:
       - name: Schema upgrade, version, encrypted backup, restore
         run: ./scripts/test-upgrade.sh
 
+  upgrade-matrix:
+    name: Multi-release upgrade matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Upgrade each supported prior release
+        run: ./scripts/test-upgrade-matrix.sh
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -115,7 +129,7 @@ jobs:
   publish:
     name: Publish versioned images
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [boundaries, openspec, backend, upgrade, frontend]
+    needs: [boundaries, openspec, backend, upgrade, upgrade-matrix, frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: read

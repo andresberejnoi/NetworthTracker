@@ -3,7 +3,7 @@ COMPOSE ?= docker compose
 
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
-        integration-test upgrade-test entrypoint-test offline-test e2e-test verify-guards boundaries secrets validate test build up down \
+        integration-test upgrade-test upgrade-matrix entrypoint-test offline-test e2e-test verify-guards boundaries secrets validate test build up down \
         backup restore upgrade destroy clean
 
 help: ## Show this help
@@ -45,6 +45,9 @@ integration-test: ## Run the cross-boundary integration test (live backend + fro
 
 upgrade-test: ## Verify schema upgrade, version, encrypted backup, and restore
 	./scripts/test-upgrade.sh
+
+upgrade-matrix: ## Upgrade fixture databases from recent release tags
+	./scripts/test-upgrade-matrix.sh
 
 entrypoint-test: ## Verify pre-migration backup detection and fail-closed startup
 	./scripts/test-entrypoint.sh

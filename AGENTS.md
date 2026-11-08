@@ -111,6 +111,7 @@ container images are tagged `v<version>`.
 make help              # list targets
 make test              # backend + frontend tests + secret + boundary checks
 make upgrade-test      # schema upgrade + version + encrypted backup/restore
+make upgrade-matrix    # recent release tags -> current with fixture data
 make secrets           # scan tracked files for credentials
 make integration-test  # boot the backend, drive it through the frontend client
 make validate          # openspec validate --strict

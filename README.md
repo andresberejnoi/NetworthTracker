@@ -132,6 +132,7 @@ make help
 make test              # backend + frontend + secret + boundary checks
 make backend-test-db   # Postgres repository tests (throwaway container)
 make upgrade-test      # schema upgrade + version + encrypted backup/restore
+make upgrade-matrix    # recent release tags -> current with fixture data
 make integration-test  # real backend + frontend client over HTTP
 make hooks             # enable the gitleaks pre-commit hook (once per clone)
 make secrets           # fast scan + full-history gitleaks scan
