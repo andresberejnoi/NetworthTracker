@@ -211,9 +211,10 @@ The current version is `0.1.20261101`. The authoritative value lives in
 
 The current release covers accounts, net worth, history, bulk entry,
 import/export, backups, family access, investments and tax lots, native BTC/ETH
-crypto wallets, budgeting, and read-only aggregation. Real bank aggregation
-adapters, a guided data-migration tool for importing from other trackers,
-scheduled/offsite backups, and published versioned images remain future work.
+crypto wallets, budgeting, and read-only aggregation. Release tags publish
+versioned images to GHCR. Real bank aggregation adapters, a guided
+data-migration tool for importing from other trackers, and scheduled/offsite
+backups remain future work.
 
 ## Acknowledgements
 

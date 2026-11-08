@@ -34,8 +34,13 @@ if [[ "${UPGRADE_GIT_PULL:-0}" == "1" ]]; then
   git pull --ff-only
 fi
 
-echo "==> Building images (${old_version})"
-$COMPOSE_CMD build
+if [[ "${UPGRADE_PULL:-0}" == "1" ]]; then
+  echo "==> Pulling images (${IMAGE_TAG:-latest})"
+  $COMPOSE_CMD pull
+else
+  echo "==> Building images (${old_version})"
+  $COMPOSE_CMD build
+fi
 
 echo "==> Starting the stack"
 $COMPOSE_CMD up -d

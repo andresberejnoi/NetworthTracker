@@ -59,7 +59,7 @@ make upgrade
 `make upgrade`:
 
 1. takes a pre-upgrade backup;
-2. builds the images;
+2. builds the images, or pulls them when `UPGRADE_PULL=1`;
 3. starts the stack;
 4. the backend entrypoint checks for pending SQLx migrations and, if any are
    pending, creates and verifies another encrypted backup before migrations run;
@@ -76,6 +76,27 @@ If it fails, the backup path is printed. Restore it with:
 ```bash
 make restore FILE=backups/networth-....sql.gz.gpg
 ```
+
+### Pinned release images
+
+Release tags publish backend and frontend images to GHCR. Set `IMAGE_TAG` to a
+release such as `v0.1.20261101`, then pull and start without rebuilding:
+
+```bash
+IMAGE_TAG=v0.1.20261101 docker compose pull
+IMAGE_TAG=v0.1.20261101 docker compose up -d --no-build
+```
+
+`make upgrade` builds locally by default. For a pinned deployment, set
+`UPGRADE_PULL=1` so it pulls the tagged images instead:
+
+```bash
+IMAGE_TAG=v0.1.20261101 UPGRADE_PULL=1 make upgrade
+```
+
+Do not use an older image tag as a schema rollback. Migrations are
+forward-only; restore the pre-upgrade backup if the newer release applied one.
+See `docs/deployment.md` for GHCR authentication and rollback details.
 
 ## Restore
 
@@ -132,7 +153,6 @@ database or `./backups`.
 These are planned for the post-tag **robust upgrades** change:
 
 - scheduled backups and retention outside the manual script;
-- published versioned images (today the stack builds from source);
 - a multi-release upgrade matrix (the current test covers the previous schema
   → current release);
 - a documented compatibility policy for breaking schema changes;

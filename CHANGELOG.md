@@ -15,6 +15,17 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 - A guided getting-started tutorial and a Docker/Podman deployment guide.
 - `COMPOSE_CMD` support in the operational scripts so pure-Podman setups can
   use `podman compose`/`podman-compose` without the Docker shim.
+- Release tags now publish versioned backend and frontend images to GHCR.
+- Compose supports pinning `IMAGE_TAG`; `UPGRADE_PULL=1` makes `make upgrade`
+  pull the pinned images instead of building locally.
+
+### Security
+
+- Upgraded the frontend toolchain to patched Vite 6.4.5, Vitest 4.1.12,
+  tinypool 2.1.2, and esbuild 0.25.x; `npm audit` is clean.
+- Replaced the vulnerable Rust `zip` 2.2.0/0.6.6 chain with `zip` 9.4.2 via
+  calamine 0.38 and rust_xlsxwriter 0.102.
+- CI now runs `npm audit --audit-level=moderate`.
 
 ## [0.1.20261101] - 2026-11-01
 
@@ -32,14 +43,6 @@ documentation acknowledgements.
 
 - README now acknowledges the earlier AssetPortfolio and CryptoTaxTools
   projects and reflects the completed budgeting/aggregation slices.
-
-### Security
-
-- Upgraded the frontend toolchain to patched Vite 6.4.5, Vitest 4.1.12,
-  tinypool 2.1.2, and esbuild 0.25.x; `npm audit` is clean.
-- Replaced the vulnerable Rust `zip` 2.2.0/0.6.6 chain with `zip` 9.4.2 via
-  calamine 0.38 and rust_xlsxwriter 0.102.
-- CI now runs `npm audit --audit-level=moderate`.
 
 ### Fixed
 

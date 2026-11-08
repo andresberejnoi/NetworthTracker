@@ -30,7 +30,9 @@ At minimum, change:
 | `FRONTEND_PORT` | Frontend host port, default `3000` |
 | `BACKEND_PORT` | API host port, default `8080` |
 | `AUTH_DISABLED` | `false` for login, `true` for single-user offline mode |
+| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261101` |
 | `COMPOSE_CMD` | Compose command used by scripts, e.g. `podman compose` |
+| `UPGRADE_PULL` | `1` makes `make upgrade` pull versioned images instead of building |
 | `BACKUP_KEEP` | Number of pre-migration backups to retain, default `14` |
 
 Optional add-ons are inert when unset:
@@ -75,6 +77,54 @@ make destroy   # asks for confirmation
 ```
 
 Never use `docker compose down -v` casually; it removes the `db-data` volume.
+
+### Versioned images and pinning
+
+Pushing a release tag (`v*`) runs CI and publishes both images to GHCR:
+
+```text
+ghcr.io/andresberejnoi/networth-tracker-backend:<tag>
+ghcr.io/andresberejnoi/networth-tracker-frontend:<tag>
+```
+
+The same images are also published as `:latest`. Pin a release in `.env` or on
+the command line:
+
+```bash
+IMAGE_TAG=v0.1.20261101 docker compose pull
+IMAGE_TAG=v0.1.20261101 docker compose up -d --no-build
+```
+
+Use `--no-build` so Compose does not replace the pulled image with a local
+build. If the GHCR packages are private, log in first with a token that has
+`read:packages`:
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
+```
+
+For a local build, use a throwaway tag:
+
+```bash
+IMAGE_TAG=dev docker compose up -d --build
+```
+
+The published frontend image is compiled with
+`VITE_API_BASE_URL=http://localhost:8080`. If you use a different host or port,
+build the frontend locally so the URL is compiled into the bundle, or override
+the build argument in Compose.
+
+`make upgrade` builds locally by default. To upgrade a pinned deployment from
+published images, set `UPGRADE_PULL=1` in `.env` (or the environment); the
+script still takes the pre-upgrade backup and checks `/health`:
+
+```bash
+IMAGE_TAG=v0.1.20261101 UPGRADE_PULL=1 make upgrade
+```
+
+A previous image tag can be used for rollback only while the database schema is
+still compatible. Migrations are forward-only; if the newer release applied a
+migration, restore the pre-upgrade backup instead of running an older image.
 
 ## Podman
 
@@ -202,9 +252,9 @@ The mount uses `:Z` for SELinux; remove `:Z` on platforms that reject it.
 Test a restore before relying on backups. Keep the backup passphrase somewhere
 other than the backup directory; without it the backups cannot be restored.
 
-Current releases build images from source. Pin a git tag and rebuild for a
-reproducible deployment. Published versioned images and scheduled/off-site
-backups are the next `robust-upgrades` change.
+Release tags publish versioned images to GHCR; pin `IMAGE_TAG` for a
+reproducible deployment. Scheduled and off-site backups are the next
+`robust-upgrades` work.
 
 ## Troubleshooting
 
