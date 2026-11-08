@@ -19,7 +19,6 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }
 uuid = { workspace = true }
-zip = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
