@@ -2115,6 +2115,18 @@ impl AggregationRepository for PostgresAccountRepository {
         rows.into_iter().map(TryInto::try_into).collect()
     }
 
+    async fn balances(&self, link_id: Uuid) -> Result<Vec<AggregationBalance>, RepositoryError> {
+        let rows: Vec<AggregationBalanceRow> = sqlx::query_as(
+            "SELECT link_id, as_of, amount::text AS amount, currency, synced_at \
+             FROM aggregation_balances WHERE link_id = $1 ORDER BY as_of",
+        )
+        .bind(link_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
     async fn touch_link(
         &self,
         link_id: Uuid,
@@ -2165,6 +2177,17 @@ impl BudgetRepository for PostgresAccountRepository {
         .await
         .map_err(map_sqlx_error)?;
         row.map(TryInto::try_into).transpose()
+    }
+
+    async fn list_incomes(&self) -> Result<Vec<BudgetIncome>, RepositoryError> {
+        let rows: Vec<BudgetIncomeRow> = sqlx::query_as(
+            "SELECT id, user_id, year, amount::text AS amount, currency \
+             FROM budget_incomes ORDER BY user_id, year",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
     }
 
     async fn upsert_plan(
@@ -2265,6 +2288,49 @@ impl BudgetRepository for PostgresAccountRepository {
         }))
     }
 
+    async fn list_plans(&self) -> Result<Vec<SpendingPlan>, RepositoryError> {
+        let rows: Vec<BudgetPlanRow> = sqlx::query_as(
+            "SELECT id, user_id, year, currency FROM budget_plans ORDER BY user_id, year",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        let mut plans = Vec::with_capacity(rows.len());
+        for row in rows {
+            let allocations: Vec<BudgetAllocationRow> = sqlx::query_as(
+                "SELECT category, percentage::text AS percentage \
+                 FROM budget_allocations WHERE plan_id = $1 ORDER BY category",
+            )
+            .bind(row.id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+
+            plans.push(SpendingPlan {
+                id: row.id,
+                user_id: row.user_id,
+                year: row.year,
+                currency: Currency::new(row.currency)
+                    .map_err(|e| RepositoryError::Storage(e.to_string()))?,
+                allocations: allocations
+                    .into_iter()
+                    .map(|allocation| {
+                        Ok(BudgetAllocation {
+                            category: allocation.category.parse().map_err(
+                                |e: networth_domain::budget::BudgetCategoryParseError| {
+                                    RepositoryError::Storage(e.to_string())
+                                },
+                            )?,
+                            percentage: parse_decimal(&allocation.percentage)?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, RepositoryError>>()?,
+            });
+        }
+        Ok(plans)
+    }
+
     async fn upsert_spending(
         &self,
         new: &NewBudgetSpending,
@@ -2302,6 +2368,17 @@ impl BudgetRepository for PostgresAccountRepository {
         )
         .bind(user_id)
         .bind(year)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn list_all_spending(&self) -> Result<Vec<BudgetSpending>, RepositoryError> {
+        let rows: Vec<BudgetSpendingRow> = sqlx::query_as(
+            "SELECT id, user_id, year, month, category, amount::text AS amount, currency, note \
+             FROM budget_spending ORDER BY user_id, year, month, category",
+        )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;

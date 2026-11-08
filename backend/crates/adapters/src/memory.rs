@@ -725,6 +725,18 @@ impl AggregationRepository for InMemoryAccountRepository {
             .collect())
     }
 
+    async fn balances(&self, link_id: Uuid) -> Result<Vec<AggregationBalance>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut balances: Vec<AggregationBalance> = inner
+            .aggregation_balances
+            .iter()
+            .filter(|balance| balance.link_id == link_id)
+            .cloned()
+            .collect();
+        balances.sort_by_key(|balance| balance.as_of);
+        Ok(balances)
+    }
+
     async fn touch_link(
         &self,
         link_id: Uuid,
@@ -777,6 +789,13 @@ impl BudgetRepository for InMemoryAccountRepository {
             .cloned())
     }
 
+    async fn list_incomes(&self) -> Result<Vec<BudgetIncome>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut incomes = inner.budget_incomes.clone();
+        incomes.sort_by_key(|income| (income.user_id, income.year));
+        Ok(incomes)
+    }
+
     async fn upsert_plan(
         &self,
         user_id: Uuid,
@@ -816,6 +835,13 @@ impl BudgetRepository for InMemoryAccountRepository {
             .iter()
             .find(|plan| plan.user_id == user_id && plan.year == year)
             .cloned())
+    }
+
+    async fn list_plans(&self) -> Result<Vec<SpendingPlan>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut plans = inner.budget_plans.clone();
+        plans.sort_by_key(|plan| (plan.user_id, plan.year));
+        Ok(plans)
     }
 
     async fn upsert_spending(
@@ -862,6 +888,20 @@ impl BudgetRepository for InMemoryAccountRepository {
             a.month
                 .cmp(&b.month)
                 .then_with(|| a.category.as_str().cmp(b.category.as_str()))
+        });
+        Ok(spending)
+    }
+
+    async fn list_all_spending(&self) -> Result<Vec<BudgetSpending>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut spending = inner.budget_spending.clone();
+        spending.sort_by(|a, b| {
+            (a.user_id, a.year, a.month, a.category.as_str()).cmp(&(
+                b.user_id,
+                b.year,
+                b.month,
+                b.category.as_str(),
+            ))
         });
         Ok(spending)
     }

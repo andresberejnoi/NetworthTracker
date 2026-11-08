@@ -291,6 +291,9 @@ pub trait BudgetRepository: Send + Sync {
         year: i32,
     ) -> Result<Option<BudgetIncome>, RepositoryError>;
 
+    /// Every annual income record, for portable backups.
+    async fn list_incomes(&self) -> Result<Vec<BudgetIncome>, RepositoryError>;
+
     /// Insert or replace a spending plan and its allocations.
     async fn upsert_plan(
         &self,
@@ -304,6 +307,9 @@ pub trait BudgetRepository: Send + Sync {
     async fn plan(&self, user_id: Uuid, year: i32)
         -> Result<Option<SpendingPlan>, RepositoryError>;
 
+    /// Every spending plan and its allocations, for portable backups.
+    async fn list_plans(&self) -> Result<Vec<SpendingPlan>, RepositoryError>;
+
     /// Insert or replace a category/month spending record.
     async fn upsert_spending(
         &self,
@@ -316,6 +322,9 @@ pub trait BudgetRepository: Send + Sync {
         user_id: Uuid,
         year: i32,
     ) -> Result<Vec<BudgetSpending>, RepositoryError>;
+
+    /// Every spending record, for portable backups.
+    async fn list_all_spending(&self) -> Result<Vec<BudgetSpending>, RepositoryError>;
 }
 
 /// Stored aggregation configuration.
@@ -481,6 +490,9 @@ pub trait AggregationRepository: Send + Sync {
 
     /// Provider holdings for a link.
     async fn holdings(&self, link_id: Uuid) -> Result<Vec<AggregationHolding>, RepositoryError>;
+
+    /// All provider balances for a link, for portable backups.
+    async fn balances(&self, link_id: Uuid) -> Result<Vec<AggregationBalance>, RepositoryError>;
 
     /// Mark a link as synced.
     async fn touch_link(

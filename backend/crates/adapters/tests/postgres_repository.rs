@@ -642,6 +642,9 @@ async fn persists_budget_income_plan_and_spending(pool: PgPool) {
             .amount_string(),
         "120000.00"
     );
+    assert_eq!(repo.list_incomes().await.unwrap().len(), 1);
+    assert_eq!(repo.list_plans().await.unwrap().len(), 1);
+    assert_eq!(repo.list_all_spending().await.unwrap().len(), 1);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -709,6 +712,7 @@ async fn persists_aggregation_provenance(pool: PgPool) {
         "12345.67"
     );
     assert_eq!(repo.holdings(link.id).await.unwrap()[0].symbol, "VTI");
+    assert_eq!(repo.balances(link.id).await.unwrap().len(), 1);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
