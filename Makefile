@@ -76,8 +76,8 @@ secrets: ## Scan tracked files and full history for credentials
 	./scripts/check-secrets.sh
 	./scripts/run-gitleaks.sh git --redact --no-banner --config .gitleaks.toml
 
-validate: ## Validate the OpenSpec change strictly
-	openspec validate networth-tracker-v1 --strict
+validate: ## Validate all OpenSpec changes and specs strictly
+	openspec validate --all --strict
 
 test: secrets backend-test frontend-test boundaries ## Run all tests and checks
 

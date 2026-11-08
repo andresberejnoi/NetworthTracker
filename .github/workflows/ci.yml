@@ -39,8 +39,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Validate the change strictly
-        run: npx --yes @fission-ai/openspec@1.14.1 validate networth-tracker-v1 --strict
+      - name: Validate changes and specs strictly
+        run: npx --yes @fission-ai/openspec@1.14.1 validate --all --strict
 
   backend:
     name: Backend
