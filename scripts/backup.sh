@@ -7,6 +7,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
+umask 077
 
 if [[ ! -f .env ]]; then
   echo "No .env found. Copy .env.example to .env first." >&2

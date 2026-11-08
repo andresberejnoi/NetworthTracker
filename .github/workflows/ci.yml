@@ -90,6 +90,8 @@ jobs:
           workspaces: backend
       - name: Schema upgrade, version, encrypted backup, restore
         run: ./scripts/test-upgrade.sh
+      - name: Scheduled backup wrapper
+        run: ./scripts/test-backup-schedule.sh
 
   upgrade-matrix:
     name: Multi-release upgrade matrix

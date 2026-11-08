@@ -10,7 +10,7 @@
 
 ## 2. Backup operations
 
-- [ ] 2.1 Add scheduled backup support suitable for cron/systemd timers, with retention and fail-closed encryption
+- [x] 2.1 Add scheduled backup support suitable for cron/systemd timers, with retention and fail-closed encryption
 - [ ] 2.2 Add optional off-site destination support using the user's own storage/credentials
 - [ ] 2.3 Add a restore-drill command that restores the newest backup into a throwaway database and checks rows/exact decimals
 - [ ] 2.4 Document key separation, rotation, retention, off-site storage, and restore drills

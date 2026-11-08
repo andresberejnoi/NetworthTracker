@@ -33,7 +33,9 @@ At minimum, change:
 | `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261101` |
 | `COMPOSE_CMD` | Compose command used by scripts, e.g. `podman compose` |
 | `UPGRADE_PULL` | `1` makes `make upgrade` pull versioned images instead of building |
-| `BACKUP_KEEP` | Number of pre-migration backups to retain, default `14` |
+| `BACKUP_DIR` | Backup directory, default `./backups` |
+| `BACKUP_LOG_DIR` | Scheduled-backup log directory, default `BACKUP_DIR` |
+| `BACKUP_KEEP` | Number of backups to retain, default `14` |
 
 Optional add-ons are inert when unset:
 
@@ -251,6 +253,16 @@ writes a verified encrypted backup there when pending migrations are detected.
 The mount uses `:Z` for SELinux; remove `:Z` on platforms that reject it.
 Test a restore before relying on backups. Keep the backup passphrase somewhere
 other than the backup directory; without it the backups cannot be restored.
+
+For scheduled backups, see [`backup.md`](backup.md). A user-level systemd timer
+can be installed with:
+
+```bash
+./scripts/install-backup-timer.sh --install
+```
+
+Cron users can run `scripts/scheduled-backup.sh` directly; both paths write a
+timestamped log and fail closed when encryption is not configured.
 
 Release tags publish versioned images to GHCR; pin `IMAGE_TAG` for a
 reproducible deployment. Scheduled and off-site backups are the next

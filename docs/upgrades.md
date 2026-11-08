@@ -22,6 +22,8 @@ make backup
   encrypted. The script decrypts it once to verify the archive before keeping it.
 - Keeps the last **14** backups (`BACKUP_KEEP=30 make backup` to change).
 - Safe to run while the stack is up.
+- `make backup-scheduled` runs the cron/systemd wrapper with locking and a
+  timestamped log; see [`backup.md`](backup.md) for timer and cron setup.
 - `GET /api/v1/backup` also produces a portable JSON backup including snapshot
   history; `pg_dump` is the full database backup.
 
@@ -211,7 +213,7 @@ real stack.
 
 These are planned for the post-tag **robust upgrades** change:
 
-- scheduled backups and retention outside the manual script;
+- off-site backup destinations and an automated restore drill;
 - a guided data-migration tool for importing from other trackers.
 
 ## Commands

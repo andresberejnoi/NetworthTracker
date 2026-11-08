@@ -22,6 +22,8 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
   explicit unknown-migration refusal behavior.
 - A tag-driven multi-release upgrade matrix that seeds fixture data at recent
   release tags and verifies data, schema, and version after upgrading.
+- A scheduled-backup wrapper with locking, timestamped logs, retention, and
+  fail-closed encryption, plus a systemd user timer generator and cron docs.
 
 ### Security
 

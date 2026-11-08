@@ -193,6 +193,7 @@ The current version is `0.1.20261101`. The authoritative value lives in
 
 - `docs/tutorial.md` — guided first setup and feature tour
 - `docs/deployment.md` — Docker Compose and Podman deployment
+- `docs/backup.md` — manual/scheduled backups, timers, key separation
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
 - `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions
