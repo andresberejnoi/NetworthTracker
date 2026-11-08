@@ -83,6 +83,52 @@ disaster-recovery path.
 must cover the data users actually created. Stable keys and versioning prevent
 duplication and silent data loss.
 
+### D8. Encrypted, content-addressed document store
+
+**Decision:** Store uploaded files under a content-addressed local store,
+encrypted with a local key (AES-256-GCM or the existing GPG mechanism), with
+metadata in PostgreSQL: SHA-256, original name, MIME, size, uploader, tags,
+institution, document type, period, parser version, status, and audit events.
+Deduplicate by SHA-256 and keep the original immutable; imported records link to
+the document.
+
+**Rationale:** Statements are both sensitive and the audit trail for imported
+numbers. A separate encrypted store keeps them out of the database dump while
+still linking them to computed data.
+
+### D9. Detect content first, then classify with confirmation
+
+**Decision:** Detect formats by magic bytes/text sniffing and parser adapters,
+not extension alone. Institution/type classification uses parser-specific
+heuristics with a confidence score; the user confirms or overrides before
+import. PDF parsing is best-effort text/table extraction; unsupported files are
+retained as unclassified documents rather than silently dropped.
+
+**Rationale:** Institution exports vary and extensions lie. A wrong parser can
+corrupt financial data; confirmation and preview make classification explicit.
+
+### D10. Sensitive-file lifecycle and cleanup
+
+**Decision:** Original documents are immutable and soft-deletable; a cleanup
+command removes only unreferenced/temporary files after a dry run and explicit
+confirmation. Imported balances, holdings, lots, and snapshots are never
+hard-deleted through the document UI; corrections use audited adjustments or
+archival. Document-store backups include encrypted files and metadata.
+
+**Rationale:** Files are evidence; computed data is the ledger. Cleanup should
+reclaim storage, not rewrite history.
+
+### D11. HSA/medical receipts are a separate future capability
+
+**Decision:** The document store and audit trail are reusable by a future
+`medical-receipts`/HSA capability. That capability owns receipt categorization,
+HSA eligibility, reimbursement tracking, and tax-year reporting; it is not part
+of robust-upgrades.
+
+**Rationale:** HSA receipt tracking is a distinct domain with its own rules and
+privacy requirements. Keeping it separate avoids overloading the upgrade/migration
+change.
+
 ### D7. Guided migration behind source adapters
 
 **Decision:** Build a migration pipeline with source adapters (generic CSV/JSON

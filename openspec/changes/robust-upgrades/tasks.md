@@ -31,8 +31,19 @@
 - [ ] 4.5 Build the guided migration UI or CLI flow and verify it against documented sample exports
 - [ ] 4.6 Add cross-boundary/integration tests for a realistic portfolio migration and re-run
 
-## 5. Verification and release
+## 5. Document ingestion
 
-- [ ] 5.1 Run the full release matrix, including upgrade/restore/migration tests
-- [ ] 5.2 Update `docs/upgrades.md`, add `docs/backup.md` and `docs/data-migration.md`, and update the README/CHANGELOG
-- [ ] 5.3 Tag the release and verify the tag points at the release commit
+- [ ] 5.1 Add the encrypted content-addressed document store and metadata/audit schema with SHA-256 dedupe and size limits
+- [ ] 5.2 Add upload/list/download/tag API and UI with encryption at rest and authorized access
+- [ ] 5.3 Implement content-based format detection and generic CSV/XLSX/XML/OFX/PDF parser adapters
+- [ ] 5.4 Implement institution and document-type classification adapters for Fidelity, Charles Schwab, Coinbase, Binance, and generic sources with confidence and user confirmation
+- [ ] 5.5 Add dry-run preview, field mapping, idempotent apply, and document-to-record provenance links through the migration pipeline
+- [ ] 5.6 Add audit events for upload/download/classification/import and include encrypted documents in backups/restore
+- [ ] 5.7 Add a cleanup command/script for orphaned/temporary files with dry-run and confirmation, explicitly excluding computed financial data
+- [ ] 5.8 Add parser/classification/import tests, docs, and a future HSA/medical-receipt design note
+
+## 6. Verification and release
+
+- [ ] 6.1 Run the full release matrix, including upgrade/restore/migration/document tests
+- [ ] 6.2 Update `docs/upgrades.md`, add `docs/backup.md`, `docs/data-migration.md`, and `docs/document-ingestion.md`, and update the README/CHANGELOG
+- [ ] 6.3 Tag the release and verify the tag points at the release commit
