@@ -46,4 +46,4 @@
 
 - [x] 6.1 Run the full release matrix, including upgrade/restore/migration/document tests
 - [x] 6.2 Update `docs/upgrades.md`, add `docs/backup.md`, `docs/data-migration.md`, and `docs/document-ingestion.md`, and update the README/CHANGELOG
-- [ ] 6.3 Tag the release and verify the tag points at the release commit
+- [x] 6.3 Tag the release and verify the tag points at the release commit
