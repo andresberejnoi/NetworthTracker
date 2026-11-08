@@ -59,8 +59,7 @@ async fn applying_a_new_migration_preserves_existing_data() {
     let previous_count = files
         .iter()
         .position(|file| {
-            file.file_name().and_then(|name| name.to_str())
-                == Some("20261030000001_tax_lots.sql")
+            file.file_name().and_then(|name| name.to_str()) == Some("20261030000001_tax_lots.sql")
         })
         .unwrap_or(files.len() - 4);
     let previous_dir = std::env::temp_dir().join(format!("networth-previous-{db_name}"));

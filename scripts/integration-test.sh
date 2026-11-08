@@ -64,10 +64,15 @@ if ! curl -sf "${url}/health" >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Preparing frontend dependencies ..."
+if [[ ! -d "$root/frontend/node_modules" ]]; then
+  (cd "$root/frontend" && npm ci >/dev/null)
+fi
+
 echo "Running frontend integration test ..."
 (cd "$root/frontend" \
   && VITE_API_BASE_URL="$url" INTEGRATION_TESTS=1 \
-     npx vitest run src/api/client.integration.test.ts)
+     npx --no-install vitest run src/api/client.integration.test.ts)
 
 echo "Running migration and document API integration ..."
 python3 "$root/scripts/integration-migration-document.py" "$url" "$root"
