@@ -102,7 +102,7 @@ start_db() {
     -p "127.0.0.1:${db_port}:5432" \
     postgres:17-alpine >/dev/null
 
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 240); do
     if docker exec "$db_container" pg_isready -U networth >/dev/null 2>&1; then
       return 0
     fi
@@ -110,6 +110,7 @@ start_db() {
   done
 
   echo "Postgres did not become ready for ${1}" >&2
+  docker logs "$db_container" >&2 || true
   exit 1
 }
 

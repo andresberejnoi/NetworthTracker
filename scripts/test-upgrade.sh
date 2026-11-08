@@ -130,7 +130,7 @@ docker run -d --rm --name "$db_container" \
   -p "127.0.0.1:${db_port}:5432" \
   postgres:17-alpine >/dev/null
 
-for _ in $(seq 1 60); do
+for _ in $(seq 1 240); do
   if docker exec "$db_container" pg_isready -U networth >/dev/null 2>&1; then
     break
   fi
@@ -139,6 +139,7 @@ done
 
 if ! docker exec "$db_container" pg_isready -U networth >/dev/null 2>&1; then
   echo "Postgres did not become ready" >&2
+  docker logs "$db_container" >&2 || true
   exit 1
 fi
 
