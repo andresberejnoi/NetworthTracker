@@ -25,7 +25,8 @@ make backup
 - `make backup-scheduled` runs the cron/systemd wrapper with locking and a
   timestamped log; see [`backup.md`](backup.md) for timer and cron setup.
 - `GET /api/v1/backup` also produces a portable JSON backup including snapshot
-  history; `pg_dump` is the full database backup.
+  history, investments, crypto, budgets, and aggregation provenance; `pg_dump`
+  is the full database backup.
 
 ### Key management
 

@@ -109,6 +109,15 @@ impl AppState {
         aggregation_cipher: Option<TokenCipher>,
         auth_enabled: bool,
     ) -> Self {
+        let backup = Arc::new(BackupService::new(
+            repositories.accounts.clone(),
+            repositories.networth.clone(),
+            repositories.identity.clone(),
+            repositories.investments.clone(),
+            repositories.crypto.clone(),
+            repositories.budget.clone(),
+            repositories.aggregation.clone(),
+        ));
         let prices = Arc::new(PriceService::new(
             repositories.prices,
             provider,
@@ -143,11 +152,7 @@ impl AppState {
                 repositories.identity.clone(),
                 auth_enabled,
             )),
-            backup: Arc::new(BackupService::new(
-                repositories.accounts,
-                repositories.networth,
-                repositories.identity,
-            )),
+            backup,
             investments,
             crypto,
             budget,

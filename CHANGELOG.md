@@ -30,6 +30,13 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
   database and checks migration history, row counts, and decimal text.
 - Backup documentation covering key separation, rotation, local/remote
   retention, off-site storage, and drill timing.
+- Portable JSON backup v2 covering securities, holdings, tax lots, sales and
+  disposals, crypto assets/wallets/balances/lots/sales, budgets, and
+  aggregation provenance.
+- Version 1 JSON backups remain restorable; unknown future versions are
+  rejected and provider tokens/passwords/sessions are excluded.
+- Round-trip coverage for investments, crypto, lots/sales, budgets,
+  aggregation provenance, and v1 compatibility.
 
 ### Security
 

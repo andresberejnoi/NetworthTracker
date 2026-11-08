@@ -167,7 +167,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Full JSON backup including snapshot history (owner only) */
+        /** Full JSON backup including investments, crypto, budgets, and provenance (owner only) */
         get: operations["exportBackup"];
         put?: never;
         post?: never;
@@ -904,12 +904,154 @@ export interface components {
             accounts: components["schemas"]["BackupAccount"][];
             balances: components["schemas"]["BackupBalance"][];
             snapshots: components["schemas"]["BackupSnapshot"][];
+            securities?: components["schemas"]["BackupSecurity"][];
+            holdings?: components["schemas"]["BackupHolding"][];
+            crypto_assets?: components["schemas"]["BackupCryptoAsset"][];
+            crypto_wallets?: components["schemas"]["BackupCryptoWallet"][];
+            budget_incomes?: components["schemas"]["BackupBudgetIncome"][];
+            budget_plans?: components["schemas"]["BackupBudgetPlan"][];
+            budget_spending?: components["schemas"]["BackupBudgetSpending"][];
+            aggregation_links?: components["schemas"]["BackupAggregationLink"][];
         };
         RestoreReport: {
             accounts_created: number;
             balances_saved: number;
             snapshots_restored: number;
             snapshots_skipped: number;
+            securities_created: number;
+            holdings_restored: number;
+            holdings_skipped: number;
+            lots_restored: number;
+            sales_restored: number;
+            crypto_assets_created: number;
+            crypto_wallets_restored: number;
+            crypto_wallets_skipped: number;
+            crypto_balances_saved: number;
+            crypto_lots_restored: number;
+            crypto_sales_restored: number;
+            budget_incomes_saved: number;
+            budget_plans_saved: number;
+            budget_spending_saved: number;
+            aggregation_links_saved: number;
+        };
+        BackupSecurity: {
+            symbol: string;
+            name: string;
+            asset_class: string;
+            sector: string | null;
+            currency: string;
+        };
+        BackupLot: {
+            acquired_on: string;
+            original_quantity: string;
+            remaining_quantity: string;
+            original_cost_basis: string;
+            remaining_cost_basis: string;
+            fees: string;
+            source: string;
+            basis_quality: string;
+            basis_note: string | null;
+        };
+        BackupDisposal: {
+            acquired_on: string;
+            quantity: string;
+            gross_proceeds: string;
+            fees: string;
+            cost_basis: string;
+            basis_quality: string;
+        };
+        BackupSale: {
+            disposed_on: string;
+            quantity: string;
+            gross_proceeds: string;
+            fees: string;
+            currency: string;
+            method: string;
+            disposals: components["schemas"]["BackupDisposal"][];
+        };
+        BackupHolding: {
+            account_name: string;
+            symbol: string;
+            lots: components["schemas"]["BackupLot"][];
+            sales: components["schemas"]["BackupSale"][];
+        };
+        BackupCryptoAsset: {
+            symbol: string;
+            name: string;
+            chain: string;
+            contract_address: string | null;
+            decimals: number;
+            currency: string;
+            price_provider_id: string | null;
+        };
+        BackupCryptoBalance: {
+            as_of: string;
+            quantity: string;
+            source: string;
+            provider: string | null;
+            fetched_at: string | null;
+        };
+        BackupCryptoWallet: {
+            asset_symbol: string;
+            kind: string;
+            chain: string;
+            address: string | null;
+            label: string;
+            ownership_scope: string;
+            owner_username: string | null;
+            archived: boolean;
+            balances: components["schemas"]["BackupCryptoBalance"][];
+            lots: components["schemas"]["BackupLot"][];
+            sales: components["schemas"]["BackupSale"][];
+        };
+        BackupBudgetIncome: {
+            owner_username: string;
+            year: number;
+            amount: string;
+            currency: string;
+        };
+        BackupBudgetAllocation: {
+            category: string;
+            percentage: string;
+        };
+        BackupBudgetPlan: {
+            owner_username: string;
+            year: number;
+            currency: string;
+            allocations: components["schemas"]["BackupBudgetAllocation"][];
+        };
+        BackupBudgetSpending: {
+            owner_username: string;
+            year: number;
+            month: number;
+            category: string;
+            amount: string;
+            currency: string;
+            note: string | null;
+        };
+        BackupAggregationBalance: {
+            as_of: string;
+            amount: string;
+            currency: string;
+            synced_at: string;
+        };
+        BackupAggregationHolding: {
+            symbol: string;
+            quantity: string;
+            value: string;
+            currency: string;
+            synced_at: string;
+        };
+        BackupAggregationLink: {
+            provider: string;
+            provider_account_id: string;
+            account_name: string;
+            display_name: string;
+            account_type: string;
+            currency: string;
+            last_synced_at: string | null;
+            balances: components["schemas"]["BackupAggregationBalance"][];
+            holdings: components["schemas"]["BackupAggregationHolding"][];
         };
         /** @enum {string} */
         SecurityAssetClass: "equity" | "fixed_income" | "real_estate" | "commodity" | "cash" | "other";

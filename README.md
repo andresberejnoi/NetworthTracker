@@ -40,7 +40,7 @@ I wanted a tool to track networth in different ways and that allows me to keep m
   clipboard paste. Paste twenty rows instead of opening twenty forms.
 - **Spreadsheet import/export** — versioned CSV/XLSX with validation before any
   write, idempotent re-imports, and sample files in `samples/`.
-- **Full backup/restore** — JSON with accounts, balances, and snapshot history.
+- **Full backup/restore** — JSON with accounts, balances, snapshots, investments, crypto, budgets, and aggregation provenance.
 - **Family accounts** — local login, owner/editor/viewer roles, private
   accounts, and per-user visibility.
 - **Offline first** — the core app needs no internet. External providers are

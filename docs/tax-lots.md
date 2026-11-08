@@ -102,5 +102,4 @@ curl -s 'localhost:8080/api/v1/accounts/<id>/sales?long_term_years=1' \
   gains; transfers preserving acquisition date/basis are still deferred.
 - Wash sales, stock splits/mergers, crypto-to-crypto conversions, income lots,
   and fees paid in crypto are deferred.
-- The JSON backup does not yet include investments; the full `pg_dump` backup
-  does. This is tracked as a follow-up.
+- The JSON backup includes securities, holdings, lots, sales, and disposals.

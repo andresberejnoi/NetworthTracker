@@ -17,10 +17,10 @@
 
 ## 3. Portable JSON backup v2
 
-- [ ] 3.1 Extend the backup format with securities, holdings, tax lots, sales/disposals, crypto assets/wallets/balances, budgets, and aggregation provenance
-- [ ] 3.2 Implement idempotent restore with stable keys and v1 backward compatibility
-- [ ] 3.3 Exclude plaintext tokens/passwords/sessions and reject unknown future backup versions
-- [ ] 3.4 Add round-trip tests for investments, crypto, lots/sales, budgets, provenance, and v1 compatibility
+- [x] 3.1 Extend the backup format with securities, holdings, tax lots, sales/disposals, crypto assets/wallets/balances, budgets, and aggregation provenance
+- [x] 3.2 Implement idempotent restore with stable keys and v1 backward compatibility
+- [x] 3.3 Exclude plaintext tokens/passwords/sessions and reject unknown future backup versions
+- [x] 3.4 Add round-trip tests for investments, crypto, lots/sales, budgets, provenance, and v1 compatibility
 
 ## 4. Guided data migration
 

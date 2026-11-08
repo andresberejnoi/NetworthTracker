@@ -26,8 +26,12 @@ pub use aggregation::{
 };
 pub use auth::{implicit_user, AuthError, AuthService, AuthStatus, Session};
 pub use backup::{
-    Backup, BackupAccount, BackupBalance, BackupError, BackupService, BackupSnapshot,
-    RestoreReport, BACKUP_VERSION,
+    Backup, BackupAccount, BackupAggregationBalance, BackupAggregationHolding,
+    BackupAggregationLink, BackupBalance, BackupBudgetAllocation, BackupBudgetIncome,
+    BackupBudgetPlan, BackupBudgetSpending, BackupCryptoAsset, BackupCryptoBalance,
+    BackupCryptoWallet, BackupDisposal, BackupError, BackupHolding, BackupLot, BackupSale,
+    BackupSecurity, BackupService, BackupSnapshot, RestoreReport, BACKUP_VERSION,
+    V1_BACKUP_VERSION,
 };
 pub use budget::{BudgetAllocationView, BudgetError, BudgetService, BudgetView};
 pub use crypto::{validate_public_address, CryptoError, CryptoPosition, CryptoService};

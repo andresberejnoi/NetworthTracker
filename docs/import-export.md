@@ -90,8 +90,9 @@ spreadsheet line number:
 ## Backups
 
 `GET /api/v1/backup` produces a complete JSON backup **including snapshot
-history and the redemption policy used**. `POST /api/v1/backup/restore` restores
-it (owner only):
+history, the redemption policy used, securities, holdings, tax lots, sales and
+disposals, crypto assets/wallets/balances/lots/sales, budgets, and aggregation
+provenance**. `POST /api/v1/backup/restore` restores it (owner only):
 
 ```bash
 curl -s localhost:8080/api/v1/backup -H "Authorization: Bearer $TOKEN" > backup.json
@@ -100,10 +101,17 @@ curl -s -X POST localhost:8080/api/v1/backup/restore \
   --data-binary @backup.json
 ```
 
-Restore is idempotent: accounts match by name, balances upsert per day, and
-identical snapshots are skipped. Validation runs before anything is written.
-Private accounts carry their owner's **username**, so the same household members
-must exist on the target installation.
+Restore is idempotent: accounts match by name, balances upsert per day,
+identical snapshots are skipped, investment/crypto positions are skipped when
+the account/security or wallet identity already exists, and budgets/aggregation
+provenance upsert on their stable keys. Validation runs before anything is
+written. Private accounts and wallets carry their owner's **username**, so the
+same household members must exist on the target installation.
+
+The format is version 2. Version 1 backups are still accepted; their new
+sections default to empty. Unknown future versions are rejected with an error.
+Provider tokens, passwords, and sessions are never included; aggregation
+credentials remain in the encrypted local store.
 
 For a raw database dump instead:
 

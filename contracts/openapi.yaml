@@ -202,7 +202,7 @@ paths:
     get:
       tags: [data]
       operationId: exportBackup
-      summary: Full JSON backup including snapshot history (owner only)
+      summary: Full JSON backup including investments, crypto, budgets, and provenance (owner only)
       responses:
         "200":
           description: The complete backup.
@@ -1449,10 +1449,61 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BackupSnapshot"
+        securities:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupSecurity"
+        holdings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupHolding"
+        crypto_assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupCryptoAsset"
+        crypto_wallets:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupCryptoWallet"
+        budget_incomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupBudgetIncome"
+        budget_plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupBudgetPlan"
+        budget_spending:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupBudgetSpending"
+        aggregation_links:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupAggregationLink"
     RestoreReport:
       type: object
       additionalProperties: false
-      required: [accounts_created, balances_saved, snapshots_restored, snapshots_skipped]
+      required:
+        - accounts_created
+        - balances_saved
+        - snapshots_restored
+        - snapshots_skipped
+        - securities_created
+        - holdings_restored
+        - holdings_skipped
+        - lots_restored
+        - sales_restored
+        - crypto_assets_created
+        - crypto_wallets_restored
+        - crypto_wallets_skipped
+        - crypto_balances_saved
+        - crypto_lots_restored
+        - crypto_sales_restored
+        - budget_incomes_saved
+        - budget_plans_saved
+        - budget_spending_saved
+        - aggregation_links_saved
       properties:
         accounts_created:
           type: integer
@@ -1462,6 +1513,356 @@ components:
           type: integer
         snapshots_skipped:
           type: integer
+        securities_created:
+          type: integer
+        holdings_restored:
+          type: integer
+        holdings_skipped:
+          type: integer
+        lots_restored:
+          type: integer
+        sales_restored:
+          type: integer
+        crypto_assets_created:
+          type: integer
+        crypto_wallets_restored:
+          type: integer
+        crypto_wallets_skipped:
+          type: integer
+        crypto_balances_saved:
+          type: integer
+        crypto_lots_restored:
+          type: integer
+        crypto_sales_restored:
+          type: integer
+        budget_incomes_saved:
+          type: integer
+        budget_plans_saved:
+          type: integer
+        budget_spending_saved:
+          type: integer
+        aggregation_links_saved:
+          type: integer
+    BackupSecurity:
+      type: object
+      additionalProperties: false
+      required: [symbol, name, asset_class, sector, currency]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        asset_class:
+          type: string
+        sector:
+          type: [string, "null"]
+        currency:
+          type: string
+    BackupLot:
+      type: object
+      additionalProperties: false
+      required:
+        - acquired_on
+        - original_quantity
+        - remaining_quantity
+        - original_cost_basis
+        - remaining_cost_basis
+        - fees
+        - source
+        - basis_quality
+        - basis_note
+      properties:
+        acquired_on:
+          type: string
+        original_quantity:
+          type: string
+        remaining_quantity:
+          type: string
+        original_cost_basis:
+          type: string
+        remaining_cost_basis:
+          type: string
+        fees:
+          type: string
+        source:
+          type: string
+        basis_quality:
+          type: string
+        basis_note:
+          type: [string, "null"]
+    BackupDisposal:
+      type: object
+      additionalProperties: false
+      required:
+        - acquired_on
+        - quantity
+        - gross_proceeds
+        - fees
+        - cost_basis
+        - basis_quality
+      properties:
+        acquired_on:
+          type: string
+        quantity:
+          type: string
+        gross_proceeds:
+          type: string
+        fees:
+          type: string
+        cost_basis:
+          type: string
+        basis_quality:
+          type: string
+    BackupSale:
+      type: object
+      additionalProperties: false
+      required:
+        - disposed_on
+        - quantity
+        - gross_proceeds
+        - fees
+        - currency
+        - method
+        - disposals
+      properties:
+        disposed_on:
+          type: string
+        quantity:
+          type: string
+        gross_proceeds:
+          type: string
+        fees:
+          type: string
+        currency:
+          type: string
+        method:
+          type: string
+        disposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupDisposal"
+    BackupHolding:
+      type: object
+      additionalProperties: false
+      required: [account_name, symbol, lots, sales]
+      properties:
+        account_name:
+          type: string
+        symbol:
+          type: string
+        lots:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupLot"
+        sales:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupSale"
+    BackupCryptoAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - symbol
+        - name
+        - chain
+        - contract_address
+        - decimals
+        - currency
+        - price_provider_id
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        chain:
+          type: string
+        contract_address:
+          type: [string, "null"]
+        decimals:
+          type: integer
+        currency:
+          type: string
+        price_provider_id:
+          type: [string, "null"]
+    BackupCryptoBalance:
+      type: object
+      additionalProperties: false
+      required: [as_of, quantity, source, provider, fetched_at]
+      properties:
+        as_of:
+          type: string
+        quantity:
+          type: string
+        source:
+          type: string
+        provider:
+          type: [string, "null"]
+        fetched_at:
+          type: [string, "null"]
+    BackupCryptoWallet:
+      type: object
+      additionalProperties: false
+      required:
+        - asset_symbol
+        - kind
+        - chain
+        - address
+        - label
+        - ownership_scope
+        - owner_username
+        - archived
+        - balances
+        - lots
+        - sales
+      properties:
+        asset_symbol:
+          type: string
+        kind:
+          type: string
+        chain:
+          type: string
+        address:
+          type: [string, "null"]
+        label:
+          type: string
+        ownership_scope:
+          type: string
+        owner_username:
+          type: [string, "null"]
+        archived:
+          type: boolean
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupCryptoBalance"
+        lots:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupLot"
+        sales:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupSale"
+    BackupBudgetIncome:
+      type: object
+      additionalProperties: false
+      required: [owner_username, year, amount, currency]
+      properties:
+        owner_username:
+          type: string
+        year:
+          type: integer
+        amount:
+          type: string
+        currency:
+          type: string
+    BackupBudgetAllocation:
+      type: object
+      additionalProperties: false
+      required: [category, percentage]
+      properties:
+        category:
+          type: string
+        percentage:
+          type: string
+    BackupBudgetPlan:
+      type: object
+      additionalProperties: false
+      required: [owner_username, year, currency, allocations]
+      properties:
+        owner_username:
+          type: string
+        year:
+          type: integer
+        currency:
+          type: string
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupBudgetAllocation"
+    BackupBudgetSpending:
+      type: object
+      additionalProperties: false
+      required: [owner_username, year, month, category, amount, currency, note]
+      properties:
+        owner_username:
+          type: string
+        year:
+          type: integer
+        month:
+          type: integer
+        category:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+        note:
+          type: [string, "null"]
+    BackupAggregationBalance:
+      type: object
+      additionalProperties: false
+      required: [as_of, amount, currency, synced_at]
+      properties:
+        as_of:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+        synced_at:
+          type: string
+    BackupAggregationHolding:
+      type: object
+      additionalProperties: false
+      required: [symbol, quantity, value, currency, synced_at]
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: string
+        value:
+          type: string
+        currency:
+          type: string
+        synced_at:
+          type: string
+    BackupAggregationLink:
+      type: object
+      additionalProperties: false
+      required:
+        - provider
+        - provider_account_id
+        - account_name
+        - display_name
+        - account_type
+        - currency
+        - last_synced_at
+        - balances
+        - holdings
+      properties:
+        provider:
+          type: string
+        provider_account_id:
+          type: string
+        account_name:
+          type: string
+        display_name:
+          type: string
+        account_type:
+          type: string
+        currency:
+          type: string
+        last_synced_at:
+          type: [string, "null"]
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupAggregationBalance"
+        holdings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupAggregationHolding"
     SecurityAssetClass:
       type: string
       enum: [equity, fixed_income, real_estate, commodity, cash, other]

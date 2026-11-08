@@ -177,5 +177,4 @@ other.
   on-chain balances.
 - Solana and token/ERC-20 adapters are follow-ups; Bitcoin and Ethereum native
   public adapters plus the keyless CoinPaprika price adapter are included.
-- The JSON backup does not yet include crypto/investment detail; the full
-  `pg_dump` backup does.
+- The JSON backup includes crypto assets, wallets, balances, lots, and sales.
