@@ -103,7 +103,7 @@ start_db() {
     postgres:17-alpine >/dev/null
 
   for _ in $(seq 1 240); do
-    if docker exec "$db_container" pg_isready -U networth >/dev/null 2>&1; then
+    if docker exec "$db_container" psql -U networth -d networth -tAc 'select 1' >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.5

@@ -131,13 +131,13 @@ docker run -d --rm --name "$db_container" \
   postgres:17-alpine >/dev/null
 
 for _ in $(seq 1 240); do
-  if docker exec "$db_container" pg_isready -U networth >/dev/null 2>&1; then
+  if docker exec "$db_container" psql -U networth -d networth -tAc 'select 1' >/dev/null 2>&1; then
     break
   fi
   sleep 0.5
 done
 
-if ! docker exec "$db_container" pg_isready -U networth >/dev/null 2>&1; then
+if ! docker exec "$db_container" psql -U networth -d networth -tAc 'select 1' >/dev/null 2>&1; then
   echo "Postgres did not become ready" >&2
   docker logs "$db_container" >&2 || true
   exit 1
