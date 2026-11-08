@@ -65,6 +65,18 @@ openspec/    spec-driven change proposals and specs
   central service.
 - The database password comes from `.env`; there is no committed default.
 
+## Database migrations
+
+- Migrations are forward-only. Never edit an applied migration; SQLx checksums
+  make that fail. Add a new timestamped file in `backend/migrations/`.
+- Support direct upgrades from the previous release (N-1) to the current
+  release. Older databases must step through an intermediate release.
+- Use expand/contract across two releases for breaking schema changes: add and
+  backfill the new shape first, then remove the old shape in a later release.
+- The container entrypoint refuses to start when the database has a migration
+  the image does not know. Do not bypass that guard; deploy a matching image or
+  restore a pre-upgrade backup.
+
 ## Versioning
 
 The product uses **date-based semantic versioning** in the format

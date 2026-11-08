@@ -18,6 +18,8 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 - Release tags now publish versioned backend and frontend images to GHCR.
 - Compose supports pinning `IMAGE_TAG`; `UPGRADE_PULL=1` makes `make upgrade`
   pull the pinned images instead of building locally.
+- An N-1 upgrade compatibility policy, expand/contract migration guidance, and
+  explicit unknown-migration refusal behavior.
 
 ### Security
 

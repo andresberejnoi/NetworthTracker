@@ -119,17 +119,63 @@ wrong passphrase or corrupt file is rejected and the database is left untouched.
 - They are **forward-only**; there is no downgrade path. To roll back, restore a
   backup.
 - Each migration is applied in a transaction on PostgreSQL.
-- Prefer additive changes. Destructive changes should use expand/contract over
-  two releases (add the new shape, migrate, then remove the old shape later).
-- SQLx refuses to start if the database contains migrations the binary does not
-  know about, which protects against accidentally running an older image
-  against a newer schema.
+- **Never edit a migration that has already been applied.** SQLx records a
+  checksum; changing the file makes startup fail with a checksum mismatch. Add
+  a new migration instead.
+- Prefer additive changes. Destructive changes use **expand/contract** over two
+  releases:
+  1. **Expand** release: add the new column/table with a safe default or
+     nullable shape, dual-write or backfill, and keep the old shape readable.
+  2. **Contract** release: only after the expand release has shipped and data
+     is backfilled, remove the old shape and its dual-write path.
 - A repository test (`backend/crates/adapters/tests/migrations.rs`) applies all
   migrations except the latest, seeds accounts/balances/snapshots/users plus a
   pre-ledger holding lot, applies the latest migration, and asserts the rows,
   exact values, and migrated tax lot survived and the new schema is writable.
   It runs in `make backend-test-db`.
 - Test a restore after every release.
+
+## Compatibility policy (N-1)
+
+The project supports **direct upgrades from the previous release (N-1)** to the
+current release. It does not promise that any older database can jump directly
+to the newest release.
+
+| From | To current `0.1.20261101` | Path |
+|---|---|---|
+| `0.1.20261031` | Supported directly | Pull the current image and upgrade |
+| `0.1.20261029` or older | Not direct | Upgrade to `0.1.20261031` first, then current |
+
+`N-1` means the previous **release**, not the previous migration: every
+migration shipped between that release and the current one still runs in order.
+The direct-upgrade promise is tested by `make upgrade-test`; the tag-driven
+multi-release matrix extends that coverage to prior release tags.
+
+For a breaking schema change, the expand release and the contract release must
+both remain within this policy: an N-1 database must be able to reach the expand
+release, and the contract release must only require data that the expand release
+already backfilled. Do not combine expand and contract in one release.
+
+## Unknown migrations
+
+The container entrypoint compares the versions in `_sqlx_migrations` with the
+migrations embedded in the image **before** taking a backup or starting the API.
+If the database contains a migration version that the image does not know, it
+prints:
+
+```text
+Database contains migration <version>, which this image does not know.
+Refusing to start an older image against a newer schema.
+```
+
+and exits without running migrations. SQLx enforces the same rule when the API
+starts, and it also rejects a known version whose checksum changed. This is
+deliberate protection against running an older image against a newer schema.
+
+To recover, deploy an image whose migration set includes the database version.
+Do **not** delete rows from `_sqlx_migrations` or manually downgrade the schema.
+If the matching image is unavailable or the upgrade is suspect, restore the
+pre-upgrade backup with `make restore FILE=...`.
 
 ## Testing the upgrade path
 
