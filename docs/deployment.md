@@ -31,6 +31,7 @@ At minimum, change:
 | `BACKEND_PORT` | API host port, default `8080` |
 | `AUTH_DISABLED` | `false` for login, `true` for single-user offline mode |
 | `COMPOSE_CMD` | Compose command used by scripts, e.g. `podman compose` |
+| `BACKUP_KEEP` | Number of pre-migration backups to retain, default `14` |
 
 Optional add-ons are inert when unset:
 
@@ -195,9 +196,11 @@ make upgrade    # backup + rebuild + restart + health check
 ```
 
 With Podman, set `COMPOSE_CMD=podman compose` in `.env` so the scripts use the
-right command. Test a restore before relying on backups. Keep the backup
-passphrase somewhere other than the backup directory; without it the backups
-cannot be restored.
+right command. The backend mounts `./backups` at `/backups`; the entrypoint
+writes a verified encrypted backup there when pending migrations are detected.
+The mount uses `:Z` for SELinux; remove `:Z` on platforms that reject it.
+Test a restore before relying on backups. Keep the backup passphrase somewhere
+other than the backup directory; without it the backups cannot be restored.
 
 Current releases build images from source. Pin a git tag and rebuild for a
 reproducible deployment. Published versioned images and scheduled/off-site

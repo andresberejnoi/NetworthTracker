@@ -2,8 +2,8 @@
 
 ## 1. Upgrade safety
 
-- [ ] 1.1 Add a pending-migration check and verified encrypted pre-migration backup to the container entrypoint; fail closed if the backup fails
-- [ ] 1.2 Add tests for entrypoint backup on pending migrations, no backup when current, and startup refusal on backup failure
+- [x] 1.1 Add a pending-migration check and verified encrypted pre-migration backup to the container entrypoint; fail closed if the backup fails
+- [x] 1.2 Add tests for entrypoint backup on pending migrations, no backup when current, and startup refusal on backup failure
 - [ ] 1.3 Publish versioned backend/frontend images and support a pinned image tag in Compose
 - [ ] 1.4 Document the N-1 expand/contract compatibility policy and unknown-migration behavior
 - [ ] 1.5 Add a tag-driven multi-release upgrade matrix in CI with fixture data and version/data assertions

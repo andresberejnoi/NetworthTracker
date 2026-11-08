@@ -41,12 +41,24 @@ RUN cd backend \
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg gzip \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+         -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+         > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-17 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /usr/src/backend/target/release/networth-api /usr/local/bin/networth-api
+COPY backend/migrations /usr/local/share/networth/migrations
+COPY backend/docker-entrypoint.sh /usr/local/bin/networth-entrypoint
+RUN chmod +x /usr/local/bin/networth-entrypoint
 
 ENV BACKEND_ADDR=0.0.0.0:8080
+ENV BACKUP_DIR=/backups
 EXPOSE 8080
 
+ENTRYPOINT ["/usr/local/bin/networth-entrypoint"]
 CMD ["networth-api"]

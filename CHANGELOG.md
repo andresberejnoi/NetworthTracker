@@ -10,6 +10,8 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ### Added
 
+- A fail-closed encrypted pre-migration backup in the backend entrypoint, with
+  pending-migration detection, retention, and tests.
 - A guided getting-started tutorial and a Docker/Podman deployment guide.
 - `COMPOSE_CMD` support in the operational scripts so pure-Podman setups can
   use `podman compose`/`podman-compose` without the Docker shim.

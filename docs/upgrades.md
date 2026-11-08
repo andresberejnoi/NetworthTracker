@@ -61,8 +61,15 @@ make upgrade
 1. takes a pre-upgrade backup;
 2. builds the images;
 3. starts the stack;
-4. lets the backend run pending SQLx migrations;
-5. waits for `/health` and reports the new version.
+4. the backend entrypoint checks for pending SQLx migrations and, if any are
+   pending, creates and verifies another encrypted backup before migrations run;
+5. the backend runs pending migrations;
+6. waits for `/health` and reports the new version.
+
+The entrypoint backup is **fail closed**: if pending migrations are detected and
+`BACKUP_PASSPHRASE` is missing, or the backup cannot be written/verified, the
+container exits instead of migrating. Pre-migration backups are written to
+`./backups` (mounted at `/backups`) and pruned by `BACKUP_KEEP` (default 14).
 
 If it fails, the backup path is printed. Restore it with:
 
@@ -124,8 +131,6 @@ database or `./backups`.
 
 These are planned for the post-tag **robust upgrades** change:
 
-- a pre-migration backup inside the container entrypoint (today it is in
-  `scripts/upgrade.sh`);
 - scheduled backups and retention outside the manual script;
 - published versioned images (today the stack builds from source);
 - a multi-release upgrade matrix (the current test covers the previous schema

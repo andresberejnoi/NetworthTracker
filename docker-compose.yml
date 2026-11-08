@@ -25,6 +25,16 @@ services:
       CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-3000},http://localhost:5173
       DATABASE_URL: postgres://${POSTGRES_USER:-networth}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required; copy .env.example to .env and change it}@db:5432/${POSTGRES_DB:-networth}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_DIR: /backups
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-networth}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required; copy .env.example to .env and change it}
+      PGDATABASE: ${POSTGRES_DB:-networth}
+    volumes:
+      - ./backups:/backups:Z
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
