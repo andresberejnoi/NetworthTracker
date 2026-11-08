@@ -6,9 +6,10 @@ use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_application::ports::{
     AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
-    AggregationRepository, BudgetRepository, CryptoRepository, FxRepository, IdentityRepository,
-    InvestmentRepository, NetWorthRepository, PriceRepository, RepositoryError, StoredPrice,
-    StoredRate, UserWithHash,
+    AggregationRepository, BudgetRepository, CryptoRepository, DocumentAuditEvent,
+    DocumentRepository, FxRepository, IdentityRepository, InvestmentRepository,
+    MigrationRepository, NetWorthRepository, NewDocument, PriceRepository, RepositoryError,
+    StoredDocument, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
     Account, AccountType, AggregationScope, Balance, BalanceSource, BudgetAllocation, BudgetIncome,
@@ -2486,5 +2487,297 @@ impl FxRepository for PostgresAccountRepository {
             })
         })
         .transpose()
+    }
+}
+
+#[async_trait]
+impl MigrationRepository for PostgresAccountRepository {
+    async fn record_run(&self, source: &str, summary: &str) -> Result<Uuid, RepositoryError> {
+        let (id,): (Uuid,) = sqlx::query_as(
+            "INSERT INTO migration_runs (source, summary) VALUES ($1, CAST($2 AS jsonb)) \
+             RETURNING id",
+        )
+        .bind(source)
+        .bind(summary)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(id)
+    }
+
+    async fn record_provenance(
+        &self,
+        migration_id: Uuid,
+        entity_type: &str,
+        entity_id: Uuid,
+        source: &str,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO migration_provenance \
+             (migration_id, entity_type, entity_id, source) VALUES ($1, $2, $3, $4) \
+             ON CONFLICT (migration_id, entity_type, entity_id) DO NOTHING",
+        )
+        .bind(migration_id)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(source)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct DocumentRow {
+    id: Uuid,
+    sha256: String,
+    original_name: String,
+    mime_type: String,
+    byte_size: i64,
+    uploader_user_id: Option<Uuid>,
+    tags: Vec<String>,
+    institution: Option<String>,
+    document_type: Option<String>,
+    classification_confidence: Option<f64>,
+    parser_version: Option<String>,
+    status: String,
+    period: Option<String>,
+    parse_error: Option<String>,
+    nonce: String,
+    key_version: String,
+    created_at: OffsetDateTime,
+    updated_at: OffsetDateTime,
+    deleted_at: Option<OffsetDateTime>,
+}
+
+impl From<DocumentRow> for StoredDocument {
+    fn from(row: DocumentRow) -> Self {
+        Self {
+            id: row.id,
+            sha256: row.sha256,
+            original_name: row.original_name,
+            mime_type: row.mime_type,
+            byte_size: row.byte_size,
+            uploader_user_id: row.uploader_user_id,
+            tags: row.tags,
+            institution: row.institution,
+            document_type: row.document_type,
+            classification_confidence: row.classification_confidence,
+            parser_version: row.parser_version,
+            status: row.status,
+            period: row.period,
+            parse_error: row.parse_error,
+            nonce: row.nonce,
+            key_version: row.key_version,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            deleted_at: row.deleted_at,
+        }
+    }
+}
+
+const DOCUMENT_COLUMNS: &str = "id, sha256, original_name, mime_type, byte_size, \
+    uploader_user_id, tags, institution, document_type, classification_confidence, \
+    parser_version, status, period, parse_error, nonce, key_version, created_at, \
+    updated_at, deleted_at";
+
+#[async_trait]
+impl DocumentRepository for PostgresAccountRepository {
+    async fn find_by_sha256(
+        &self,
+        sha256: &str,
+    ) -> Result<Option<StoredDocument>, RepositoryError> {
+        let row: Option<DocumentRow> = sqlx::query_as(&format!(
+            "SELECT {DOCUMENT_COLUMNS} FROM documents WHERE sha256 = $1"
+        ))
+        .bind(sha256)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(Into::into))
+    }
+
+    async fn insert(&self, new: &NewDocument) -> Result<StoredDocument, RepositoryError> {
+        let row: DocumentRow = sqlx::query_as(&format!(
+            "INSERT INTO documents \
+             (id, sha256, original_name, mime_type, byte_size, uploader_user_id, tags, \
+              institution, document_type, classification_confidence, parser_version, status, \
+              period, parse_error, nonce, key_version) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) \
+             RETURNING {DOCUMENT_COLUMNS}"
+        ))
+        .bind(new.id)
+        .bind(&new.sha256)
+        .bind(&new.original_name)
+        .bind(&new.mime_type)
+        .bind(new.byte_size)
+        .bind(new.uploader_user_id)
+        .bind(&new.tags)
+        .bind(&new.institution)
+        .bind(&new.document_type)
+        .bind(new.classification_confidence)
+        .bind(&new.parser_version)
+        .bind(&new.status)
+        .bind(&new.period)
+        .bind(&new.parse_error)
+        .bind(&new.nonce)
+        .bind(&new.key_version)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.into())
+    }
+
+    async fn find(&self, id: Uuid) -> Result<Option<StoredDocument>, RepositoryError> {
+        let row: Option<DocumentRow> = sqlx::query_as(&format!(
+            "SELECT {DOCUMENT_COLUMNS} FROM documents WHERE id = $1"
+        ))
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(Into::into))
+    }
+
+    async fn list(&self, include_deleted: bool) -> Result<Vec<StoredDocument>, RepositoryError> {
+        let rows: Vec<DocumentRow> = sqlx::query_as(&format!(
+            "SELECT {DOCUMENT_COLUMNS} FROM documents \
+             WHERE ($1 OR deleted_at IS NULL) ORDER BY created_at DESC"
+        ))
+        .bind(include_deleted)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn update_tags(
+        &self,
+        id: Uuid,
+        tags: &[String],
+    ) -> Result<Option<StoredDocument>, RepositoryError> {
+        let row: Option<DocumentRow> = sqlx::query_as(&format!(
+            "UPDATE documents SET tags = $2, updated_at = now() WHERE id = $1 \
+             RETURNING {DOCUMENT_COLUMNS}"
+        ))
+        .bind(id)
+        .bind(tags)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(Into::into))
+    }
+
+    async fn update_classification(
+        &self,
+        id: Uuid,
+        institution: Option<&str>,
+        document_type: Option<&str>,
+        confidence: Option<f64>,
+        status: &str,
+        parser_version: Option<&str>,
+        period: Option<&str>,
+        parse_error: Option<&str>,
+    ) -> Result<Option<StoredDocument>, RepositoryError> {
+        let row: Option<DocumentRow> = sqlx::query_as(&format!(
+            "UPDATE documents SET institution = $2, document_type = $3, \
+             classification_confidence = $4, status = $5, parser_version = $6, \
+             period = $7, parse_error = $8, updated_at = now() \
+             WHERE id = $1 RETURNING {DOCUMENT_COLUMNS}"
+        ))
+        .bind(id)
+        .bind(institution)
+        .bind(document_type)
+        .bind(confidence)
+        .bind(status)
+        .bind(parser_version)
+        .bind(period)
+        .bind(parse_error)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(Into::into))
+    }
+
+    async fn soft_delete(&self, id: Uuid) -> Result<bool, RepositoryError> {
+        let result = sqlx::query(
+            "UPDATE documents SET deleted_at = now(), updated_at = now() \
+             WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn record_audit(
+        &self,
+        document_id: Uuid,
+        user_id: Option<Uuid>,
+        action: &str,
+        metadata: &str,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO document_audit_events (document_id, user_id, action, metadata) \
+             VALUES ($1, $2, $3, CAST($4 AS jsonb))",
+        )
+        .bind(document_id)
+        .bind(user_id)
+        .bind(action)
+        .bind(metadata)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn list_audit(
+        &self,
+        document_id: Uuid,
+    ) -> Result<Vec<DocumentAuditEvent>, RepositoryError> {
+        let rows: Vec<(Uuid, Uuid, Option<Uuid>, String, String, OffsetDateTime)> = sqlx::query_as(
+            "SELECT id, document_id, user_id, action, metadata::text, created_at \
+                 FROM document_audit_events WHERE document_id = $1 ORDER BY created_at",
+        )
+        .bind(document_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(rows
+            .into_iter()
+            .map(
+                |(id, document_id, user_id, action, metadata, created_at)| DocumentAuditEvent {
+                    id,
+                    document_id,
+                    user_id,
+                    action,
+                    metadata,
+                    created_at,
+                },
+            )
+            .collect())
+    }
+
+    async fn record_provenance(
+        &self,
+        document_id: Uuid,
+        migration_id: Uuid,
+        entity_type: &str,
+        entity_id: Uuid,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO document_provenance \
+             (document_id, migration_id, entity_type, entity_id) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(document_id)
+        .bind(migration_id)
+        .bind(entity_type)
+        .bind(entity_id)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
     }
 }

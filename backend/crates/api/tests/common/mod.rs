@@ -57,6 +57,8 @@ fn build_with_chain(
         crypto: repository.clone(),
         budget: repository.clone(),
         aggregation: repository.clone(),
+        migrations: repository.clone(),
+        documents: repository.clone(),
         prices: repository.clone(),
         fx: repository,
     };

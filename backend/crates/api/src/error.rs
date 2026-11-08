@@ -128,6 +128,39 @@ impl From<networth_application::BackupError> for ApiError {
     }
 }
 
+impl From<networth_application::DocumentError> for ApiError {
+    fn from(error: networth_application::DocumentError) -> Self {
+        use networth_application::DocumentError;
+        match error {
+            DocumentError::Validation(message) => ApiError::BadRequest(message),
+            DocumentError::NotFound(message) => ApiError::NotFound(message),
+            DocumentError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            DocumentError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+            DocumentError::Storage(message) => ApiError::Internal(message),
+            DocumentError::Migration(error) => error.into(),
+        }
+    }
+}
+
+impl From<networth_application::MigrationError> for ApiError {
+    fn from(error: networth_application::MigrationError) -> Self {
+        use networth_application::MigrationError;
+        match error {
+            MigrationError::Validation(message) => ApiError::BadRequest(message),
+            MigrationError::Repository(RepositoryError::Conflict(message)) => {
+                ApiError::Conflict(message)
+            }
+            MigrationError::Repository(RepositoryError::Storage(message)) => {
+                ApiError::Internal(message)
+            }
+        }
+    }
+}
+
 impl From<networth_application::InvestmentError> for ApiError {
     fn from(error: networth_application::InvestmentError) -> Self {
         use networth_application::{InvestmentError, PriceError};

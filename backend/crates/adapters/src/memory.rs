@@ -11,9 +11,10 @@ use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use networth_application::ports::{
     AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
-    AggregationRepository, BudgetRepository, CryptoRepository, FxRepository, IdentityRepository,
-    InvestmentRepository, NetWorthRepository, PriceRepository, RepositoryError, StoredPrice,
-    StoredRate, UserWithHash,
+    AggregationRepository, BudgetRepository, CryptoRepository, DocumentAuditEvent,
+    DocumentRepository, FxRepository, IdentityRepository, InvestmentRepository,
+    MigrationRepository, NetWorthRepository, NewDocument, PriceRepository, RepositoryError,
+    StoredDocument, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
     Account, AccountType, Balance, BudgetAllocation, BudgetIncome, BudgetSpending, CryptoAsset,
@@ -55,8 +56,28 @@ struct Inner {
     crypto_lots: Vec<CryptoLotRecord>,
     crypto_sales: Vec<Sale>,
     next_lot_sequence: i64,
+    migration_runs: Vec<MigrationRunRecord>,
+    migration_provenance: Vec<MigrationProvenanceRecord>,
+    documents: Vec<StoredDocument>,
+    document_audit: Vec<DocumentAuditEvent>,
+    document_provenance: Vec<(Uuid, Uuid, String, Uuid)>,
     prices: Vec<PriceRecord>,
     fx_rates: Vec<FxRateRecord>,
+}
+
+#[allow(dead_code)]
+struct MigrationRunRecord {
+    id: Uuid,
+    source: String,
+    summary: String,
+}
+
+#[allow(dead_code)]
+struct MigrationProvenanceRecord {
+    migration_id: Uuid,
+    entity_type: String,
+    entity_id: Uuid,
+    source: String,
 }
 
 struct CryptoLotRecord {
@@ -1294,5 +1315,222 @@ impl FxRepository for InMemoryAccountRepository {
                 rate: record.rate.clone(),
                 as_of: record.as_of,
             }))
+    }
+}
+
+#[async_trait]
+impl MigrationRepository for InMemoryAccountRepository {
+    async fn record_run(&self, source: &str, summary: &str) -> Result<Uuid, RepositoryError> {
+        let id = Uuid::new_v4();
+        let mut inner = self.inner.lock().expect("lock");
+        inner.migration_runs.push(MigrationRunRecord {
+            id,
+            source: source.to_string(),
+            summary: summary.to_string(),
+        });
+        Ok(id)
+    }
+
+    async fn record_provenance(
+        &self,
+        migration_id: Uuid,
+        entity_type: &str,
+        entity_id: Uuid,
+        source: &str,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.migration_provenance.push(MigrationProvenanceRecord {
+            migration_id,
+            entity_type: entity_type.to_string(),
+            entity_id,
+            source: source.to_string(),
+        });
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl DocumentRepository for InMemoryAccountRepository {
+    async fn find_by_sha256(
+        &self,
+        sha256: &str,
+    ) -> Result<Option<StoredDocument>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .documents
+            .iter()
+            .find(|document| document.sha256 == sha256)
+            .cloned())
+    }
+
+    async fn insert(&self, new: &NewDocument) -> Result<StoredDocument, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if inner
+            .documents
+            .iter()
+            .any(|document| document.sha256 == new.sha256)
+        {
+            return Err(RepositoryError::Conflict(
+                "a document with that content already exists".to_string(),
+            ));
+        }
+        let now = OffsetDateTime::now_utc();
+        let document = StoredDocument {
+            id: new.id,
+            sha256: new.sha256.clone(),
+            original_name: new.original_name.clone(),
+            mime_type: new.mime_type.clone(),
+            byte_size: new.byte_size,
+            uploader_user_id: new.uploader_user_id,
+            tags: new.tags.clone(),
+            institution: new.institution.clone(),
+            document_type: new.document_type.clone(),
+            classification_confidence: new.classification_confidence,
+            parser_version: new.parser_version.clone(),
+            status: new.status.clone(),
+            period: new.period.clone(),
+            parse_error: new.parse_error.clone(),
+            nonce: new.nonce.clone(),
+            key_version: new.key_version.clone(),
+            created_at: now,
+            updated_at: now,
+            deleted_at: None,
+        };
+        inner.documents.push(document.clone());
+        Ok(document)
+    }
+
+    async fn find(&self, id: Uuid) -> Result<Option<StoredDocument>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .documents
+            .iter()
+            .find(|document| document.id == id)
+            .cloned())
+    }
+
+    async fn list(&self, include_deleted: bool) -> Result<Vec<StoredDocument>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut documents: Vec<StoredDocument> = inner
+            .documents
+            .iter()
+            .filter(|document| include_deleted || document.deleted_at.is_none())
+            .cloned()
+            .collect();
+        documents.sort_by_key(|document| std::cmp::Reverse(document.created_at));
+        Ok(documents)
+    }
+
+    async fn update_tags(
+        &self,
+        id: Uuid,
+        tags: &[String],
+    ) -> Result<Option<StoredDocument>, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let Some(document) = inner
+            .documents
+            .iter_mut()
+            .find(|document| document.id == id)
+        else {
+            return Ok(None);
+        };
+        document.tags = tags.to_vec();
+        document.updated_at = OffsetDateTime::now_utc();
+        Ok(Some(document.clone()))
+    }
+
+    async fn update_classification(
+        &self,
+        id: Uuid,
+        institution: Option<&str>,
+        document_type: Option<&str>,
+        confidence: Option<f64>,
+        status: &str,
+        parser_version: Option<&str>,
+        period: Option<&str>,
+        parse_error: Option<&str>,
+    ) -> Result<Option<StoredDocument>, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let Some(document) = inner
+            .documents
+            .iter_mut()
+            .find(|document| document.id == id)
+        else {
+            return Ok(None);
+        };
+        document.institution = institution.map(str::to_string);
+        document.document_type = document_type.map(str::to_string);
+        document.classification_confidence = confidence;
+        document.status = status.to_string();
+        document.parser_version = parser_version.map(str::to_string);
+        document.period = period.map(str::to_string);
+        document.parse_error = parse_error.map(str::to_string);
+        document.updated_at = OffsetDateTime::now_utc();
+        Ok(Some(document.clone()))
+    }
+
+    async fn soft_delete(&self, id: Uuid) -> Result<bool, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let Some(document) = inner
+            .documents
+            .iter_mut()
+            .find(|document| document.id == id)
+        else {
+            return Ok(false);
+        };
+        document.deleted_at = Some(OffsetDateTime::now_utc());
+        document.updated_at = OffsetDateTime::now_utc();
+        Ok(true)
+    }
+
+    async fn record_audit(
+        &self,
+        document_id: Uuid,
+        user_id: Option<Uuid>,
+        action: &str,
+        metadata: &str,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.document_audit.push(DocumentAuditEvent {
+            id: Uuid::new_v4(),
+            document_id,
+            user_id,
+            action: action.to_string(),
+            metadata: metadata.to_string(),
+            created_at: OffsetDateTime::now_utc(),
+        });
+        Ok(())
+    }
+
+    async fn list_audit(
+        &self,
+        document_id: Uuid,
+    ) -> Result<Vec<DocumentAuditEvent>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        let mut events: Vec<DocumentAuditEvent> = inner
+            .document_audit
+            .iter()
+            .filter(|event| event.document_id == document_id)
+            .cloned()
+            .collect();
+        events.sort_by_key(|event| event.created_at);
+        Ok(events)
+    }
+
+    async fn record_provenance(
+        &self,
+        document_id: Uuid,
+        migration_id: Uuid,
+        entity_type: &str,
+        entity_id: Uuid,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.document_provenance.push((
+            document_id,
+            migration_id,
+            entity_type.to_string(),
+            entity_id,
+        ));
+        Ok(())
     }
 }

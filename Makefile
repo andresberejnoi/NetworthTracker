@@ -4,7 +4,7 @@ COMPOSE ?= docker compose
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
         integration-test upgrade-test upgrade-matrix entrypoint-test offline-test e2e-test verify-guards boundaries secrets validate test build up down \
-        backup backup-scheduled backup-timer backup-schedule-test restore restore-drill upgrade destroy clean
+        backup backup-scheduled backup-timer backup-schedule-test documents-cleanup documents-cleanup-test restore restore-drill upgrade destroy clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -62,6 +62,7 @@ e2e-test: ## Run the full local release/e2e matrix
 	$(MAKE) upgrade-test
 	$(MAKE) entrypoint-test
 	$(MAKE) backup-schedule-test
+	$(MAKE) documents-cleanup-test
 	$(MAKE) offline-test
 
 verify-guards: ## Prove contract and boundary checks fail on deliberate violations
@@ -101,6 +102,12 @@ backup-timer: ## Print the systemd user timer (use --install to write it)
 
 backup-schedule-test: ## Test scheduled backup locking, logging, and fail-closed behavior
 	./scripts/test-backup-schedule.sh
+
+documents-cleanup: ## Dry-run orphaned/temporary document file cleanup
+	./scripts/cleanup-documents.sh
+
+documents-cleanup-test: ## Test document cleanup candidates and confirmation
+	./scripts/test-document-cleanup.sh
 
 restore: ## Restore a backup: make restore FILE=backups/networth-....sql.gz.gpg
 	./scripts/restore.sh "$(FILE)"

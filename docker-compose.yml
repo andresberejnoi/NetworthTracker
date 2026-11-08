@@ -29,6 +29,9 @@ services:
       BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
       BACKUP_DIR: /backups
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      DOCUMENT_ENCRYPTION_KEY: ${DOCUMENT_ENCRYPTION_KEY:-}
+      DOCUMENT_DIR: /documents
+      DOCUMENT_MAX_BYTES: ${DOCUMENT_MAX_BYTES:-20971520}
       PGHOST: db
       PGPORT: 5432
       PGUSER: ${POSTGRES_USER:-networth}
@@ -36,6 +39,7 @@ services:
       PGDATABASE: ${POSTGRES_DB:-networth}
     volumes:
       - ./backups:/backups:Z
+      - ./documents:/documents:Z
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

@@ -92,6 +92,20 @@ jobs:
         run: ./scripts/test-upgrade.sh
       - name: Scheduled backup wrapper
         run: ./scripts/test-backup-schedule.sh
+      - name: Document cleanup safety
+        run: ./scripts/test-document-cleanup.sh
+
+  integration:
+    name: Cross-boundary integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Start the API and run frontend/client integration
+        run: ./scripts/integration-test.sh
 
   upgrade-matrix:
     name: Multi-release upgrade matrix
@@ -131,7 +145,7 @@ jobs:
   publish:
     name: Publish versioned images
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [boundaries, openspec, backend, upgrade, upgrade-matrix, frontend]
+    needs: [boundaries, openspec, backend, upgrade, upgrade-matrix, integration, frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: read

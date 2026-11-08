@@ -53,8 +53,16 @@ async fn applying_a_new_migration_preserves_existing_data() {
     files.sort();
     assert!(files.len() >= 5, "need at least five migrations");
 
-    // Exercise the last four migrations (tax lots, crypto, budgeting, aggregation).
-    let previous_count = files.len() - 4;
+    // Start before the tax-lots migration so the fixture can use holding_lots;
+    // the remaining migrations exercise tax lots, crypto, budgets, aggregation,
+    // migration provenance, and documents.
+    let previous_count = files
+        .iter()
+        .position(|file| {
+            file.file_name().and_then(|name| name.to_str())
+                == Some("20261030000001_tax_lots.sql")
+        })
+        .unwrap_or(files.len() - 4);
     let previous_dir = std::env::temp_dir().join(format!("networth-previous-{db_name}"));
     std::fs::create_dir_all(&previous_dir).expect("create temp migrations dir");
     for file in &files[..previous_count] {

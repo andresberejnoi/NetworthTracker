@@ -40,6 +40,11 @@ I wanted a tool to track networth in different ways and that allows me to keep m
   clipboard paste. Paste twenty rows instead of opening twenty forms.
 - **Spreadsheet import/export** — versioned CSV/XLSX with validation before any
   write, idempotent re-imports, and sample files in `samples/`.
+- **Guided migration** — generic CSV/JSON adapters, field mapping, dry-run
+  preview, atomic/partial apply, provenance, and a verified-backup gate.
+- **Encrypted document ingestion** — local AES-256-GCM document store, CSV/XLSX/
+  XML/OFX/PDF detection, institution/type classification, preview/import, audit,
+  and cleanup.
 - **Full backup/restore** — JSON with accounts, balances, snapshots, investments, crypto, budgets, and aggregation provenance.
 - **Family accounts** — local login, owner/editor/viewer roles, private
   accounts, and per-user visibility.
@@ -195,6 +200,8 @@ The current version is `0.1.20261101`. The authoritative value lives in
 - `docs/tutorial.md` — guided first setup and feature tour
 - `docs/deployment.md` — Docker Compose and Podman deployment
 - `docs/backup.md` — manual/scheduled backups, timers, key separation
+- `docs/data-migration.md` — guided CSV/JSON migration, preview/apply
+- `docs/document-ingestion.md` — encrypted documents, parsing, audit, cleanup
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
 - `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions

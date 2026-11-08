@@ -800,3 +800,84 @@ async fn persists_crypto_lots_and_fifo_sales(pool: PgPool) {
     assert_eq!(remaining[1].basis_quality, BasisQuality::Estimated);
     assert_eq!(repo.list_crypto_sales(wallet.id).await.unwrap().len(), 1);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_document_metadata_audit_and_provenance(pool: PgPool) {
+    use networth_application::ports::{DocumentRepository, MigrationRepository};
+    use networth_application::NewDocument;
+    use uuid::Uuid;
+
+    let repo = PostgresAccountRepository::new(pool);
+    let id = Uuid::new_v4();
+    let document = repo
+        .insert(&NewDocument {
+            id,
+            sha256: "a".repeat(64),
+            original_name: "fidelity.csv".to_string(),
+            mime_type: "text/csv".to_string(),
+            byte_size: 42,
+            uploader_user_id: None,
+            tags: vec!["retirement".to_string()],
+            institution: Some("Fidelity".to_string()),
+            document_type: Some("holdings".to_string()),
+            classification_confidence: Some(0.9),
+            parser_version: Some("generic-1".to_string()),
+            status: "parsed".to_string(),
+            period: Some("2026".to_string()),
+            parse_error: None,
+            nonce: "bm9uY2U=".to_string(),
+            key_version: "1".to_string(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(document.original_name, "fidelity.csv");
+    assert_eq!(
+        repo.find_by_sha256(&"a".repeat(64))
+            .await
+            .unwrap()
+            .expect("document")
+            .id,
+        id
+    );
+
+    let updated = repo
+        .update_tags(id, &["confirmed".to_string()])
+        .await
+        .unwrap()
+        .expect("tags");
+    assert_eq!(updated.tags, vec!["confirmed".to_string()]);
+    let classified = repo
+        .update_classification(
+            id,
+            Some("Fidelity"),
+            Some("holdings"),
+            Some(0.99),
+            "confirmed",
+            Some("generic-1"),
+            Some("2026"),
+            None,
+        )
+        .await
+        .unwrap()
+        .expect("classification");
+    assert_eq!(classified.status, "confirmed");
+
+    repo.record_audit(id, None, "upload", r#"{"ok":true}"#)
+        .await
+        .unwrap();
+    let audit = repo.list_audit(id).await.unwrap();
+    assert_eq!(audit.len(), 1);
+    assert_eq!(audit[0].metadata, r#"{"ok": true}"#);
+
+    let migration_id = repo
+        .record_run("generic_csv", r#"{"rows":1}"#)
+        .await
+        .unwrap();
+    DocumentRepository::record_provenance(&repo, id, migration_id, "migration", migration_id)
+        .await
+        .unwrap();
+
+    assert!(repo.soft_delete(id).await.unwrap());
+    assert!(repo.list(false).await.unwrap().is_empty());
+    assert_eq!(repo.list(true).await.unwrap().len(), 1);
+}

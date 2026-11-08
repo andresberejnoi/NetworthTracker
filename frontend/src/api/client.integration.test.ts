@@ -36,6 +36,7 @@ import {
   setPrice,
   syncAggregation,
   syncCryptoWallet,
+  uploadDocument,
 } from "./client";
 
 /**
@@ -411,6 +412,14 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
       chain: "bitcoin",
       label: "Contract Wallet",
     });
+    const contractDocument = await uploadDocument(
+      new File(
+        ["record_type,account_name\naccount,Contract Document Account\n"],
+        "contract-document.csv",
+        { type: "text/csv" },
+      ),
+      ["contract"],
+    );
     await fetch(`${API_BASE_URL}/api/v1/fx-rates`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -428,6 +437,9 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
         .replace("{symbol}", symbol);
       if (path.startsWith("/api/v1/crypto/wallets/")) {
         concretePath = path.replace("{id}", cryptoWallet.id);
+      }
+      if (path.startsWith("/api/v1/documents/")) {
+        concretePath = path.replace("{id}", contractDocument.id);
       }
       if (concretePath === "/api/v1/fx-rates") {
         concretePath += "?base=USD&quote=EUR";

@@ -234,6 +234,257 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/migrations/preview:
+    post:
+      tags: [data]
+      operationId: previewMigration
+      summary: Dry-run a generic CSV/JSON migration (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MigrationRequest"
+      responses:
+        "200":
+          description: Preview summary and row errors.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/migrations/apply:
+    post:
+      tags: [data]
+      operationId: applyMigration
+      summary: Apply a generic CSV/JSON migration (owner only; backup required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MigrationApplyRequest"
+      responses:
+        "200":
+          description: Migration report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/documents:
+    get:
+      tags: [data]
+      operationId: listDocuments
+      summary: List uploaded financial documents (owner only)
+      parameters:
+        - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Document metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [data]
+      operationId: uploadDocument
+      summary: Upload an encrypted financial document (owner only)
+      parameters:
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: tags
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored document metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/documents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [data]
+      operationId: getDocument
+      summary: Get document metadata (owner only)
+      responses:
+        "200":
+          description: Document metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [data]
+      operationId: updateDocument
+      summary: Update tags or confirm document classification (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentRequest"
+      responses:
+        "200":
+          description: Updated metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [data]
+      operationId: deleteDocument
+      summary: Soft-delete a document (owner only)
+      responses:
+        "204":
+          description: Soft-deleted.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/documents/{id}/download:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [data]
+      operationId: downloadDocument
+      summary: Download and decrypt a document (owner only)
+      responses:
+        "200":
+          description: Original bytes.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/documents/{id}/preview:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [data]
+      operationId: previewDocument
+      summary: Parse and preview a document (owner only)
+      responses:
+        "200":
+          description: Parsed table and classification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPreview"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/documents/{id}/audit:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [data]
+      operationId: documentAudit
+      summary: List document audit events (owner only)
+      responses:
+        "200":
+          description: Audit events.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentAuditEvent"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/documents/{id}/import:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [data]
+      operationId: importDocument
+      summary: Import a parsed document through the migration pipeline (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentImportRequest"
+      responses:
+        "200":
+          description: Migration report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/securities:
     get:
       tags: [investments]
@@ -1346,6 +1597,286 @@ components:
       properties:
         role:
           $ref: "#/components/schemas/UserRole"
+    Table:
+      type: object
+      additionalProperties: false
+      required: [headers, rows]
+      properties:
+        headers:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+    Document:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sha256
+        - original_name
+        - mime_type
+        - byte_size
+        - uploader_user_id
+        - tags
+        - institution
+        - document_type
+        - classification_confidence
+        - parser_version
+        - status
+        - period
+        - parse_error
+        - nonce
+        - key_version
+        - created_at
+        - updated_at
+        - deleted_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        sha256:
+          type: string
+        original_name:
+          type: string
+        mime_type:
+          type: string
+        byte_size:
+          type: integer
+        uploader_user_id:
+          type: [string, "null"]
+          format: uuid
+        tags:
+          type: array
+          items:
+            type: string
+        institution:
+          type: [string, "null"]
+        document_type:
+          type: [string, "null"]
+        classification_confidence:
+          type: [number, "null"]
+        parser_version:
+          type: [string, "null"]
+        status:
+          type: string
+        period:
+          type: [string, "null"]
+        parse_error:
+          type: [string, "null"]
+        nonce:
+          type: string
+        key_version:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+        deleted_at:
+          type: [string, "null"]
+    DocumentAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [id, document_id, user_id, action, metadata, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        user_id:
+          type: [string, "null"]
+          format: uuid
+        action:
+          type: string
+        metadata:
+          type: string
+        created_at:
+          type: string
+    DocumentPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - document
+        - format
+        - institution
+        - document_type
+        - confidence
+        - table
+        - error
+        - audit
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+        format:
+          type: string
+        institution:
+          type: [string, "null"]
+        document_type:
+          type: [string, "null"]
+        confidence:
+          type: [number, "null"]
+        table:
+          oneOf:
+            - $ref: "#/components/schemas/Table"
+            - type: "null"
+        error:
+          type: [string, "null"]
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentAuditEvent"
+    UpdateDocumentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+        institution:
+          type: string
+        document_type:
+          type: string
+        confidence:
+          type: number
+        period:
+          type: string
+    DocumentImportRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, backup_confirmed]
+      properties:
+        mapping:
+          type: object
+          additionalProperties:
+            type: string
+        mode:
+          $ref: "#/components/schemas/MigrationMode"
+        backup_confirmed:
+          type: boolean
+    MigrationSourceKind:
+      type: string
+      enum: [generic_csv, generic_json]
+    MigrationMode:
+      type: string
+      enum: [atomic, partial]
+    MigrationRequest:
+      type: object
+      additionalProperties: false
+      required: [source, content]
+      properties:
+        source:
+          $ref: "#/components/schemas/MigrationSourceKind"
+        mapping:
+          type: object
+          additionalProperties:
+            type: string
+        content:
+          type: string
+    MigrationApplyRequest:
+      type: object
+      additionalProperties: false
+      required: [source, content, mode, backup_confirmed]
+      properties:
+        source:
+          $ref: "#/components/schemas/MigrationSourceKind"
+        mapping:
+          type: object
+          additionalProperties:
+            type: string
+        content:
+          type: string
+        mode:
+          $ref: "#/components/schemas/MigrationMode"
+        backup_confirmed:
+          type: boolean
+    MigrationRowError:
+      type: object
+      additionalProperties: false
+      required: [row, message]
+      properties:
+        row:
+          type: integer
+        message:
+          type: string
+    MigrationPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - source
+        - total_rows
+        - accounts
+        - balances
+        - holding_lots
+        - crypto_wallets
+        - crypto_balances
+        - crypto_lots
+        - errors
+      properties:
+        source:
+          type: string
+        total_rows:
+          type: integer
+        accounts:
+          type: integer
+        balances:
+          type: integer
+        holding_lots:
+          type: integer
+        crypto_wallets:
+          type: integer
+        crypto_balances:
+          type: integer
+        crypto_lots:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationRowError"
+    MigrationReport:
+      type: object
+      additionalProperties: false
+      required:
+        - migration_id
+        - accounts_created
+        - balances_saved
+        - holding_lots_saved
+        - holdings_skipped
+        - crypto_wallets_created
+        - crypto_balances_saved
+        - crypto_lots_saved
+        - crypto_holdings_skipped
+        - errors
+      properties:
+        migration_id:
+          type: string
+          format: uuid
+        accounts_created:
+          type: integer
+        balances_saved:
+          type: integer
+        holding_lots_saved:
+          type: integer
+        holdings_skipped:
+          type: integer
+        crypto_wallets_created:
+          type: integer
+        crypto_balances_saved:
+          type: integer
+        crypto_lots_saved:
+          type: integer
+        crypto_holdings_skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationRowError"
     BackupAccount:
       type: object
       additionalProperties: false

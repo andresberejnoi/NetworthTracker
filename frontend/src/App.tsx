@@ -18,6 +18,7 @@ import BudgetView from "./features/budget/BudgetView";
 import BulkEntryView from "./features/bulk-entry/BulkEntryView";
 import CryptoView from "./features/crypto/CryptoView";
 import DataView from "./features/data/DataView";
+import DocumentsView from "./features/documents/DocumentsView";
 import HoldingsView from "./features/investments/HoldingsView";
 import NetWorthView from "./features/networth/NetWorthView";
 import UsersView from "./features/users/UsersView";
@@ -28,6 +29,7 @@ type View =
   | "accounts"
   | "bulk"
   | "data"
+  | "documents"
   | "investments"
   | "crypto"
   | "budget"
@@ -199,6 +201,15 @@ export default function App() {
             >
               Data
             </button>
+            {user.role === "owner" && (
+              <button
+                type="button"
+                aria-pressed={view === "documents"}
+                onClick={() => setView("documents")}
+              >
+                Documents
+              </button>
+            )}
             <button
               type="button"
               aria-pressed={view === "investments"}
@@ -249,6 +260,8 @@ export default function App() {
           <BulkEntryView />
         ) : view === "data" ? (
           <DataView />
+        ) : view === "documents" ? (
+          <DocumentsView />
         ) : view === "investments" ? (
           <HoldingsView />
         ) : view === "crypto" ? (

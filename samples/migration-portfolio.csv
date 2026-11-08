@@ -1,0 +1,8 @@
+record_type,account_name,account_type,institution,currency,ownership_scope,archived,as_of,amount,source,symbol,security_name,asset_class,acquired_on,quantity,cost_basis,fees,lot_source,basis_quality,basis_note,asset_symbol,asset_name,chain,wallet_label,wallet_kind,wallet_address,decimals
+account,Everyday Checking,checking,Local Bank,USD,household,false,,,,,,,,,,,,,,,,,,,,
+balance,Everyday Checking,,,,,,2026-01-01,2500.00,import,,,,,,,,,,,,,,,,,
+account,Brokerage,taxable_brokerage,Example Broker,USD,household,false,,,,,,,,,,,,,,,,,,,,
+holding_lot,Brokerage,,,USD,,,,,,VTI,Total Market ETF,equity,2026-01-01,10,1000.00,0,import,actual,,,,,,,,
+account,Crypto,crypto,,USD,household,false,,,,,,,,,,,,,,,,,,,,
+crypto_balance,,,,USD,,,2026-01-01,,import,,,,,,,,,,,BTC,Bitcoin,bitcoin,Coinbase,manual,,18
+crypto_lot,,,,USD,,,,,,,,,2026-01-01,0.5,10000.00,0,import,actual,,BTC,Bitcoin,bitcoin,Coinbase,manual,,18

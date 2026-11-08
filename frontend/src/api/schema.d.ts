@@ -194,6 +194,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/migrations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dry-run a generic CSV/JSON migration (owner only) */
+        post: operations["previewMigration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/migrations/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a generic CSV/JSON migration (owner only; backup required) */
+        post: operations["applyMigration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List uploaded financial documents (owner only) */
+        get: operations["listDocuments"];
+        put?: never;
+        /** Upload an encrypted financial document (owner only) */
+        post: operations["uploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Get document metadata (owner only) */
+        get: operations["getDocument"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a document (owner only) */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        /** Update tags or confirm document classification (owner only) */
+        patch: operations["updateDocument"];
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Download and decrypt a document (owner only) */
+        get: operations["downloadDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Parse and preview a document (owner only) */
+        post: operations["previewDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** List document audit events (owner only) */
+        get: operations["documentAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import a parsed document through the migration pipeline (owner only) */
+        post: operations["importDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/securities": {
         parameters: {
             query?: never;
@@ -864,6 +1013,116 @@ export interface components {
         };
         UpdateRoleRequest: {
             role: components["schemas"]["UserRole"];
+        };
+        Table: {
+            headers: string[];
+            rows: string[][];
+        };
+        Document: {
+            /** Format: uuid */
+            id: string;
+            sha256: string;
+            original_name: string;
+            mime_type: string;
+            byte_size: number;
+            /** Format: uuid */
+            uploader_user_id: string | null;
+            tags: string[];
+            institution: string | null;
+            document_type: string | null;
+            classification_confidence: number | null;
+            parser_version: string | null;
+            status: string;
+            period: string | null;
+            parse_error: string | null;
+            nonce: string;
+            key_version: string;
+            created_at: string;
+            updated_at: string;
+            deleted_at: string | null;
+        };
+        DocumentAuditEvent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            document_id: string;
+            /** Format: uuid */
+            user_id: string | null;
+            action: string;
+            metadata: string;
+            created_at: string;
+        };
+        DocumentPreview: {
+            document: components["schemas"]["Document"];
+            format: string;
+            institution: string | null;
+            document_type: string | null;
+            confidence: number | null;
+            table: components["schemas"]["Table"] | null;
+            error: string | null;
+            audit: components["schemas"]["DocumentAuditEvent"][];
+        };
+        UpdateDocumentRequest: {
+            tags?: string[];
+            institution?: string;
+            document_type?: string;
+            confidence?: number;
+            period?: string;
+        };
+        DocumentImportRequest: {
+            mapping?: {
+                [key: string]: string;
+            };
+            mode: components["schemas"]["MigrationMode"];
+            backup_confirmed: boolean;
+        };
+        /** @enum {string} */
+        MigrationSourceKind: "generic_csv" | "generic_json";
+        /** @enum {string} */
+        MigrationMode: "atomic" | "partial";
+        MigrationRequest: {
+            source: components["schemas"]["MigrationSourceKind"];
+            mapping?: {
+                [key: string]: string;
+            };
+            content: string;
+        };
+        MigrationApplyRequest: {
+            source: components["schemas"]["MigrationSourceKind"];
+            mapping?: {
+                [key: string]: string;
+            };
+            content: string;
+            mode: components["schemas"]["MigrationMode"];
+            backup_confirmed: boolean;
+        };
+        MigrationRowError: {
+            row: number;
+            message: string;
+        };
+        MigrationPreview: {
+            source: string;
+            total_rows: number;
+            accounts: number;
+            balances: number;
+            holding_lots: number;
+            crypto_wallets: number;
+            crypto_balances: number;
+            crypto_lots: number;
+            errors: components["schemas"]["MigrationRowError"][];
+        };
+        MigrationReport: {
+            /** Format: uuid */
+            migration_id: string;
+            accounts_created: number;
+            balances_saved: number;
+            holding_lots_saved: number;
+            holdings_skipped: number;
+            crypto_wallets_created: number;
+            crypto_balances_saved: number;
+            crypto_lots_saved: number;
+            crypto_holdings_skipped: number;
+            errors: components["schemas"]["MigrationRowError"][];
         };
         BackupAccount: {
             name: string;
@@ -1885,6 +2144,283 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RestoreReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    previewMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MigrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Preview summary and row errors. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    applyMigration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MigrationApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Migration report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: {
+                include_deleted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    uploadDocument: {
+        parameters: {
+            query: {
+                filename: string;
+                tags?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored document metadata. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Soft-deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    previewDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Parsed table and classification. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPreview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    documentAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentAuditEvent"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    importDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Migration report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationReport"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -37,6 +37,13 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
   rejected and provider tokens/passwords/sessions are excluded.
 - Round-trip coverage for investments, crypto, lots/sales, budgets,
   aggregation provenance, and v1 compatibility.
+- Guided generic CSV/JSON migration with field mapping, dry-run preview,
+  atomic/partial apply, stable keys, provenance, and a verified-backup gate.
+- An encrypted content-addressed document store with CSV/XLSX/XML/OFX/PDF
+  detection, institution/type classification, preview/import, tags, audit,
+  provenance, encrypted document backups, and safe orphan cleanup.
+- A migration CLI (`scripts/migrate.sh`), sample portfolio files, and document/
+  migration UI and tests.
 
 ### Security
 

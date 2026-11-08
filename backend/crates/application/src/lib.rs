@@ -11,8 +11,10 @@ pub mod backup;
 pub mod budget;
 pub mod crypto;
 pub mod data_exchange;
+pub mod document;
 pub mod investments;
 pub mod market_data;
+pub mod migration;
 pub mod networth;
 pub mod ports;
 
@@ -38,17 +40,26 @@ pub use crypto::{validate_public_address, CryptoError, CryptoPosition, CryptoSer
 pub use data_exchange::{
     ImportError, ImportReport, ImportRowError, ImportService, Table, COLUMNS, SCHEMA_VERSION,
 };
+pub use document::{
+    classify_document, parse_document, Classification, DocumentError, DocumentFormat,
+    DocumentParser, DocumentPreview, DocumentService, PARSER_VERSION,
+};
 pub use investments::{HoldingValuation, InvestmentError, InvestmentsService};
 pub use market_data::{
     FxError, FxService, PriceError, PriceService, ProviderConfig, DEFAULT_MAX_AGE_SECS,
+};
+pub use migration::{
+    MigrationApplyRequest, MigrationError, MigrationMode, MigrationPreview, MigrationReport,
+    MigrationRequest, MigrationRowError, MigrationService, MigrationSourceKind,
 };
 pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
 pub use ports::{
     AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
     AggregationProvider, AggregationRepository, BudgetRepository, ChainBalance, ChainDataProvider,
-    CryptoRepository, FxRepository, IdentityRepository, InvestmentRepository, NetWorthRepository,
-    PriceProvider, PriceRepository, ProviderAccount, ProviderError, ProviderHolding, ProviderQuote,
-    ProviderSnapshot, RepositoryError, StoredPrice, StoredRate, UserWithHash,
+    CryptoRepository, DocumentAuditEvent, DocumentRepository, FxRepository, IdentityRepository,
+    InvestmentRepository, MigrationRepository, NetWorthRepository, NewDocument, PriceProvider,
+    PriceRepository, ProviderAccount, ProviderError, ProviderHolding, ProviderQuote,
+    ProviderSnapshot, RepositoryError, StoredDocument, StoredPrice, StoredRate, UserWithHash,
 };
 
 use networth_domain::APP_NAME;

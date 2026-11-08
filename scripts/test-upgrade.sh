@@ -151,7 +151,19 @@ if [[ ${#migrations[@]} -lt 2 ]]; then
   echo "Need at least two migrations to test an upgrade" >&2
   exit 1
 fi
-previous_count=$((${#migrations[@]} - 4))
+# Start before the tax-lots migration so the fixture uses holding_lots; the
+# current backend then applies tax lots, crypto, budgets, aggregation, and any
+# later persistence migrations.
+previous_count=0
+for i in "${!migrations[@]}"; do
+  if [[ "$(basename "${migrations[$i]}")" == 20261030000001_tax_lots.sql ]]; then
+    previous_count=$i
+    break
+  fi
+done
+if [[ "$previous_count" -eq 0 ]]; then
+  previous_count=$((${#migrations[@]} - 4))
+fi
 
 echo "Creating the previous schema (${previous_count} of ${#migrations[@]} migrations) ..."
 psql_db -c "
@@ -246,7 +258,8 @@ assert_data
 echo "Schema upgrade preserved data and the new schema is writable."
 
 # Use temporary copies so the test never reads or writes the real .env/backups.
-mkdir -p "$work_dir/scripts" "$work_dir/bin" "$work_dir/remote"
+mkdir -p "$work_dir/scripts" "$work_dir/bin" "$work_dir/remote" "$work_dir/documents"
+printf 'document fixture\n' > "$work_dir/documents/original.enc"
 cp "$root/scripts/backup.sh" "$root/scripts/restore.sh" "$work_dir/scripts/"
 cat > "$work_dir/bin/rclone" <<'FAKE'
 #!/usr/bin/env bash
@@ -285,6 +298,7 @@ BACKUP_KEEP=2
 BACKUP_REMOTE=${work_dir}/remote
 BACKUP_REMOTE_KEEP=2
 FAKE_RCLONE_LOG=${work_dir}/rclone.log
+DOCUMENT_DIR=${work_dir}/documents
 DB_CONTAINER=${db_container}
 RESTORE_SKIP_BACKEND=1
 EOF
@@ -305,6 +319,13 @@ if [[ ! -s "$work_dir/remote/$(basename "$backup_file")" ]]; then
   echo "Off-site encrypted backup was not copied" >&2
   exit 1
 fi
+docs_archive="$work_dir/backups/networth-documents-$(basename "$backup_file" .sql.gz.gpg | sed 's/^networth-//').tar.gz.gpg"
+if [[ ! -s "$docs_archive" ]]; then
+  echo "Encrypted document archive was not created" >&2
+  exit 1
+fi
+gpg --batch --yes --pinentry-mode loopback --decrypt   --passphrase "$backup_passphrase" "$docs_archive" 2>/dev/null | tar -tzf - >/dev/null
+rm -f "$work_dir/documents/original.enc"
 if [[ -e "$work_dir/remote/networth-20200101T000000Z.sql.gz.gpg" ]]; then
   echo "Off-site retention did not prune the oldest backup" >&2
   exit 1
@@ -348,7 +369,11 @@ if [[ "$version" != "$expected_version" ]]; then
   exit 1
 fi
 assert_data
-echo "Encrypted backup restored; version and data are correct."
+if [[ ! -f "$work_dir/documents/original.enc" ]]; then
+  echo "Document file was not restored from the backup" >&2
+  exit 1
+fi
+echo "Encrypted backup restored; version, data, and documents are correct."
 
 echo "Running the restore drill ..."
 RESTORE_DRILL_ENV_FILE="$work_dir/.env" "$root/scripts/restore-drill.sh" "$backup_file"

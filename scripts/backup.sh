@@ -26,6 +26,7 @@ BACKUP_KEEP="${BACKUP_KEEP:-14}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
 BACKUP_REMOTE="${BACKUP_REMOTE:-}"
 BACKUP_REMOTE_KEEP="${BACKUP_REMOTE_KEEP:-}"
+DOCUMENT_DIR="${DOCUMENT_DIR:-$root/documents}"
 DB_CONTAINER="${DB_CONTAINER:-}"
 COMPOSE_CMD="${COMPOSE_CMD:-docker compose}"
 
@@ -55,7 +56,7 @@ gpg_decrypt() {
 }
 
 copy_offsite() {
-  local file="$1" name keep old remote_listing
+  local file="$1" pattern="${2:-networth-*.sql.gz.gpg}" name keep old remote_listing
   local -a remote_files=()
   [[ -n "$BACKUP_REMOTE" ]] || return 0
 
@@ -82,7 +83,7 @@ copy_offsite() {
     fi
     keep="$BACKUP_REMOTE_KEEP"
     if ! remote_listing="$(rclone lsf "$BACKUP_REMOTE" --files-only \
-      --include 'networth-*.sql.gz.gpg')"; then
+      --include "$pattern")"; then
       echo "Failed to list off-site backups for retention." >&2
       return 1
     fi
@@ -142,10 +143,36 @@ fi
 
 echo "Encrypted backup OK ($(du -h "$file" | cut -f1))."
 
+docs_file=""
+if [[ -d "$DOCUMENT_DIR" ]]; then
+  docs_file="$BACKUP_DIR/networth-documents-${timestamp}.tar.gz.gpg"
+  echo "Backing up encrypted documents from ${DOCUMENT_DIR} ..."
+  if ! tar -C "$(dirname "$DOCUMENT_DIR")" -czf - "$(basename "$DOCUMENT_DIR")" \
+    | gpg_encrypt "$docs_file"; then
+    echo "Document backup failed; local database backup is at ${file}." >&2
+    rm -f "$docs_file"
+    exit 1
+  fi
+  if ! gpg_decrypt "$docs_file" 2>/dev/null | tar -tzf - >/dev/null; then
+    echo "Document backup verification failed; removing ${docs_file}." >&2
+    rm -f "$docs_file"
+    exit 1
+  fi
+  echo "Encrypted document backup OK ($(du -h "$docs_file" | cut -f1))."
+fi
+
 mapfile -t old < <(ls -1t "$BACKUP_DIR"/networth-*.sql.gz.gpg 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) || true)
 if [[ ${#old[@]} -gt 0 ]]; then
   rm -f "${old[@]}"
-  echo "Pruned ${#old[@]} old backup(s); keeping the last ${BACKUP_KEEP}."
+  echo "Pruned ${#old[@]} old database backup(s); keeping the last ${BACKUP_KEEP}."
+fi
+mapfile -t old < <(ls -1t "$BACKUP_DIR"/networth-documents-*.tar.gz.gpg 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) || true)
+if [[ ${#old[@]} -gt 0 ]]; then
+  rm -f "${old[@]}"
+  echo "Pruned ${#old[@]} old document backup(s); keeping the last ${BACKUP_KEEP}."
 fi
 
-copy_offsite "$file"
+copy_offsite "$file" 'networth-*.sql.gz.gpg'
+if [[ -n "$docs_file" ]]; then
+  copy_offsite "$docs_file" 'networth-documents-*.tar.gz.gpg'
+fi

@@ -24,6 +24,9 @@ make backup
 - Safe to run while the stack is up.
 - `make backup-scheduled` runs the cron/systemd wrapper with locking and a
   timestamped log; see [`backup.md`](backup.md) for timer and cron setup.
+- Uploaded documents are included as a separately encrypted
+  `networth-documents-*.tar.gz.gpg` archive and restored with the database when
+  present. See [`document-ingestion.md`](document-ingestion.md).
 - `GET /api/v1/backup` also produces a portable JSON backup including snapshot
   history, investments, crypto, budgets, and aggregation provenance; `pg_dump`
   is the full database backup.
@@ -210,11 +213,11 @@ Use `UPGRADE_MATRIX_TAGS="v0.1.20261031 v0.1.20261101"` to test specific tags, o
 throwaway Postgres containers and temporary worktrees, so it does not touch the
 real stack.
 
-## What is not automated yet
+## Future work
 
-This is planned for the post-tag **robust upgrades** change:
-
-- a guided data-migration tool for importing from other trackers.
+The generic CSV/JSON migration pipeline is implemented. Institution-specific
+source adapters, a future HSA/medical-receipt capability, and additional cloud
+backup destinations remain follow-ups.
 
 ## Commands
 
@@ -225,5 +228,7 @@ make upgrade-test    # previous schema -> current, backup/restore drill
 make upgrade-matrix  # recent release tags -> current, fixture data
 make restore         # FILE=backups/... (confirmation required)
 make restore-drill   # newest backup -> throwaway DB, row/decimal check
+make documents-cleanup # dry-run orphaned/temporary document files
+./scripts/migrate.sh --file samples/migration-portfolio.json # migration preview
 make destroy         # delete the volume (confirmation required)
 ```

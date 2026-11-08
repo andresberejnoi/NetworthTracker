@@ -39,6 +39,9 @@ At minimum, change:
 | `BACKUP_REMOTE` | Optional rclone destination for off-site encrypted copies |
 | `BACKUP_REMOTE_KEEP` | Optional number of backups to retain remotely |
 | `DOCKER_CMD` | Container command for restore drills, e.g. `podman` |
+| `DOCUMENT_ENCRYPTION_KEY` | Base64 32-byte key enabling encrypted document uploads |
+| `DOCUMENT_DIR` | Host document directory, default `./documents` |
+| `DOCUMENT_MAX_BYTES` | Upload size limit, default 20 MB |
 
 Optional add-ons are inert when unset:
 

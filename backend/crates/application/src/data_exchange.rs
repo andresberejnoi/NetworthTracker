@@ -35,7 +35,7 @@ pub const COLUMNS: [&str; 11] = [
 ];
 
 /// A parsed tabular file: a header row plus data rows.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Table {
     /// Column names.
     pub headers: Vec<String>,

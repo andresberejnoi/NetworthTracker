@@ -37,10 +37,10 @@ echo "Boundary guard failed as expected."
 
 echo "== Capability specs =="
 capabilities="$(sed -n '/### New Capabilities/,/### Modified Capabilities/p' \
-  openspec/changes/networth-tracker-v1/proposal.md \
+  openspec/changes/robust-upgrades/proposal.md \
   | grep -oE '^- `[^`]+`' | sed 's/^- `//; s/`$//' | sort -u)"
 for capability in $capabilities; do
-  spec="openspec/changes/networth-tracker-v1/specs/${capability}/spec.md"
+  spec="openspec/changes/robust-upgrades/specs/${capability}/spec.md"
   if [[ ! -f "$spec" ]]; then
     echo "ERROR: missing spec for capability '${capability}'" >&2
     exit 1
@@ -49,5 +49,5 @@ done
 echo "All proposed capabilities have spec files."
 
 echo "== OpenSpec =="
-openspec validate networth-tracker-v1 --strict
+openspec validate --all --strict
 echo "Guards and capability coverage passed."

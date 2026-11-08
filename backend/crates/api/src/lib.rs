@@ -11,9 +11,11 @@ mod backup;
 mod budget;
 mod crypto;
 mod data;
+mod documents;
 mod dto;
 mod error;
 mod investments;
+mod migration;
 mod networth;
 
 pub use auth::{AuthStatusDto, CurrentUser, SessionDto, UserDto};
@@ -33,10 +35,10 @@ use axum::{
 use networth_application::{
     AccountRepository, AccountService, AggregationProvider, AggregationRepository,
     AggregationService, AuthService, BackupService, BudgetRepository, BudgetService,
-    ChainDataProvider, CryptoRepository, CryptoService, FxRepository, FxService,
-    IdentityRepository, ImportService, InvestmentRepository, InvestmentsService,
-    NetWorthRepository, NetWorthService, PriceProvider, PriceRepository, PriceService, TokenCipher,
-    DEFAULT_MAX_AGE_SECS,
+    ChainDataProvider, CryptoRepository, CryptoService, DocumentRepository, DocumentService,
+    FxRepository, FxService, IdentityRepository, ImportService, InvestmentRepository,
+    InvestmentsService, MigrationRepository, MigrationService, NetWorthRepository, NetWorthService,
+    PriceProvider, PriceRepository, PriceService, TokenCipher, DEFAULT_MAX_AGE_SECS,
 };
 use serde::Serialize;
 use tower_http::{
@@ -66,6 +68,10 @@ pub struct Repositories {
     pub budget: Arc<dyn BudgetRepository>,
     /// Aggregation config, links, and provenance.
     pub aggregation: Arc<dyn AggregationRepository>,
+    /// Guided migration runs and provenance.
+    pub migrations: Arc<dyn MigrationRepository>,
+    /// Encrypted document metadata, audit, and provenance.
+    pub documents: Arc<dyn DocumentRepository>,
     /// Cached and manual prices.
     pub prices: Arc<dyn PriceRepository>,
     /// FX rates.
@@ -93,6 +99,10 @@ pub struct AppState {
     pub budget: Arc<BudgetService>,
     /// Optional read-only aggregation.
     pub aggregation: Arc<AggregationService>,
+    /// Guided data migration.
+    pub migration: Arc<MigrationService>,
+    /// Encrypted document store, when configured.
+    pub documents: Option<Arc<DocumentService>>,
     /// Prices.
     pub prices: Arc<PriceService>,
     /// FX conversion.
@@ -118,6 +128,16 @@ impl AppState {
             repositories.budget.clone(),
             repositories.aggregation.clone(),
         ));
+        let migration = Arc::new(MigrationService::new(
+            repositories.accounts.clone(),
+            repositories.investments.clone(),
+            repositories.crypto.clone(),
+            repositories.migrations.clone(),
+        ));
+        let documents =
+            DocumentService::from_env(repositories.documents.clone(), migration.clone())
+                .ok()
+                .map(Arc::new);
         let prices = Arc::new(PriceService::new(
             repositories.prices,
             provider,
@@ -157,6 +177,8 @@ impl AppState {
             crypto,
             budget,
             aggregation,
+            migration,
+            documents,
             prices,
             fx,
         }
@@ -291,6 +313,30 @@ pub fn app(state: AppState) -> Router {
         .route("/api/v1/template", get(data::template))
         .route("/api/v1/backup", get(backup::export))
         .route("/api/v1/backup/restore", post(backup::restore))
+        .route(
+            "/api/v1/migrations/preview",
+            post(migration::preview).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/migrations/apply",
+            post(migration::apply).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/documents",
+            get(documents::list)
+                .post(documents::upload)
+                .layer(DefaultBodyLimit::max(20 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/documents/{id}",
+            get(documents::get)
+                .patch(documents::update)
+                .delete(documents::delete),
+        )
+        .route("/api/v1/documents/{id}/download", get(documents::download))
+        .route("/api/v1/documents/{id}/preview", post(documents::preview))
+        .route("/api/v1/documents/{id}/audit", get(documents::audit))
+        .route("/api/v1/documents/{id}/import", post(documents::import))
         .layer(TraceLayer::new_for_http())
         .layer(cors_layer())
         .with_state(state)

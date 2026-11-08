@@ -606,3 +606,104 @@ export function setPrice(body: {
     body: JSON.stringify(body),
   });
 }
+
+export type DocumentMetadata = components["schemas"]["Document"];
+export type DocumentAuditEvent = components["schemas"]["DocumentAuditEvent"];
+export type DocumentPreview = components["schemas"]["DocumentPreview"];
+export type UpdateDocumentRequest =
+  components["schemas"]["UpdateDocumentRequest"];
+export type DocumentImportRequest =
+  components["schemas"]["DocumentImportRequest"];
+export type MigrationReport = components["schemas"]["MigrationReport"];
+
+export function listDocuments(includeDeleted = false): Promise<DocumentMetadata[]> {
+  return request<DocumentMetadata[]>(
+    `/api/v1/documents?include_deleted=${includeDeleted}`,
+  );
+}
+
+/** Upload a file as raw bytes; the backend detects the format by content. */
+export async function uploadDocument(
+  file: File,
+  tags: string[] = [],
+): Promise<DocumentMetadata> {
+  const query = new URLSearchParams({ filename: file.name });
+  if (tags.length > 0) {
+    query.set("tags", tags.join(","));
+  }
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents?${query}`, {
+    method: "POST",
+    headers: {
+      "content-type": file.type || "application/octet-stream",
+      ...authHeaders(),
+    },
+    body: await readFileBytes(file),
+  });
+  if (response.status === 401) {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("networth:unauthorized"));
+  }
+  if (!response.ok) {
+    let message = `backend returned ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body?.error) message = body.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(message);
+  }
+  return (await response.json()) as DocumentMetadata;
+}
+
+export async function downloadDocument(id: string): Promise<Blob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/documents/${id}/download`,
+    { headers: authHeaders() },
+  );
+  if (!response.ok) {
+    let message = `backend returned ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body?.error) message = body.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(message);
+  }
+  return await response.blob();
+}
+
+export function previewDocument(id: string): Promise<DocumentPreview> {
+  return request<DocumentPreview>(`/api/v1/documents/${id}/preview`, {
+    method: "POST",
+  });
+}
+
+export function updateDocument(
+  id: string,
+  body: UpdateDocumentRequest,
+): Promise<DocumentMetadata> {
+  return request<DocumentMetadata>(`/api/v1/documents/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteDocument(id: string): Promise<void> {
+  return request<void>(`/api/v1/documents/${id}`, { method: "DELETE" });
+}
+
+export function documentAudit(id: string): Promise<DocumentAuditEvent[]> {
+  return request<DocumentAuditEvent[]>(`/api/v1/documents/${id}/audit`);
+}
+
+export function importDocument(
+  id: string,
+  body: DocumentImportRequest,
+): Promise<MigrationReport> {
+  return request<MigrationReport>(`/api/v1/documents/${id}/import`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

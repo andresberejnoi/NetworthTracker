@@ -32,6 +32,7 @@ POSTGRES_USER="${POSTGRES_USER:-networth}"
 POSTGRES_DB="${POSTGRES_DB:-networth}"
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
+DOCUMENT_DIR="${DOCUMENT_DIR:-$root/documents}"
 DB_CONTAINER="${DB_CONTAINER:-}"
 RESTORE_SKIP_BACKEND="${RESTORE_SKIP_BACKEND:-0}"
 COMPOSE_CMD="${COMPOSE_CMD:-docker compose}"
@@ -78,6 +79,22 @@ else
   fi
 fi
 
+docs_file=""
+if [[ "$file" == *.sql.gz.gpg ]]; then
+  base="$(basename "$file")"
+  timestamp="${base#networth-}"
+  timestamp="${timestamp%.sql.gz.gpg}"
+  candidate="$(dirname "$file")/networth-documents-${timestamp}.tar.gz.gpg"
+  if [[ -f "$candidate" ]]; then
+    docs_file="$candidate"
+    echo "Verifying the document archive before changing anything ..."
+    if ! gpg_decrypt "$docs_file" 2>/dev/null | tar -tzf - >/dev/null; then
+      echo "Cannot decrypt or verify the document archive. The database was not changed." >&2
+      exit 1
+    fi
+  fi
+fi
+
 echo "This will REPLACE database '${POSTGRES_DB}' with:"
 echo "  ${file}"
 read -r -p "Type 'restore' to continue: " answer
@@ -107,6 +124,15 @@ if [[ "$encrypted" -eq 1 ]]; then
 else
   gunzip -c "$file" \
     | db_psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null
+fi
+
+if [[ -n "$docs_file" ]]; then
+  echo "Restoring encrypted documents to ${DOCUMENT_DIR} ..."
+  mkdir -p "$(dirname "$DOCUMENT_DIR")"
+  if ! gpg_decrypt "$docs_file" | tar -xzf - -C "$(dirname "$DOCUMENT_DIR")"; then
+    echo "Document restore failed; the database is restored and the document archive remains." >&2
+    exit 1
+  fi
 fi
 
 if [[ "$RESTORE_SKIP_BACKEND" == "1" ]]; then

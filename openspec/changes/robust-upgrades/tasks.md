@@ -24,23 +24,23 @@
 
 ## 4. Guided data migration
 
-- [ ] 4.1 Define the migration pipeline and source-adapter interface with a generic CSV/JSON adapter
-- [ ] 4.2 Implement field mapping, row validation, and a dry-run preview
-- [ ] 4.3 Implement atomic/partial apply with stable keys, idempotency, and provenance tags
-- [ ] 4.4 Require a verified backup before apply
-- [ ] 4.5 Build the guided migration UI or CLI flow and verify it against documented sample exports
-- [ ] 4.6 Add cross-boundary/integration tests for a realistic portfolio migration and re-run
+- [x] 4.1 Define the migration pipeline and source-adapter interface with a generic CSV/JSON adapter
+- [x] 4.2 Implement field mapping, row validation, and a dry-run preview
+- [x] 4.3 Implement atomic/partial apply with stable keys, idempotency, and provenance tags
+- [x] 4.4 Require a verified backup before apply
+- [x] 4.5 Build the guided migration UI or CLI flow and verify it against documented sample exports
+- [x] 4.6 Add cross-boundary/integration tests for a realistic portfolio migration and re-run
 
 ## 5. Document ingestion
 
-- [ ] 5.1 Add the encrypted content-addressed document store and metadata/audit schema with SHA-256 dedupe and size limits
-- [ ] 5.2 Add upload/list/download/tag API and UI with encryption at rest and authorized access
-- [ ] 5.3 Implement content-based format detection and generic CSV/XLSX/XML/OFX/PDF parser adapters
-- [ ] 5.4 Implement institution and document-type classification adapters for Fidelity, Charles Schwab, Coinbase, Binance, and generic sources with confidence and user confirmation
-- [ ] 5.5 Add dry-run preview, field mapping, idempotent apply, and document-to-record provenance links through the migration pipeline
-- [ ] 5.6 Add audit events for upload/download/classification/import and include encrypted documents in backups/restore
-- [ ] 5.7 Add a cleanup command/script for orphaned/temporary files with dry-run and confirmation, explicitly excluding computed financial data
-- [ ] 5.8 Add parser/classification/import tests, docs, and a future HSA/medical-receipt design note
+- [x] 5.1 Add the encrypted content-addressed document store and metadata/audit schema with SHA-256 dedupe and size limits
+- [x] 5.2 Add upload/list/download/tag API and UI with encryption at rest and authorized access
+- [x] 5.3 Implement content-based format detection and generic CSV/XLSX/XML/OFX/PDF parser adapters
+- [x] 5.4 Implement institution and document-type classification adapters for Fidelity, Charles Schwab, Coinbase, Binance, and generic sources with confidence and user confirmation
+- [x] 5.5 Add dry-run preview, field mapping, idempotent apply, and document-to-record provenance links through the migration pipeline
+- [x] 5.6 Add audit events for upload/download/classification/import and include encrypted documents in backups/restore
+- [x] 5.7 Add a cleanup command/script for orphaned/temporary files with dry-run and confirmation, explicitly excluding computed financial data
+- [x] 5.8 Add parser/classification/import tests, docs, and a future HSA/medical-receipt design note
 
 ## 6. Verification and release
 

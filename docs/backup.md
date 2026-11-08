@@ -21,6 +21,11 @@ Restore with:
 make restore FILE=backups/networth-....sql.gz.gpg
 ```
 
+If `DOCUMENT_DIR` exists, `backup.sh` also writes a verified
+`networth-documents-<timestamp>.tar.gz.gpg` archive containing the encrypted
+document files. `restore.sh` restores the matching document archive alongside
+the database dump. See [`document-ingestion.md`](document-ingestion.md).
+
 See [`upgrades.md`](upgrades.md) for restore and pre-migration backup behavior.
 
 ## Scheduled backups

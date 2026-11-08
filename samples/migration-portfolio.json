@@ -1,0 +1,67 @@
+[
+  {
+    "record_type": "account",
+    "account_name": "Everyday Checking",
+    "account_type": "checking",
+    "institution": "Local Bank",
+    "currency": "USD"
+  },
+  {
+    "record_type": "balance",
+    "account_name": "Everyday Checking",
+    "as_of": "2026-01-01",
+    "amount": "2500.00",
+    "source": "import"
+  },
+  {
+    "record_type": "account",
+    "account_name": "Brokerage",
+    "account_type": "taxable_brokerage",
+    "institution": "Example Broker",
+    "currency": "USD"
+  },
+  {
+    "record_type": "holding_lot",
+    "account_name": "Brokerage",
+    "symbol": "VTI",
+    "security_name": "Total Market ETF",
+    "asset_class": "equity",
+    "acquired_on": "2026-01-01",
+    "quantity": "10",
+    "cost_basis": "1000.00",
+    "fees": "0",
+    "lot_source": "import"
+  },
+  {
+    "record_type": "account",
+    "account_name": "Crypto",
+    "account_type": "crypto",
+    "currency": "USD"
+  },
+  {
+    "record_type": "crypto_balance",
+    "asset_symbol": "BTC",
+    "asset_name": "Bitcoin",
+    "chain": "bitcoin",
+    "decimals": "18",
+    "wallet_label": "Coinbase",
+    "wallet_kind": "manual",
+    "as_of": "2026-01-01",
+    "quantity": "0.5",
+    "source": "import"
+  },
+  {
+    "record_type": "crypto_lot",
+    "asset_symbol": "BTC",
+    "asset_name": "Bitcoin",
+    "chain": "bitcoin",
+    "decimals": "18",
+    "wallet_label": "Coinbase",
+    "wallet_kind": "manual",
+    "acquired_on": "2026-01-01",
+    "quantity": "0.5",
+    "cost_basis": "10000.00",
+    "fees": "0",
+    "lot_source": "import"
+  }
+]
