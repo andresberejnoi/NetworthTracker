@@ -97,6 +97,13 @@ config, and uploads the SARIF report. A finding fails the job.
   and store a copy somewhere safe, because a lost passphrase means an
   unrecoverable backup.
 
+## Dependency security
+
+Dependabot monitors Cargo and npm dependencies. CI also runs
+`npm audit --audit-level=moderate` after `npm ci`. Update toolchain and parser
+dependencies rather than dismissing advisories; the Vite/Vitest dev server and
+the Rust zip extraction path have both required upgrades.
+
 ## Reporting a leak
 
 1. Rotate the affected credential at the provider.

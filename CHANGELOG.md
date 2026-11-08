@@ -33,6 +33,14 @@ documentation acknowledgements.
 - README now acknowledges the earlier AssetPortfolio and CryptoTaxTools
   projects and reflects the completed budgeting/aggregation slices.
 
+### Security
+
+- Upgraded the frontend toolchain to patched Vite 6.4.5, Vitest 4.1.12,
+  tinypool 2.1.2, and esbuild 0.25.x; `npm audit` is clean.
+- Replaced the vulnerable Rust `zip` 2.2.0/0.6.6 chain with `zip` 9.4.2 via
+  calamine 0.38 and rust_xlsxwriter 0.102.
+- CI now runs `npm audit --audit-level=moderate`.
+
 ### Fixed
 
 - Crypto bulk wallet totals now group rows by asset/label or address instead
