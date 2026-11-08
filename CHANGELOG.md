@@ -8,6 +8,11 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261108] - 2026-11-08
+
+Upgrade safety, backup operations, portable JSON backup v2, guided migration,
+and encrypted document ingestion.
+
 ### Added
 
 - A fail-closed encrypted pre-migration backup in the backend entrypoint, with
@@ -187,7 +192,8 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261101...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261108...HEAD
+[0.1.20261108]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261101...v0.1.20261108
 [0.1.20261101]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261031...v0.1.20261101
 [0.1.20261031]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261029...v0.1.20261031
 [0.1.20261029]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261028...v0.1.20261029

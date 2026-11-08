@@ -973,7 +973,7 @@ export interface components {
             message: string;
             /** @example NetworthTracker */
             service: string;
-            /** @example 0.1.20261101 */
+            /** @example 0.1.20261108 */
             version: string;
         };
         ApiError: {
