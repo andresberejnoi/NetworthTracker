@@ -4,7 +4,7 @@ COMPOSE ?= docker compose
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
         integration-test upgrade-test upgrade-matrix entrypoint-test offline-test e2e-test verify-guards boundaries secrets validate test build up down \
-        backup backup-scheduled backup-timer backup-schedule-test restore upgrade destroy clean
+        backup backup-scheduled backup-timer backup-schedule-test restore restore-drill upgrade destroy clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -104,6 +104,9 @@ backup-schedule-test: ## Test scheduled backup locking, logging, and fail-closed
 
 restore: ## Restore a backup: make restore FILE=backups/networth-....sql.gz.gpg
 	./scripts/restore.sh "$(FILE)"
+
+restore-drill: ## Restore newest backup into a throwaway DB and verify rows
+	./scripts/restore-drill.sh $(FILE)
 
 upgrade: ## Back up, rebuild, and restart without losing data
 	./scripts/upgrade.sh

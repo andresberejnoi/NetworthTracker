@@ -24,6 +24,12 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
   release tags and verifies data, schema, and version after upgrading.
 - A scheduled-backup wrapper with locking, timestamped logs, retention, and
   fail-closed encryption, plus a systemd user timer generator and cron docs.
+- Optional off-site encrypted backup copies through a user-configured rclone
+  remote, with remote verification and retention.
+- A restore-drill command that restores the newest backup into a throwaway
+  database and checks migration history, row counts, and decimal text.
+- Backup documentation covering key separation, rotation, local/remote
+  retention, off-site storage, and drill timing.
 
 ### Security
 

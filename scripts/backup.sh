@@ -24,6 +24,8 @@ POSTGRES_DB="${POSTGRES_DB:-networth}"
 BACKUP_DIR="${BACKUP_DIR:-$root/backups}"
 BACKUP_KEEP="${BACKUP_KEEP:-14}"
 BACKUP_PASSPHRASE="${BACKUP_PASSPHRASE:-}"
+BACKUP_REMOTE="${BACKUP_REMOTE:-}"
+BACKUP_REMOTE_KEEP="${BACKUP_REMOTE_KEEP:-}"
 DB_CONTAINER="${DB_CONTAINER:-}"
 COMPOSE_CMD="${COMPOSE_CMD:-docker compose}"
 
@@ -50,6 +52,54 @@ gpg_decrypt() {
   gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
     --decrypt "$1" \
     3< <(printf '%s' "$BACKUP_PASSPHRASE")
+}
+
+copy_offsite() {
+  local file="$1" name keep old remote_listing
+  local -a remote_files=()
+  [[ -n "$BACKUP_REMOTE" ]] || return 0
+
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "BACKUP_REMOTE is set but rclone is not installed." >&2
+    return 1
+  fi
+
+  name="$(basename "$file")"
+  echo "Copying ${name} to ${BACKUP_REMOTE} ..."
+  if ! rclone copy "$file" "$BACKUP_REMOTE" --include "$name"; then
+    echo "Off-site backup copy failed; the local encrypted backup remains." >&2
+    return 1
+  fi
+  if ! rclone check "$BACKUP_DIR" "$BACKUP_REMOTE" --include "$name" --one-way; then
+    echo "Off-site backup verification failed; the local encrypted backup remains." >&2
+    return 1
+  fi
+
+  if [[ -n "$BACKUP_REMOTE_KEEP" ]]; then
+    if ! [[ "$BACKUP_REMOTE_KEEP" =~ ^[0-9]+$ ]] || [[ "$BACKUP_REMOTE_KEEP" -lt 1 ]]; then
+      echo "BACKUP_REMOTE_KEEP must be a positive integer." >&2
+      return 1
+    fi
+    keep="$BACKUP_REMOTE_KEEP"
+    if ! remote_listing="$(rclone lsf "$BACKUP_REMOTE" --files-only \
+      --include 'networth-*.sql.gz.gpg')"; then
+      echo "Failed to list off-site backups for retention." >&2
+      return 1
+    fi
+    remote_files=()
+    if [[ -n "$remote_listing" ]]; then
+      mapfile -t remote_files < <(printf '%s\n' "$remote_listing" | sort -r)
+    fi
+    if [[ ${#remote_files[@]} -gt "$keep" ]]; then
+      for old in "${remote_files[@]:$keep}"; do
+        if ! rclone deletefile "${BACKUP_REMOTE%/}/${old}"; then
+          echo "Failed to prune old off-site backup ${old}." >&2
+          return 1
+        fi
+      done
+      echo "Pruned $(( ${#remote_files[@]} - keep )) old off-site backup(s)."
+    fi
+  fi
 }
 
 if [[ -n "$DB_CONTAINER" ]]; then
@@ -97,3 +147,5 @@ if [[ ${#old[@]} -gt 0 ]]; then
   rm -f "${old[@]}"
   echo "Pruned ${#old[@]} old backup(s); keeping the last ${BACKUP_KEEP}."
 fi
+
+copy_offsite "$file"

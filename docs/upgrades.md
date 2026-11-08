@@ -211,9 +211,8 @@ real stack.
 
 ## What is not automated yet
 
-These are planned for the post-tag **robust upgrades** change:
+This is planned for the post-tag **robust upgrades** change:
 
-- off-site backup destinations and an automated restore drill;
 - a guided data-migration tool for importing from other trackers.
 
 ## Commands
@@ -224,5 +223,6 @@ make upgrade         # backup + rebuild + restart + health check
 make upgrade-test    # previous schema -> current, backup/restore drill
 make upgrade-matrix  # recent release tags -> current, fixture data
 make restore         # FILE=backups/... (confirmation required)
+make restore-drill   # newest backup -> throwaway DB, row/decimal check
 make destroy         # delete the volume (confirmation required)
 ```

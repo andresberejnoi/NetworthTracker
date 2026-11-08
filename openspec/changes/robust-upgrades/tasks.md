@@ -11,9 +11,9 @@
 ## 2. Backup operations
 
 - [x] 2.1 Add scheduled backup support suitable for cron/systemd timers, with retention and fail-closed encryption
-- [ ] 2.2 Add optional off-site destination support using the user's own storage/credentials
-- [ ] 2.3 Add a restore-drill command that restores the newest backup into a throwaway database and checks rows/exact decimals
-- [ ] 2.4 Document key separation, rotation, retention, off-site storage, and restore drills
+- [x] 2.2 Add optional off-site destination support using the user's own storage/credentials
+- [x] 2.3 Add a restore-drill command that restores the newest backup into a throwaway database and checks rows/exact decimals
+- [x] 2.4 Document key separation, rotation, retention, off-site storage, and restore drills
 
 ## 3. Portable JSON backup v2
 

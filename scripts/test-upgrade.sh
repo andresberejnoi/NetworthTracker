@@ -246,24 +246,67 @@ assert_data
 echo "Schema upgrade preserved data and the new schema is writable."
 
 # Use temporary copies so the test never reads or writes the real .env/backups.
-mkdir -p "$work_dir/scripts"
+mkdir -p "$work_dir/scripts" "$work_dir/bin" "$work_dir/remote"
 cp "$root/scripts/backup.sh" "$root/scripts/restore.sh" "$work_dir/scripts/"
+cat > "$work_dir/bin/rclone" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+case "$1" in
+  copy)
+    mkdir -p "$3"
+    cp "$2" "$3/"
+    printf 'copy %s\n' "$(basename "$2")" >> "${FAKE_RCLONE_LOG:?}"
+    ;;
+  check)
+    printf 'check\n' >> "${FAKE_RCLONE_LOG:?}"
+    ;;
+  lsf)
+    find "$2" -maxdepth 1 -type f -printf '%f\n' | sort -r
+    ;;
+  deletefile)
+    rm -f "$2"
+    ;;
+  *)
+    echo "unexpected rclone command: $*" >&2
+    exit 1
+    ;;
+esac
+FAKE
+chmod +x "$work_dir/bin/rclone"
+touch "$work_dir/remote/networth-20200101T000000Z.sql.gz.gpg"
+touch "$work_dir/remote/networth-20200102T000000Z.sql.gz.gpg"
+
 cat > "$work_dir/.env" <<EOF
 POSTGRES_USER=networth
 POSTGRES_DB=networth
 BACKUP_PASSPHRASE=${backup_passphrase}
 BACKUP_DIR=${backup_dir}
 BACKUP_KEEP=2
+BACKUP_REMOTE=${work_dir}/remote
+BACKUP_REMOTE_KEEP=2
+FAKE_RCLONE_LOG=${work_dir}/rclone.log
 DB_CONTAINER=${db_container}
 RESTORE_SKIP_BACKEND=1
 EOF
 chmod 600 "$work_dir/.env"
 
 echo "Taking an encrypted backup ..."
-"$work_dir/scripts/backup.sh"
+PATH="$work_dir/bin:$PATH" "$work_dir/scripts/backup.sh"
 backup_file="$(ls -1t "$backup_dir"/networth-*.sql.gz.gpg | head -1)"
 if [[ ! -s "$backup_file" ]]; then
   echo "Encrypted backup was not created" >&2
+  exit 1
+fi
+if ! grep -q '^copy ' "$work_dir/rclone.log" || ! grep -q '^check$' "$work_dir/rclone.log"; then
+  echo "Off-site copy/check was not invoked" >&2
+  exit 1
+fi
+if [[ ! -s "$work_dir/remote/$(basename "$backup_file")" ]]; then
+  echo "Off-site encrypted backup was not copied" >&2
+  exit 1
+fi
+if [[ -e "$work_dir/remote/networth-20200101T000000Z.sql.gz.gpg" ]]; then
+  echo "Off-site retention did not prune the oldest backup" >&2
   exit 1
 fi
 
@@ -306,5 +349,8 @@ if [[ "$version" != "$expected_version" ]]; then
 fi
 assert_data
 echo "Encrypted backup restored; version and data are correct."
+
+echo "Running the restore drill ..."
+RESTORE_DRILL_ENV_FILE="$work_dir/.env" "$root/scripts/restore-drill.sh" "$backup_file"
 
 echo "Upgrade, encrypted backup, and restore test passed."

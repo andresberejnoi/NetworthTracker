@@ -36,6 +36,9 @@ At minimum, change:
 | `BACKUP_DIR` | Backup directory, default `./backups` |
 | `BACKUP_LOG_DIR` | Scheduled-backup log directory, default `BACKUP_DIR` |
 | `BACKUP_KEEP` | Number of backups to retain, default `14` |
+| `BACKUP_REMOTE` | Optional rclone destination for off-site encrypted copies |
+| `BACKUP_REMOTE_KEEP` | Optional number of backups to retain remotely |
+| `DOCKER_CMD` | Container command for restore drills, e.g. `podman` |
 
 Optional add-ons are inert when unset:
 
@@ -262,7 +265,9 @@ can be installed with:
 ```
 
 Cron users can run `scripts/scheduled-backup.sh` directly; both paths write a
-timestamped log and fail closed when encryption is not configured.
+timestamped log and fail closed when encryption is not configured. Verify the
+newest backup with `make restore-drill`; it restores into a throwaway database
+without touching the live stack.
 
 Release tags publish versioned images to GHCR; pin `IMAGE_TAG` for a
 reproducible deployment. Scheduled and off-site backups are the next
