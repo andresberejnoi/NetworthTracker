@@ -26,6 +26,19 @@ it makes the stored files unreadable. Compose mounts `./documents` at
 `/documents` and passes the same key to the backend. Without a valid key the API
 starts normally but document uploads are rejected with a configuration error.
 
+## Key rotation and recovery
+
+The document key is separate from `BACKUP_PASSPHRASE` and is **not** included in
+backups. Keep at least one copy in a password manager or on another machine.
+
+This release does not include an automated document-key rotation command. Do not
+rotate by only changing `DOCUMENT_ENCRYPTION_KEY` in `.env`: existing files would
+become unreadable because their nonces/key version are tied to the old key.
+Until a rotation command is added, preserve the old key for as long as old
+documents are needed, or plan a maintenance procedure that decrypts and
+re-encrypts every `*.enc` file and updates its `documents.nonce`/`key_version`
+metadata. Test that procedure on a copy and keep a verified backup first.
+
 ## Upload and storage
 
 - Upload from the **Documents** view (owner only) or
@@ -99,8 +112,8 @@ throughout. Off-site rclone copies include the document archive too.
 ## Cleanup
 
 ```bash
-make documents-cleanup              # dry run: list only
-make documents-cleanup -- --apply   # typed confirmation required
+make documents-cleanup        # dry run: list only
+make documents-cleanup-apply  # typed confirmation required
 ```
 
 The cleanup script reads the authoritative `documents.sha256` set from the

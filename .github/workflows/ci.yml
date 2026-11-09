@@ -147,6 +147,28 @@ jobs:
       - run: npm run build
       - run: npm test
 
+  containers:
+    name: Container build
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+      - name: Build frontend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          build-args: |
+            VITE_API_BASE_URL=http://localhost:8080
+
   publish:
     name: Publish versioned images
     if: startsWith(github.ref, 'refs/tags/v')
