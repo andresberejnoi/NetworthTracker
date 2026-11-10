@@ -104,6 +104,7 @@ OIDC_ISSUER=https://auth.home.example/application/o/networth/
 OIDC_CLIENT_ID=networth
 OIDC_CLIENT_SECRET=...
 OIDC_REDIRECT_URI=http://localhost:8080/api/v1/auth/oidc/callback
+OIDC_FRONTEND_CALLBACK=http://localhost:3000/auth/oidc/callback
 OIDC_SCOPES=openid profile email groups
 OIDC_BUTTON_LABEL=Sign in with Homelab SSO
 OIDC_AUTO_PROVISION=true

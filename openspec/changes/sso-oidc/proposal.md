@@ -51,6 +51,6 @@ None.
 - New API endpoints and OpenAPI schemas for auth status, start/callback/
   exchange, and account linking.
 - Frontend login screen, SSO callback handling, API client, and tests.
-- Configuration (`OIDC_*`), deployment/security docs, and mock-IdP test
-  coverage.
+- Configuration (`OIDC_*`), `docs/sso.md`, deployment/security docs, and
+  mock-IdP test coverage.
 - No new required external service for offline/local-password use.

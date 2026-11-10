@@ -202,6 +202,7 @@ The current version is `0.1.20261108`. The authoritative value lives in
 - `docs/backup.md` — manual/scheduled backups, timers, key separation
 - `docs/data-migration.md` — guided CSV/JSON migration, preview/apply
 - `docs/document-ingestion.md` — encrypted documents, parsing, audit, cleanup
+- `docs/sso.md` — planned OIDC/SSO integration with existing identity providers
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
 - `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions
