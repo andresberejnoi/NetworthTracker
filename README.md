@@ -46,8 +46,8 @@ I wanted a tool to track networth in different ways and that allows me to keep m
   XML/OFX/PDF detection, institution/type classification, preview/import, audit,
   and cleanup.
 - **Full backup/restore** — JSON with accounts, balances, snapshots, investments, crypto, budgets, and aggregation provenance.
-- **Family accounts** — local login, owner/editor/viewer roles, private
-  accounts, and per-user visibility.
+- **Family accounts** — local login, optional OpenID Connect SSO for a homelab
+  IdP, owner/editor/viewer roles, private accounts, and per-user visibility.
 - **Offline first** — the core app needs no internet. External providers are
   optional, user-funded add-ons behind read-only interfaces.
 
@@ -191,7 +191,7 @@ still planned.
 ## Versioning
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
-The current version is `0.1.20261108`. The authoritative value lives in
+The current version is `0.1.20261110`. The authoritative value lives in
 `backend/Cargo.toml`; `make version` prints it. See `AGENTS.md` and
 [`CHANGELOG.md`](CHANGELOG.md) for the release process and per-release notes.
 
@@ -202,7 +202,7 @@ The current version is `0.1.20261108`. The authoritative value lives in
 - `docs/backup.md` — manual/scheduled backups, timers, key separation
 - `docs/data-migration.md` — guided CSV/JSON migration, preview/apply
 - `docs/document-ingestion.md` — encrypted documents, parsing, audit, cleanup
-- `docs/sso.md` — planned OIDC/SSO integration with existing identity providers
+- `docs/sso.md` — OIDC/SSO integration with existing identity providers
 - `docs/access-control.md` — users, roles, sessions, scoping
 - `docs/api.md` — HTTP API examples
 - `docs/security.md` — secret handling, gitleaks, pre-commit hook, sessions

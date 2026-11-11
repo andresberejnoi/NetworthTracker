@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: NetworthTracker API
-  version: 0.1.20261108
+  version: 0.1.20261110
   description: |
     JSON API for the local-first NetworthTracker backend.
 
@@ -134,6 +134,82 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/oidc/start:
+    get:
+      tags: [auth]
+      operationId: startOidcLogin
+      summary: Redirect to the configured OIDC provider
+      security: []
+      responses:
+        "302":
+          description: Provider authorization redirect.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/auth/oidc/link:
+    post:
+      tags: [auth]
+      operationId: startOidcLink
+      summary: Start linking the current user to an OIDC identity
+      responses:
+        "200":
+          description: Authorization URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OidcUrl"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/oidc/callback:
+    get:
+      tags: [auth]
+      operationId: oidcCallback
+      summary: Complete an OIDC authorization callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+        - name: error_description
+          in: query
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Frontend callback with a one-time code or linked indicator.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/auth/oidc/exchange:
+    post:
+      tags: [auth]
+      operationId: exchangeOidcCode
+      summary: Exchange a one-time SSO code for an app session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcExchangeRequest"
+      responses:
+        "200":
+          description: A session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /api/v1/users:
@@ -1514,7 +1590,7 @@ components:
           examples: [NetworthTracker]
         version:
           type: string
-          examples: ["0.1.20261108"]
+          examples: ["0.1.20261110"]
     ApiError:
       type: object
       additionalProperties: false
@@ -1542,12 +1618,30 @@ components:
     AuthStatus:
       type: object
       additionalProperties: false
-      required: [auth_enabled, needs_setup]
+      required: [auth_enabled, needs_setup, oidc_enabled, oidc_button_label]
       properties:
         auth_enabled:
           type: boolean
         needs_setup:
           type: boolean
+        oidc_enabled:
+          type: boolean
+        oidc_button_label:
+          type: [string, "null"]
+    OidcUrl:
+      type: object
+      additionalProperties: false
+      required: [authorization_url]
+      properties:
+        authorization_url:
+          type: string
+    OidcExchangeRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
     LoginRequest:
       type: object
       additionalProperties: false

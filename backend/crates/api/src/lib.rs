@@ -38,7 +38,7 @@ use networth_application::{
     ChainDataProvider, CryptoRepository, CryptoService, DocumentRepository, DocumentService,
     FxRepository, FxService, IdentityRepository, ImportService, InvestmentRepository,
     InvestmentsService, MigrationRepository, MigrationService, NetWorthRepository, NetWorthService,
-    PriceProvider, PriceRepository, PriceService, TokenCipher, DEFAULT_MAX_AGE_SECS,
+    OidcClient, PriceProvider, PriceRepository, PriceService, TokenCipher, DEFAULT_MAX_AGE_SECS,
 };
 use serde::Serialize;
 use tower_http::{
@@ -138,6 +138,13 @@ impl AppState {
             DocumentService::from_env(repositories.documents.clone(), migration.clone())
                 .ok()
                 .map(Arc::new);
+        let oidc = match OidcClient::from_env() {
+            Ok(oidc) => oidc,
+            Err(error) => {
+                tracing::warn!("OIDC SSO disabled: {error}");
+                None
+            }
+        };
         let prices = Arc::new(PriceService::new(
             repositories.prices,
             provider,
@@ -171,6 +178,7 @@ impl AppState {
             auth: Arc::new(AuthService::new(
                 repositories.identity.clone(),
                 auth_enabled,
+                oidc,
             )),
             backup,
             investments,
@@ -224,6 +232,10 @@ pub fn app(state: AppState) -> Router {
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/auth/me", get(auth::me))
+        .route("/api/v1/auth/oidc/start", get(auth::oidc_start))
+        .route("/api/v1/auth/oidc/link", post(auth::oidc_link))
+        .route("/api/v1/auth/oidc/callback", get(auth::oidc_callback))
+        .route("/api/v1/auth/oidc/exchange", post(auth::oidc_exchange))
         .route(
             "/api/v1/users",
             get(auth::list_users).post(auth::create_user),

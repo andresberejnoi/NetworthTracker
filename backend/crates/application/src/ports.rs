@@ -79,8 +79,55 @@ pub trait NetWorthRepository: Send + Sync {
 pub struct UserWithHash {
     /// The user.
     pub user: User,
-    /// Argon2 hash.
-    pub password_hash: String,
+    /// Argon2 hash. `None` for an SSO-only user.
+    pub password_hash: Option<String>,
+}
+
+/// A short-lived OIDC authorization state.
+#[derive(Debug, Clone)]
+pub struct OidcLoginState {
+    /// Provider nonce.
+    pub nonce: String,
+    /// PKCE verifier.
+    pub code_verifier: String,
+    /// If present, this login links to an already authenticated user.
+    pub link_user_id: Option<Uuid>,
+    /// Expiry.
+    pub expires_at: OffsetDateTime,
+}
+
+/// An external OIDC identity linked to a local user.
+#[derive(Debug, Clone)]
+pub struct ExternalIdentity {
+    /// Local user.
+    pub user_id: Uuid,
+    /// Provider issuer.
+    pub issuer: String,
+    /// Provider subject.
+    pub subject: String,
+    /// Last known email.
+    pub email: Option<String>,
+    /// Whether the provider marked the email verified.
+    pub email_verified: bool,
+    /// Last known display name.
+    pub display_name: Option<String>,
+}
+
+/// Fields for linking an external identity.
+#[derive(Debug, Clone)]
+pub struct NewExternalIdentity {
+    /// Local user.
+    pub user_id: Uuid,
+    /// Provider issuer.
+    pub issuer: String,
+    /// Provider subject.
+    pub subject: String,
+    /// Email.
+    pub email: Option<String>,
+    /// Verified email flag.
+    pub email_verified: bool,
+    /// Display name.
+    pub display_name: Option<String>,
 }
 
 /// Persistence for users and sessions.
@@ -123,6 +170,72 @@ pub trait IdentityRepository: Send + Sync {
 
     /// Delete a session.
     async fn delete_session(&self, token_hash: &str) -> Result<(), RepositoryError>;
+
+    /// Insert an SSO-only user with no local password hash.
+    async fn create_sso_user(
+        &self,
+        username: &str,
+        display_name: &str,
+        role: UserRole,
+    ) -> Result<User, RepositoryError>;
+
+    /// Find an external identity by issuer and subject.
+    async fn find_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<Option<ExternalIdentity>, RepositoryError>;
+
+    /// Link an external identity to a local user.
+    async fn link_external_identity(
+        &self,
+        new: &NewExternalIdentity,
+    ) -> Result<ExternalIdentity, RepositoryError>;
+
+    /// Update the last-login timestamp for an external identity.
+    async fn touch_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<(), RepositoryError>;
+
+    /// Store a short-lived OIDC state.
+    async fn create_oidc_state(
+        &self,
+        state: &str,
+        nonce: &str,
+        code_verifier: &str,
+        link_user_id: Option<Uuid>,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError>;
+
+    /// Consume and return an OIDC state exactly once.
+    async fn consume_oidc_state(
+        &self,
+        state: &str,
+    ) -> Result<Option<OidcLoginState>, RepositoryError>;
+
+    /// Store a hashed one-time exchange code.
+    async fn create_exchange_code(
+        &self,
+        code_hash: &str,
+        user_id: Uuid,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError>;
+
+    /// Consume and return the user for a one-time exchange code.
+    async fn consume_exchange_code(&self, code_hash: &str)
+        -> Result<Option<Uuid>, RepositoryError>;
+
+    /// Record an SSO authentication audit event without provider tokens.
+    async fn record_auth_audit(
+        &self,
+        user_id: Option<Uuid>,
+        action: &str,
+        issuer: &str,
+        subject: &str,
+        metadata: &str,
+    ) -> Result<(), RepositoryError>;
 }
 
 /// A stored, encrypted financial document.

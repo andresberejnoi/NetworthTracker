@@ -7,9 +7,9 @@ use bigdecimal::BigDecimal;
 use networth_application::ports::{
     AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
     AggregationRepository, BudgetRepository, CryptoRepository, DocumentAuditEvent,
-    DocumentRepository, FxRepository, IdentityRepository, InvestmentRepository,
-    MigrationRepository, NetWorthRepository, NewDocument, PriceRepository, RepositoryError,
-    StoredDocument, StoredPrice, StoredRate, UserWithHash,
+    DocumentRepository, ExternalIdentity, FxRepository, IdentityRepository, InvestmentRepository,
+    MigrationRepository, NetWorthRepository, NewDocument, NewExternalIdentity, OidcLoginState,
+    PriceRepository, RepositoryError, StoredDocument, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
     Account, AccountType, AggregationScope, Balance, BalanceSource, BudgetAllocation, BudgetIncome,
@@ -423,7 +423,7 @@ struct UserWithHashRow {
     username: String,
     display_name: String,
     role: String,
-    password_hash: String,
+    password_hash: Option<String>,
 }
 
 impl TryFrom<UserWithHashRow> for UserWithHash {
@@ -440,6 +440,37 @@ impl TryFrom<UserWithHashRow> for UserWithHash {
             password_hash: row.password_hash,
         })
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct ExternalIdentityRow {
+    user_id: Uuid,
+    issuer: String,
+    subject: String,
+    email: Option<String>,
+    email_verified: bool,
+    display_name: Option<String>,
+}
+
+impl From<ExternalIdentityRow> for ExternalIdentity {
+    fn from(row: ExternalIdentityRow) -> Self {
+        Self {
+            user_id: row.user_id,
+            issuer: row.issuer,
+            subject: row.subject,
+            email: row.email,
+            email_verified: row.email_verified,
+            display_name: row.display_name,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct OidcLoginStateRow {
+    nonce: String,
+    code_verifier: String,
+    link_user_id: Option<Uuid>,
+    expires_at: OffsetDateTime,
 }
 
 #[derive(sqlx::FromRow)]
@@ -585,6 +616,184 @@ impl IdentityRepository for PostgresAccountRepository {
             .execute(&self.pool)
             .await
             .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn create_sso_user(
+        &self,
+        username: &str,
+        display_name: &str,
+        role: UserRole,
+    ) -> Result<User, RepositoryError> {
+        let row: UserRow = sqlx::query_as(
+            "INSERT INTO users (username, display_name, password_hash, role) \
+             VALUES ($1, $2, NULL, $3) \
+             RETURNING id, username, display_name, role",
+        )
+        .bind(username)
+        .bind(display_name)
+        .bind(role.as_str())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        row.try_into()
+    }
+
+    async fn find_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<Option<ExternalIdentity>, RepositoryError> {
+        let row: Option<ExternalIdentityRow> = sqlx::query_as(
+            "SELECT user_id, issuer, subject, email, email_verified, display_name \
+             FROM auth_identities WHERE issuer = $1 AND subject = $2",
+        )
+        .bind(issuer)
+        .bind(subject)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(Into::into))
+    }
+
+    async fn link_external_identity(
+        &self,
+        new: &NewExternalIdentity,
+    ) -> Result<ExternalIdentity, RepositoryError> {
+        let row: ExternalIdentityRow = sqlx::query_as(
+            "INSERT INTO auth_identities \
+             (user_id, issuer, subject, email, email_verified, display_name) \
+             VALUES ($1, $2, $3, $4, $5, $6) \
+             RETURNING user_id, issuer, subject, email, email_verified, display_name",
+        )
+        .bind(new.user_id)
+        .bind(&new.issuer)
+        .bind(&new.subject)
+        .bind(&new.email)
+        .bind(new.email_verified)
+        .bind(&new.display_name)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.into())
+    }
+
+    async fn touch_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "UPDATE auth_identities SET last_login_at = now() \
+             WHERE issuer = $1 AND subject = $2",
+        )
+        .bind(issuer)
+        .bind(subject)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn create_oidc_state(
+        &self,
+        state: &str,
+        nonce: &str,
+        code_verifier: &str,
+        link_user_id: Option<Uuid>,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO oidc_login_states \
+             (state, nonce, code_verifier, link_user_id, expires_at) \
+             VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(state)
+        .bind(nonce)
+        .bind(code_verifier)
+        .bind(link_user_id)
+        .bind(expires_at)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn consume_oidc_state(
+        &self,
+        state: &str,
+    ) -> Result<Option<OidcLoginState>, RepositoryError> {
+        let row: Option<OidcLoginStateRow> = sqlx::query_as(
+            "DELETE FROM oidc_login_states WHERE state = $1 \
+             RETURNING nonce, code_verifier, link_user_id, expires_at",
+        )
+        .bind(state)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(|row| OidcLoginState {
+            nonce: row.nonce,
+            code_verifier: row.code_verifier,
+            link_user_id: row.link_user_id,
+            expires_at: row.expires_at,
+        }))
+    }
+
+    async fn create_exchange_code(
+        &self,
+        code_hash: &str,
+        user_id: Uuid,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO oidc_exchange_codes (code_hash, user_id, expires_at) \
+             VALUES ($1, $2, $3)",
+        )
+        .bind(code_hash)
+        .bind(user_id)
+        .bind(expires_at)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(())
+    }
+
+    async fn consume_exchange_code(
+        &self,
+        code_hash: &str,
+    ) -> Result<Option<Uuid>, RepositoryError> {
+        let row: Option<(Uuid,)> = sqlx::query_as(
+            "DELETE FROM oidc_exchange_codes \
+             WHERE code_hash = $1 AND expires_at > now() RETURNING user_id",
+        )
+        .bind(code_hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+        Ok(row.map(|row| row.0))
+    }
+
+    async fn record_auth_audit(
+        &self,
+        user_id: Option<Uuid>,
+        action: &str,
+        issuer: &str,
+        subject: &str,
+        metadata: &str,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO auth_audit_events \
+             (user_id, action, issuer, subject, metadata) \
+             VALUES ($1, $2, $3, $4, CAST($5 AS jsonb))",
+        )
+        .bind(user_id)
+        .bind(action)
+        .bind(issuer)
+        .bind(subject)
+        .bind(metadata)
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
         Ok(())
     }
 }

@@ -44,7 +44,7 @@ function stubApi(ping: "ok" | "error") {
         return jsonResponse({
           message: "pong",
           service: "NetworthTracker",
-          version: "0.1.20261108",
+          version: "0.1.20261110",
         });
       }
       return jsonResponse({});
@@ -71,5 +71,47 @@ describe("App", () => {
     renderApp();
 
     expect(await screen.findByText(/unreachable/i)).toBeInTheDocument();
+  });
+
+  it("exchanges an OIDC callback code for a session", async () => {
+    window.history.pushState({}, "", "/auth/oidc/callback?code=one-time");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/auth/status")) {
+          return jsonResponse({
+            auth_enabled: true,
+            needs_setup: false,
+            oidc_enabled: true,
+            oidc_button_label: "Sign in with SSO",
+          });
+        }
+        if (url.includes("/auth/oidc/exchange")) {
+          return jsonResponse({
+            token: "oidc-session",
+            user: {
+              id: "11111111-1111-1111-1111-111111111111",
+              username: "sso-owner",
+              display_name: "SSO Owner",
+              role: "owner",
+            },
+          });
+        }
+        if (url.includes("/api/v1/ping")) {
+          return jsonResponse({
+            message: "pong",
+            service: "NetworthTracker",
+            version: "0.1.20261110",
+          });
+        }
+        return jsonResponse({});
+      }),
+    );
+
+    renderApp();
+    expect(await screen.findByText("NetworthTracker")).toBeInTheDocument();
+    expect(await screen.findByText(/pong/i)).toBeInTheDocument();
+    window.history.replaceState({}, "", "/");
   });
 });

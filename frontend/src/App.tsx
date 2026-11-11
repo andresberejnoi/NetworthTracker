@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   API_BASE_URL,
+  exchangeOidcCode,
   getAuthStatus,
   getMe,
   getPing,
@@ -53,6 +54,22 @@ export default function App() {
           return;
         }
         setStatus(authStatus);
+
+        const callback = window.location.pathname === "/auth/oidc/callback";
+        const params = new URLSearchParams(window.location.search);
+        const ssoCode = params.get("code");
+        if (callback && ssoCode) {
+          const session = await exchangeOidcCode(ssoCode);
+          setAuthToken(session.token);
+          window.history.replaceState({}, "", window.location.pathname);
+          if (!cancelled) {
+            setUser(session.user);
+          }
+          return;
+        }
+        if (callback && params.get("linked") === "1") {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
 
         // Auth disabled: the backend returns an implicit local owner.
         // Auth enabled with users: resume the stored session.
@@ -124,6 +141,8 @@ export default function App() {
     return (
       <AuthScreen
         mode={status.needs_setup ? "setup" : "login"}
+        oidcEnabled={status.oidc_enabled}
+        oidcButtonLabel={status.oidc_button_label}
         onAuthenticated={(authenticated) => {
           setUser(authenticated);
           setStatus((current) =>

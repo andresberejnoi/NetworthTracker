@@ -30,7 +30,7 @@ At minimum, change:
 | `FRONTEND_PORT` | Frontend host port, default `3000` |
 | `BACKEND_PORT` | API host port, default `8080` |
 | `AUTH_DISABLED` | `false` for login, `true` for single-user offline mode |
-| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261108` |
+| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261110` |
 | `COMPOSE_CMD` | Compose command used by scripts, e.g. `podman compose` |
 | `UPGRADE_PULL` | `1` makes `make upgrade` pull versioned images instead of building |
 | `BACKUP_DIR` | Backup directory, default `./backups` |
@@ -42,6 +42,12 @@ At minimum, change:
 | `DOCUMENT_ENCRYPTION_KEY` | Base64 32-byte key enabling encrypted document uploads |
 | `DOCUMENT_DIR` | Host document directory, default `./documents` |
 | `DOCUMENT_MAX_BYTES` | Upload size limit, default 20 MB |
+| `OIDC_ENABLED` | Enables optional OpenID Connect SSO |
+| `OIDC_ISSUER` | OIDC provider issuer URL |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | OIDC client credentials |
+| `OIDC_REDIRECT_URI` | Exact provider callback URL |
+| `OIDC_FRONTEND_CALLBACK` | SPA route for the one-time exchange code |
+| `OIDC_ALLOWED_EMAILS` / `OIDC_ALLOWED_SUBJECTS` | New-user provisioning allowlist |
 
 Optional add-ons are inert when unset:
 
@@ -99,8 +105,8 @@ The same images are also published as `:latest`. Pin a release in `.env` or on
 the command line:
 
 ```bash
-IMAGE_TAG=v0.1.20261108 docker compose pull
-IMAGE_TAG=v0.1.20261108 docker compose up -d --no-build
+IMAGE_TAG=v0.1.20261110 docker compose pull
+IMAGE_TAG=v0.1.20261110 docker compose up -d --no-build
 ```
 
 Use `--no-build` so Compose does not replace the pulled image with a local
@@ -127,7 +133,7 @@ published images, set `UPGRADE_PULL=1` in `.env` (or the environment); the
 script still takes the pre-upgrade backup and checks `/health`:
 
 ```bash
-IMAGE_TAG=v0.1.20261108 UPGRADE_PULL=1 make upgrade
+IMAGE_TAG=v0.1.20261110 UPGRADE_PULL=1 make upgrade
 ```
 
 A previous image tag can be used for rollback only while the database schema is

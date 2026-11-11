@@ -282,7 +282,7 @@ async fn persists_users_and_sessions(pool: PgPool) {
         .unwrap()
         .expect("user");
     assert_eq!(found.user.id, user.id);
-    assert_eq!(found.password_hash, "hash");
+    assert_eq!(found.password_hash.as_deref(), Some("hash"));
 
     let expires_at = time::OffsetDateTime::now_utc() + time::Duration::days(1);
     repo.create_session(user.id, "token-hash", expires_at)
@@ -880,4 +880,86 @@ async fn persists_document_metadata_audit_and_provenance(pool: PgPool) {
     assert!(repo.soft_delete(id).await.unwrap());
     assert!(repo.list(false).await.unwrap().is_empty());
     assert_eq!(repo.list(true).await.unwrap().len(), 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn persists_oidc_identity_state_and_exchange_codes(pool: PgPool) {
+    use networth_application::ports::IdentityRepository;
+    use networth_application::NewExternalIdentity;
+    use time::{Duration, OffsetDateTime};
+
+    let repo = PostgresAccountRepository::new(pool);
+    let user = repo
+        .create_sso_user("sso-owner", "SSO Owner", networth_domain::UserRole::Owner)
+        .await
+        .unwrap();
+    let found = repo
+        .find_user_by_username("sso-owner")
+        .await
+        .unwrap()
+        .expect("user");
+    assert!(found.password_hash.is_none());
+
+    let now = OffsetDateTime::now_utc();
+    repo.create_oidc_state(
+        "state-1",
+        "nonce-1",
+        "verifier-1",
+        None,
+        now + Duration::minutes(10),
+    )
+    .await
+    .unwrap();
+    let state = repo
+        .consume_oidc_state("state-1")
+        .await
+        .unwrap()
+        .expect("state");
+    assert_eq!(state.nonce, "nonce-1");
+    assert_eq!(state.code_verifier, "verifier-1");
+    assert!(repo.consume_oidc_state("state-1").await.unwrap().is_none());
+
+    repo.create_exchange_code("exchange-hash", user.id, now + Duration::minutes(1))
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.consume_exchange_code("exchange-hash").await.unwrap(),
+        Some(user.id)
+    );
+    assert!(repo
+        .consume_exchange_code("exchange-hash")
+        .await
+        .unwrap()
+        .is_none());
+
+    let identity = repo
+        .link_external_identity(&NewExternalIdentity {
+            user_id: user.id,
+            issuer: "https://id.example".to_string(),
+            subject: "subject-1".to_string(),
+            email: Some("owner@example.com".to_string()),
+            email_verified: true,
+            display_name: Some("SSO Owner".to_string()),
+        })
+        .await
+        .unwrap();
+    assert_eq!(identity.user_id, user.id);
+    let loaded = repo
+        .find_external_identity("https://id.example", "subject-1")
+        .await
+        .unwrap()
+        .expect("identity");
+    assert_eq!(loaded.email.as_deref(), Some("owner@example.com"));
+    repo.touch_external_identity("https://id.example", "subject-1")
+        .await
+        .unwrap();
+    repo.record_auth_audit(
+        Some(user.id),
+        "oidc_login",
+        "https://id.example",
+        "subject-1",
+        r#"{"success":true}"#,
+    )
+    .await
+    .unwrap();
 }

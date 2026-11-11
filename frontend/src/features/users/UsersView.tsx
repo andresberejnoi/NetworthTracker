@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createUser, listUsers, type UserRole } from "../../api/client";
+import {
+  createUser,
+  getAuthStatus,
+  listUsers,
+  startOidcLink,
+  type UserRole,
+} from "../../api/client";
 
 const ROLES: UserRole[] = ["owner", "editor", "viewer"];
 
 export default function UsersView() {
   const queryClient = useQueryClient();
   const users = useQuery({ queryKey: ["users"], queryFn: listUsers });
+  const authStatus = useQuery({ queryKey: ["auth-status"], queryFn: getAuthStatus });
 
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -29,12 +36,36 @@ export default function UsersView() {
     },
   });
 
+  const linkSso = useMutation({
+    mutationFn: startOidcLink,
+    onSuccess: (result) => {
+      window.location.href = result.authorization_url;
+    },
+  });
+
   return (
     <section className="card" aria-label="users">
       <h2>Household members</h2>
       <p className="muted">
         Owners manage members. Editors can change data; viewers are read-only.
       </p>
+
+      {authStatus.data?.oidc_enabled && (
+        <div className="bulk-actions">
+          <button
+            type="button"
+            disabled={linkSso.isPending}
+            onClick={() => linkSso.mutate()}
+          >
+            Link my SSO identity
+          </button>
+          {linkSso.isError && (
+            <span className="error" role="alert">
+              {(linkSso.error as Error).message}
+            </span>
+          )}
+        </div>
+      )}
 
       <form
         className="row"

@@ -1,10 +1,5 @@
 # SSO with OpenID Connect
 
-> **Status:** this documents the integration contract planned in the
-> `sso-oidc` change. It is not active in a released build yet. Local
-> username/password login and `AUTH_DISABLED` remain the supported behavior
-> until that change is implemented.
-
 NetworthTracker uses **OpenID Connect (OIDC)** for single sign-on. OIDC is the
 identity layer on top of OAuth 2.0: the identity provider (IdP) authenticates
 the user, and the app receives a signed ID token containing a stable subject
@@ -72,6 +67,8 @@ Notes:
   provider requires a public client, leave it unset and keep PKCE enabled.
 - `OIDC_SCOPES` must include `openid`; `profile` and `email` provide display
   data. Add `groups` or the provider's equivalent if mapping roles.
+- If both `OIDC_ALLOWED_EMAILS` and `OIDC_ALLOWED_SUBJECTS` are empty, new-user
+  provisioning is denied. Existing linked users can still sign in.
 - Keep the client secret and `DOCUMENT_ENCRYPTION_KEY` out of backups and
   version control.
 
@@ -152,6 +149,10 @@ after login. Only the external identity link and audit metadata are stored.
 
 ## Roles and provisioning
 
+Create the local owner account first. SSO provisioning is intentionally denied
+when the household has no local users, so a fresh installation cannot be taken
+over by the first IdP user who reaches the callback.
+
 Recommended policy:
 
 | Situation | Result |
@@ -225,10 +226,9 @@ local fallback to stay authoritative.
 - Audit SSO success/denial and role changes.
 - Test with a non-owner account before making SSO mandatory.
 
-## Documentation status
+## Verification
 
-This guide is the planned operational contract for the `sso-oidc` OpenSpec
-change. When the change is implemented, the configuration names, callback
-routes, and behavior become the supported interface and should be verified
-against a locally running Authentik, Keycloak, Pocket ID, Authelia, or hosted
-provider.
+Before making SSO mandatory, test the complete flow against your IdP with a
+non-owner account, then test the owner link flow and local break-glass login.
+The repository's mock-provider API tests cover discovery, token validation,
+state/nonce replay, role mapping, denial, linking, and local fallback.

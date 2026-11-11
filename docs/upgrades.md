@@ -56,7 +56,7 @@ it, and test restores. This project uses GPG AES-256 with a passphrase in
 
 ```bash
 # get the new code (choose one)
-git fetch --tags && git checkout v0.1.20261108
+git fetch --tags && git checkout v0.1.20261110
 # or: UPGRADE_GIT_PULL=1 make upgrade
 
 make upgrade
@@ -86,18 +86,18 @@ make restore FILE=backups/networth-....sql.gz.gpg
 ### Pinned release images
 
 Release tags publish backend and frontend images to GHCR. Set `IMAGE_TAG` to a
-release such as `v0.1.20261108`, then pull and start without rebuilding:
+release such as `v0.1.20261110`, then pull and start without rebuilding:
 
 ```bash
-IMAGE_TAG=v0.1.20261108 docker compose pull
-IMAGE_TAG=v0.1.20261108 docker compose up -d --no-build
+IMAGE_TAG=v0.1.20261110 docker compose pull
+IMAGE_TAG=v0.1.20261110 docker compose up -d --no-build
 ```
 
 `make upgrade` builds locally by default. For a pinned deployment, set
 `UPGRADE_PULL=1` so it pulls the tagged images instead:
 
 ```bash
-IMAGE_TAG=v0.1.20261108 UPGRADE_PULL=1 make upgrade
+IMAGE_TAG=v0.1.20261110 UPGRADE_PULL=1 make upgrade
 ```
 
 Do not use an older image tag as a schema rollback. Migrations are
@@ -147,10 +147,10 @@ The project supports **direct upgrades from the previous release (N-1)** to the
 current release. It does not promise that any older database can jump directly
 to the newest release.
 
-| From | To current `0.1.20261108` | Path |
+| From | To current `0.1.20261110` | Path |
 |---|---|---|
-| `0.1.20261101` | Supported directly | Pull the current image and upgrade |
-| `0.1.20261031` or older | Not direct | Upgrade to `0.1.20261101` first, then current |
+| `0.1.20261108` | Supported directly | Pull the current image and upgrade |
+| `0.1.20261101` or older | Not direct | Upgrade to `0.1.20261108` first, then current |
 
 `N-1` means the previous **release**, not the previous migration: every
 migration shipped between that release and the current one still runs in order.
@@ -208,7 +208,7 @@ starts the current backend. It asserts the data and exact decimals survived, the
 current crypto/budgeting/aggregation tables exist, and `GET /api/v1/ping` reports
 the current version. This is the tag-driven matrix that runs in CI.
 
-Use `UPGRADE_MATRIX_TAGS="v0.1.20261031 v0.1.20261108"` to test specific tags, or
+Use `UPGRADE_MATRIX_TAGS="v0.1.20261031 v0.1.20261110"` to test specific tags, or
 `UPGRADE_MATRIX_LIMIT=0` to test every ancestor release tag. The matrix uses
 throwaway Postgres containers and temporary worktrees, so it does not touch the
 real stack.

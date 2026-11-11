@@ -12,9 +12,9 @@ use bigdecimal::BigDecimal;
 use networth_application::ports::{
     AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
     AggregationRepository, BudgetRepository, CryptoRepository, DocumentAuditEvent,
-    DocumentRepository, FxRepository, IdentityRepository, InvestmentRepository,
-    MigrationRepository, NetWorthRepository, NewDocument, PriceRepository, RepositoryError,
-    StoredDocument, StoredPrice, StoredRate, UserWithHash,
+    DocumentRepository, ExternalIdentity, FxRepository, IdentityRepository, InvestmentRepository,
+    MigrationRepository, NetWorthRepository, NewDocument, NewExternalIdentity, OidcLoginState,
+    PriceRepository, RepositoryError, StoredDocument, StoredPrice, StoredRate, UserWithHash,
 };
 use networth_domain::{
     Account, AccountType, Balance, BudgetAllocation, BudgetIncome, BudgetSpending, CryptoAsset,
@@ -58,6 +58,10 @@ struct Inner {
     next_lot_sequence: i64,
     migration_runs: Vec<MigrationRunRecord>,
     migration_provenance: Vec<MigrationProvenanceRecord>,
+    external_identities: Vec<ExternalIdentityRecord>,
+    oidc_states: Vec<OidcStateRecord>,
+    exchange_codes: Vec<ExchangeCodeRecord>,
+    auth_audit: Vec<AuthAuditRecord>,
     documents: Vec<StoredDocument>,
     document_audit: Vec<DocumentAuditEvent>,
     document_provenance: Vec<(Uuid, Uuid, String, Uuid)>,
@@ -78,6 +82,31 @@ struct MigrationProvenanceRecord {
     entity_type: String,
     entity_id: Uuid,
     source: String,
+}
+
+struct ExternalIdentityRecord {
+    identity: ExternalIdentity,
+    last_login_at: Option<OffsetDateTime>,
+}
+
+struct OidcStateRecord {
+    state: String,
+    login: OidcLoginState,
+}
+
+struct ExchangeCodeRecord {
+    code_hash: String,
+    user_id: Uuid,
+    expires_at: OffsetDateTime,
+}
+
+#[allow(dead_code)]
+struct AuthAuditRecord {
+    user_id: Option<Uuid>,
+    action: String,
+    issuer: String,
+    subject: String,
+    metadata: String,
 }
 
 struct CryptoLotRecord {
@@ -303,7 +332,7 @@ impl IdentityRepository for InMemoryAccountRepository {
         };
         inner.users.push(UserWithHash {
             user: user.clone(),
-            password_hash: new.password_hash.clone(),
+            password_hash: Some(new.password_hash.clone()),
         });
         Ok(user)
     }
@@ -387,6 +416,181 @@ impl IdentityRepository for InMemoryAccountRepository {
         inner
             .sessions
             .retain(|session| session.token_hash != token_hash);
+        Ok(())
+    }
+
+    async fn create_sso_user(
+        &self,
+        username: &str,
+        display_name: &str,
+        role: UserRole,
+    ) -> Result<User, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if inner
+            .users
+            .iter()
+            .any(|entry| entry.user.username.eq_ignore_ascii_case(username))
+        {
+            return Err(RepositoryError::Conflict(
+                "username already exists".to_string(),
+            ));
+        }
+        let user = User {
+            id: Uuid::new_v4(),
+            username: username.to_string(),
+            display_name: display_name.to_string(),
+            role,
+        };
+        inner.users.push(UserWithHash {
+            user: user.clone(),
+            password_hash: None,
+        });
+        Ok(user)
+    }
+
+    async fn find_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<Option<ExternalIdentity>, RepositoryError> {
+        let inner = self.inner.lock().expect("lock");
+        Ok(inner
+            .external_identities
+            .iter()
+            .find(|record| record.identity.issuer == issuer && record.identity.subject == subject)
+            .map(|record| record.identity.clone()))
+    }
+
+    async fn link_external_identity(
+        &self,
+        new: &NewExternalIdentity,
+    ) -> Result<ExternalIdentity, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if inner.external_identities.iter().any(|record| {
+            record.identity.issuer == new.issuer && record.identity.subject == new.subject
+        }) {
+            return Err(RepositoryError::Conflict(
+                "external identity is already linked".to_string(),
+            ));
+        }
+        let identity = ExternalIdentity {
+            user_id: new.user_id,
+            issuer: new.issuer.clone(),
+            subject: new.subject.clone(),
+            email: new.email.clone(),
+            email_verified: new.email_verified,
+            display_name: new.display_name.clone(),
+        };
+        inner.external_identities.push(ExternalIdentityRecord {
+            identity: identity.clone(),
+            last_login_at: Some(OffsetDateTime::now_utc()),
+        });
+        Ok(identity)
+    }
+
+    async fn touch_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        if let Some(record) = inner
+            .external_identities
+            .iter_mut()
+            .find(|record| record.identity.issuer == issuer && record.identity.subject == subject)
+        {
+            record.last_login_at = Some(OffsetDateTime::now_utc());
+        }
+        Ok(())
+    }
+
+    async fn create_oidc_state(
+        &self,
+        state: &str,
+        nonce: &str,
+        code_verifier: &str,
+        link_user_id: Option<Uuid>,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.oidc_states.retain(|record| record.state != state);
+        inner.oidc_states.push(OidcStateRecord {
+            state: state.to_string(),
+            login: OidcLoginState {
+                nonce: nonce.to_string(),
+                code_verifier: code_verifier.to_string(),
+                link_user_id,
+                expires_at,
+            },
+        });
+        Ok(())
+    }
+
+    async fn consume_oidc_state(
+        &self,
+        state: &str,
+    ) -> Result<Option<OidcLoginState>, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let position = inner
+            .oidc_states
+            .iter()
+            .position(|record| record.state == state);
+        Ok(position.map(|position| inner.oidc_states.remove(position).login))
+    }
+
+    async fn create_exchange_code(
+        &self,
+        code_hash: &str,
+        user_id: Uuid,
+        expires_at: OffsetDateTime,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner
+            .exchange_codes
+            .retain(|record| record.code_hash != code_hash);
+        inner.exchange_codes.push(ExchangeCodeRecord {
+            code_hash: code_hash.to_string(),
+            user_id,
+            expires_at,
+        });
+        Ok(())
+    }
+
+    async fn consume_exchange_code(
+        &self,
+        code_hash: &str,
+    ) -> Result<Option<Uuid>, RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        let position = inner
+            .exchange_codes
+            .iter()
+            .position(|record| record.code_hash == code_hash);
+        let Some(position) = position else {
+            return Ok(None);
+        };
+        let record = inner.exchange_codes.remove(position);
+        if record.expires_at < OffsetDateTime::now_utc() {
+            return Ok(None);
+        }
+        Ok(Some(record.user_id))
+    }
+
+    async fn record_auth_audit(
+        &self,
+        user_id: Option<Uuid>,
+        action: &str,
+        issuer: &str,
+        subject: &str,
+        metadata: &str,
+    ) -> Result<(), RepositoryError> {
+        let mut inner = self.inner.lock().expect("lock");
+        inner.auth_audit.push(AuthAuditRecord {
+            user_id,
+            action: action.to_string(),
+            issuer: issuer.to_string(),
+            subject: subject.to_string(),
+            metadata: metadata.to_string(),
+        });
         Ok(())
     }
 }

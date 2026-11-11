@@ -85,6 +85,11 @@ config, and uploads the SARIF report. A finding fails the job.
   read it. For a shared or portable machine, use full-disk encryption and do not
   expose the app to the internet without TLS and a reverse proxy.
 - `AUTH_DISABLED=true` is for a trusted single-user machine only.
+- Optional OIDC SSO validates signed ID tokens and maps identities by
+  `issuer + subject`. Provider access/refresh/ID tokens are not stored; only the
+  local app session is issued. Keep `OIDC_CLIENT_SECRET` in `.env`, use HTTPS
+  outside localhost, and keep local owner credentials for break-glass access.
+  See [`sso.md`](sso.md).
 
 ## Database
 

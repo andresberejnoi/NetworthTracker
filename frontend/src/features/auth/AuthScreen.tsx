@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import {
   login,
+  oidcLoginUrl,
   setAuthToken,
   setupOwner,
   type Session,
@@ -11,9 +12,16 @@ import {
 interface AuthScreenProps {
   mode: "setup" | "login";
   onAuthenticated: (user: User) => void;
+  oidcEnabled?: boolean;
+  oidcButtonLabel?: string | null;
 }
 
-export default function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
+export default function AuthScreen({
+  mode,
+  onAuthenticated,
+  oidcEnabled = false,
+  oidcButtonLabel = null,
+}: AuthScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -98,6 +106,17 @@ export default function AuthScreen({ mode, onAuthenticated }: AuthScreenProps) {
             {busy ? "Please wait…" : mode === "setup" ? "Create owner" : "Sign in"}
           </button>
         </form>
+
+        {mode === "login" && oidcEnabled && (
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = oidcLoginUrl();
+            }}
+          >
+            {oidcButtonLabel || "Sign in with SSO"}
+          </button>
+        )}
 
         {mode === "setup" && (
           <p className="muted">

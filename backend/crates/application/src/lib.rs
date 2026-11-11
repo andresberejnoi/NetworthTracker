@@ -16,6 +16,7 @@ pub mod investments;
 pub mod market_data;
 pub mod migration;
 pub mod networth;
+pub mod oidc;
 pub mod ports;
 
 pub use accounts::{
@@ -53,13 +54,17 @@ pub use migration::{
     MigrationRequest, MigrationRowError, MigrationService, MigrationSourceKind,
 };
 pub use networth::{NetWorthError, NetWorthRequest, NetWorthService};
+pub use oidc::{
+    hash_exchange_code, pkce_pair, random_urlsafe, IdTokenClaims, OidcClient, OidcConfig, OidcError,
+};
 pub use ports::{
     AccountRepository, AggregationBalance, AggregationConfig, AggregationHolding, AggregationLink,
     AggregationProvider, AggregationRepository, BudgetRepository, ChainBalance, ChainDataProvider,
-    CryptoRepository, DocumentAuditEvent, DocumentRepository, FxRepository, IdentityRepository,
-    InvestmentRepository, MigrationRepository, NetWorthRepository, NewDocument, PriceProvider,
-    PriceRepository, ProviderAccount, ProviderError, ProviderHolding, ProviderQuote,
-    ProviderSnapshot, RepositoryError, StoredDocument, StoredPrice, StoredRate, UserWithHash,
+    CryptoRepository, DocumentAuditEvent, DocumentRepository, ExternalIdentity, FxRepository,
+    IdentityRepository, InvestmentRepository, MigrationRepository, NetWorthRepository, NewDocument,
+    NewExternalIdentity, OidcLoginState, PriceProvider, PriceRepository, ProviderAccount,
+    ProviderError, ProviderHolding, ProviderQuote, ProviderSnapshot, RepositoryError,
+    StoredDocument, StoredPrice, StoredRate, UserWithHash,
 };
 
 use networth_domain::APP_NAME;

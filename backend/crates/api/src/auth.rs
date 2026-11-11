@@ -1,8 +1,9 @@
 //! Authentication extractor, DTOs, and endpoints.
 
 use axum::{
-    extract::{FromRequestParts, Path, State},
+    extract::{FromRequestParts, Path, Query, State},
     http::{header, request::Parts, StatusCode},
+    response::Redirect,
     Json,
 };
 use networth_application::{AuthStatus, Session};
@@ -74,6 +75,10 @@ pub struct AuthStatusDto {
     pub auth_enabled: bool,
     /// Whether first-run setup is needed.
     pub needs_setup: bool,
+    /// Whether OIDC SSO is configured.
+    pub oidc_enabled: bool,
+    /// SSO button label.
+    pub oidc_button_label: Option<String>,
 }
 
 impl From<AuthStatus> for AuthStatusDto {
@@ -81,6 +86,8 @@ impl From<AuthStatus> for AuthStatusDto {
         Self {
             auth_enabled: status.auth_enabled,
             needs_setup: status.needs_setup,
+            oidc_enabled: status.oidc_enabled,
+            oidc_button_label: status.oidc_button_label,
         }
     }
 }
@@ -92,6 +99,33 @@ pub struct LoginRequest {
     pub username: String,
     /// Password.
     pub password: String,
+}
+
+/// OIDC callback query parameters.
+#[derive(Debug, Deserialize)]
+pub struct OidcCallbackQuery {
+    /// Authorization code.
+    pub code: Option<String>,
+    /// State value.
+    pub state: Option<String>,
+    /// Provider error.
+    pub error: Option<String>,
+    /// Provider error description.
+    pub error_description: Option<String>,
+}
+
+/// Request body for exchanging a one-time SSO code.
+#[derive(Debug, Deserialize)]
+pub struct OidcExchangeRequest {
+    /// One-time code.
+    pub code: String,
+}
+
+/// A generated authorization URL.
+#[derive(Debug, Serialize)]
+pub struct OidcUrlDto {
+    /// Provider authorization URL.
+    pub authorization_url: String,
 }
 
 /// Request body for first-run setup.
@@ -175,6 +209,66 @@ pub async fn login(
         .auth
         .login(&request.username, &request.password)
         .await?;
+    Ok(Json(SessionDto::from(session)))
+}
+
+/// `GET /api/v1/auth/oidc/start`
+pub async fn oidc_start(State(state): State<AppState>) -> Result<Redirect, ApiError> {
+    let authorization_url = state.auth.oidc_start(None).await?;
+    Ok(Redirect::temporary(&authorization_url))
+}
+
+/// `POST /api/v1/auth/oidc/link`
+pub async fn oidc_link(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<OidcUrlDto>, ApiError> {
+    let authorization_url = state.auth.oidc_start(Some(current.user.id)).await?;
+    Ok(Json(OidcUrlDto { authorization_url }))
+}
+
+/// `GET /api/v1/auth/oidc/callback`
+pub async fn oidc_callback(
+    State(state): State<AppState>,
+    Query(query): Query<OidcCallbackQuery>,
+) -> Result<Redirect, ApiError> {
+    if let Some(error) = query.error {
+        let description = query.error_description.unwrap_or_default();
+        return Err(ApiError::BadRequest(if description.is_empty() {
+            format!("SSO provider returned '{error}'")
+        } else {
+            format!("SSO provider returned '{error}': {description}")
+        }));
+    }
+    let code = query
+        .code
+        .ok_or_else(|| ApiError::BadRequest("missing OIDC code".to_string()))?;
+    let state_value = query
+        .state
+        .ok_or_else(|| ApiError::BadRequest("missing OIDC state".to_string()))?;
+    let outcome = state.auth.oidc_callback(&code, &state_value).await?;
+    let callback = state
+        .auth
+        .oidc_frontend_callback()
+        .ok_or_else(|| ApiError::Internal("OIDC callback is not configured".to_string()))?;
+    if let Some(exchange_code) = outcome.exchange_code {
+        let separator = if callback.contains('?') { '&' } else { '?' };
+        return Ok(Redirect::temporary(&format!(
+            "{callback}{separator}code={exchange_code}"
+        )));
+    }
+    let separator = if callback.contains('?') { '&' } else { '?' };
+    Ok(Redirect::temporary(&format!(
+        "{callback}{separator}linked=1"
+    )))
+}
+
+/// `POST /api/v1/auth/oidc/exchange`
+pub async fn oidc_exchange(
+    State(state): State<AppState>,
+    Json(request): Json<OidcExchangeRequest>,
+) -> Result<Json<SessionDto>, ApiError> {
+    let session = state.auth.oidc_exchange(&request.code).await?;
     Ok(Json(SessionDto::from(session)))
 }
 

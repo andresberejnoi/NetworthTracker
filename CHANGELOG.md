@@ -8,6 +8,31 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261110] - 2026-11-10
+
+Optional OpenID Connect SSO for existing homelab identity providers.
+
+### Added
+
+- Optional OIDC sign-in with discovery, Authorization Code + PKCE, state,
+  nonce, and ID-token validation.
+- External identities keyed by `issuer + subject`, explicit local-account
+  linking, allowlisted provisioning, and group/claim-to-role mapping.
+- SSO status/button, one-time exchange-code callback, owner linking UI, and
+  local password/break-glass fallback.
+- SSO audit events and `docs/sso.md` provider integration guidance.
+
+### Changed
+
+- CI now builds backend/frontend container images on branches and pull requests
+  without pushing, in addition to publishing versioned images on release tags.
+
+### Security
+
+- SSO-only users can have no local password; local login rejects them.
+- Provider access, refresh, and ID tokens are not persisted.
+- SSO failures and denials are audited without logging tokens or secrets.
+
 ## [0.1.20261108] - 2026-11-08
 
 Upgrade safety, backup operations, portable JSON backup v2, guided migration,
@@ -192,7 +217,8 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261108...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261110...HEAD
+[0.1.20261110]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261108...v0.1.20261110
 [0.1.20261108]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261101...v0.1.20261108
 [0.1.20261101]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261031...v0.1.20261101
 [0.1.20261031]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261029...v0.1.20261031

@@ -65,6 +65,27 @@ describe("AuthScreen", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the configured SSO button for login", () => {
+    render(
+      <AuthScreen
+        mode="login"
+        oidcEnabled
+        oidcButtonLabel="Continue with Homelab SSO"
+        onAuthenticated={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Continue with Homelab SSO" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides SSO when it is not configured", () => {
+    render(<AuthScreen mode="login" onAuthenticated={vi.fn()} />);
+    expect(
+      screen.queryByRole("button", { name: /sign in with sso/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("offers first-run setup", () => {
     render(<AuthScreen mode="setup" onAuthenticated={vi.fn()} />);
 

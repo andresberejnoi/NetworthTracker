@@ -105,6 +105,18 @@ impl From<networth_application::AuthError> for ApiError {
             AuthError::Validation(message) => ApiError::BadRequest(message),
             AuthError::Conflict(message) => ApiError::Conflict(message),
             AuthError::Internal(message) => ApiError::Internal(message),
+            AuthError::Oidc(networth_application::OidcError::Validation(message)) => {
+                ApiError::BadRequest(message)
+            }
+            AuthError::Oidc(networth_application::OidcError::Provider(message)) => {
+                ApiError::Internal(message)
+            }
+            AuthError::Oidc(networth_application::OidcError::Repository(
+                RepositoryError::Conflict(message),
+            )) => ApiError::Conflict(message),
+            AuthError::Oidc(networth_application::OidcError::Repository(
+                RepositoryError::Storage(message),
+            )) => ApiError::Internal(message),
             AuthError::Repository(RepositoryError::Conflict(message)) => {
                 ApiError::Conflict(message)
             }

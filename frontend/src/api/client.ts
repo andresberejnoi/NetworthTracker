@@ -287,6 +287,23 @@ export async function login(body: {
   });
 }
 
+export function oidcLoginUrl(): string {
+  return `${API_BASE_URL}/api/v1/auth/oidc/start`;
+}
+
+export function startOidcLink(): Promise<components["schemas"]["OidcUrl"]> {
+  return request<components["schemas"]["OidcUrl"]>("/api/v1/auth/oidc/link", {
+    method: "POST",
+  });
+}
+
+export function exchangeOidcCode(code: string): Promise<Session> {
+  return request<Session>("/api/v1/auth/oidc/exchange", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
 export async function logout(): Promise<void> {
   return request<void>("/api/v1/auth/logout", { method: "POST" });
 }
