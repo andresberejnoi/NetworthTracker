@@ -32,6 +32,8 @@ Optional OpenID Connect SSO for existing homelab identity providers.
 - SSO-only users can have no local password; local login rejects them.
 - Provider access, refresh, and ID tokens are not persisted.
 - SSO failures and denials are audited without logging tokens or secrets.
+- Upgraded `jsonwebtoken` to 10.4 with the `rust_crypto` provider, clearing the
+  Dependabot advisory in the JWT dependency used by OIDC validation.
 
 ## [0.1.20261108] - 2026-11-08
 

@@ -10,6 +10,7 @@ use axum::extract::Form;
 use axum::http::{Request, StatusCode};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use http_body_util::BodyExt;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use serde_json::json;
 use time::OffsetDateTime;
@@ -195,9 +196,23 @@ async fn oidc_login_provisions_owner_maps_roles_and_keeps_local_login() {
         )
         .await
         .expect("callback response");
-    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
-    let callback_location = response
-        .headers()
+    let callback_status = response.status();
+    let callback_headers = response.headers().clone();
+    let callback_body = response
+        .into_body()
+        .collect()
+        .await
+        .expect("callback body")
+        .to_bytes();
+    if callback_status != StatusCode::TEMPORARY_REDIRECT {
+        eprintln!(
+            "callback failed: {} {}",
+            callback_status,
+            String::from_utf8_lossy(&callback_body)
+        );
+    }
+    assert_eq!(callback_status, StatusCode::TEMPORARY_REDIRECT);
+    let callback_location = callback_headers
         .get("location")
         .and_then(|value| value.to_str().ok())
         .expect("frontend location")
