@@ -65,6 +65,30 @@ function formatAmount(amount: string, currency: string): string {
   return `${fraction !== undefined ? `${grouped}.${fraction}` : grouped} ${currency}`;
 }
 
+/** Exact display subtraction for snapshot values; never uses floating point. */
+function decimalSubtract(latest: string, previous: string): string {
+  const parse = (value: string) => {
+    const negative = value.trim().startsWith("-");
+    const [whole, fraction = ""] = value.trim().replace(/^[-+]/, "").split(".");
+    return { negative, whole, fraction };
+  };
+  const left = parse(latest);
+  const right = parse(previous);
+  const scale = Math.max(left.fraction.length, right.fraction.length);
+  const toInt = (part: { negative: boolean; whole: string; fraction: string }) => {
+    const digits = `${part.whole}${part.fraction.padEnd(scale, "0")}` || "0";
+    const value = BigInt(digits);
+    return part.negative ? -value : value;
+  };
+  let difference = toInt(left) - toInt(right);
+  const negative = difference < 0n;
+  if (negative) difference = -difference;
+  const text = difference.toString().padStart(scale + 1, "0");
+  const whole = text.slice(0, text.length - scale) || "0";
+  const fraction = scale > 0 ? `.${text.slice(text.length - scale)}` : "";
+  return `${negative ? "-" : ""}${whole}${fraction}`;
+}
+
 function HistoryChart({
   snapshots,
   kind,
@@ -148,6 +172,13 @@ export default function NetWorthView() {
   });
 
   const data = networth.data;
+  const snapshotList = snapshots.data ?? [];
+  const latestSnapshot = snapshotList.at(-1);
+  const previousSnapshot = snapshotList.at(-2);
+  const periodChange =
+    latestSnapshot && previousSnapshot
+      ? decimalSubtract(latestSnapshot.total, previousSnapshot.total)
+      : null;
 
   return (
     <section aria-label="net worth">
@@ -192,6 +223,12 @@ export default function NetWorthView() {
           </article>
         ))}
       </div>
+
+      <p className="muted dashboard-change">
+        {periodChange !== null && data
+          ? `Change since previous snapshot: ${formatAmount(periodChange, data.currency)}`
+          : "Take at least two snapshots to see a period change."}
+      </p>
 
       {networth.isError && (
         <p className="error" role="alert">

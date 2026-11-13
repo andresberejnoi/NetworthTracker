@@ -1094,3 +1094,8 @@ a:hover {
   color: var(--accent);
   border-color: rgba(110, 231, 183, 0.35);
 }
+
+.dashboard-change {
+  margin: -0.5rem 0 1.5rem;
+  font-variant-numeric: tabular-nums;
+}

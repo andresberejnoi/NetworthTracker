@@ -115,6 +115,9 @@ describe("NetWorthView", () => {
     expect(screen.getByText("150,000.00 USD")).toBeInTheDocument();
     expect(screen.getAllByText("10,000.00 USD").length).toBeGreaterThan(0);
     expect(screen.getByText("550,000.00 USD")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Change since previous snapshot: 10,000.00 USD/),
+    ).toBeInTheDocument();
   });
 
   it("shows the breakdown and manual-data badge", async () => {
