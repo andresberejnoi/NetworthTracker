@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +11,9 @@ function renderView() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <NetWorthView />
+      <MemoryRouter>
+        <NetWorthView />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -185,8 +188,10 @@ describe("NetWorthView", () => {
     renderView();
     expect(await screen.findByText("610,000.00 USD")).toBeInTheDocument();
 
-    await userEvent.clear(screen.getByLabelText("owner age"));
-    await userEvent.type(screen.getByLabelText("owner age"), "65");
+    await userEvent.click(screen.getByRole("button", { name: /assumptions/i }));
+    fireEvent.change(screen.getByLabelText("owner age"), {
+      target: { value: "65" },
+    });
 
     // The refetch is still in flight, but the previous values stay on screen.
     expect(screen.getByText("610,000.00 USD")).toBeInTheDocument();
@@ -203,9 +208,9 @@ describe("NetWorthView", () => {
     renderView();
     await screen.findByText("610,000.00 USD");
 
+    await userEvent.click(screen.getByRole("button", { name: /assumptions/i }));
     const ageInput = screen.getByLabelText("owner age");
-    await userEvent.clear(ageInput);
-    await userEvent.type(ageInput, "65");
+    fireEvent.change(ageInput, { target: { value: "65" } });
 
     await waitFor(() => {
       const calls = fetchMock.mock.calls

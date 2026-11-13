@@ -30,7 +30,7 @@ At minimum, change:
 | `FRONTEND_PORT` | Frontend host port, default `3000` |
 | `BACKEND_PORT` | API host port, default `8080` |
 | `AUTH_DISABLED` | `false` for login, `true` for single-user offline mode |
-| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261110` |
+| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261112` |
 | `COMPOSE_CMD` | Compose command used by scripts, e.g. `podman compose` |
 | `UPGRADE_PULL` | `1` makes `make upgrade` pull versioned images instead of building |
 | `BACKUP_DIR` | Backup directory, default `./backups` |
@@ -105,8 +105,8 @@ The same images are also published as `:latest`. Pin a release in `.env` or on
 the command line:
 
 ```bash
-IMAGE_TAG=v0.1.20261110 docker compose pull
-IMAGE_TAG=v0.1.20261110 docker compose up -d --no-build
+IMAGE_TAG=v0.1.20261112 docker compose pull
+IMAGE_TAG=v0.1.20261112 docker compose up -d --no-build
 ```
 
 Use `--no-build` so Compose does not replace the pulled image with a local
@@ -133,7 +133,7 @@ published images, set `UPGRADE_PULL=1` in `.env` (or the environment); the
 script still takes the pre-upgrade backup and checks `/health`:
 
 ```bash
-IMAGE_TAG=v0.1.20261110 UPGRADE_PULL=1 make upgrade
+IMAGE_TAG=v0.1.20261112 UPGRADE_PULL=1 make upgrade
 ```
 
 A previous image tag can be used for rollback only while the database schema is

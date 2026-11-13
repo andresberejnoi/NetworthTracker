@@ -178,6 +178,7 @@ describe("HoldingsView", () => {
     renderView();
 
     await screen.findByRole("button", { name: /delete VTI/i });
+    await userEvent.click(screen.getByRole("button", { name: "New security" }));
     await userEvent.type(screen.getByLabelText("security symbol"), "VOO");
     await userEvent.type(screen.getByLabelText("security name"), "S&P 500");
     await userEvent.click(screen.getByRole("button", { name: "Add security" }));
@@ -198,13 +199,14 @@ describe("HoldingsView", () => {
       name: /delete VTI/i,
     });
     expect(deleteButton).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add security" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New security" })).toBeDisabled();
   });
   it("records a FIFO sale and shows the realized gain", async () => {
     const fetchMock = stubApi();
     renderView();
 
     await screen.findByRole("button", { name: /delete VTI/i });
+    await userEvent.click(screen.getByRole("button", { name: "New sale" }));
     await userEvent.selectOptions(screen.getByLabelText("sale security"), "VTI");
     await userEvent.type(screen.getByLabelText("sale disposed date"), "2026-06-01");
     await userEvent.type(screen.getByLabelText("sale quantity"), "12");

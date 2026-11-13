@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   keepPreviousData,
   useMutation,
@@ -9,9 +10,14 @@ import { useCurrentUser } from "../../auth/AuthContext";
 import {
   createSnapshot,
   getNetWorth,
+  listAccounts,
   listSnapshots,
   type Snapshot,
 } from "../../api/client";
+import AddBalanceDrawer from "../../components/AddBalanceDrawer";
+import Drawer from "../../components/Drawer";
+import EmptyState from "../../components/EmptyState";
+import PageHeader from "../../components/PageHeader";
 
 type Kind = "total" | "liquid" | "liquidity" | "accessible";
 type GroupBy = "by_asset_class" | "by_account_type";
@@ -115,6 +121,13 @@ export default function NetWorthView() {
   );
   const [kind, setKind] = useState<Kind>("total");
   const [groupBy, setGroupBy] = useState<GroupBy>("by_asset_class");
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
+
+  const accounts = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => listAccounts(),
+  });
 
   const networth = useQuery({
     queryKey: ["networth", ownerAge],
@@ -138,6 +151,36 @@ export default function NetWorthView() {
 
   return (
     <section aria-label="net worth">
+      <PageHeader
+        title="Home"
+        description="Your household's financial position at a glance."
+        actions={
+          <>
+            <button type="button" onClick={() => setBalanceOpen(true)} disabled={!canWrite}>
+              Add balance
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => takeSnapshot.mutate()}
+              disabled={takeSnapshot.isPending || !canWrite}
+            >
+              Take snapshot
+            </button>
+            <Link className="button-link secondary" to="/data/import-export">
+              Import data
+            </Link>
+            <button
+              type="button"
+              className="quiet"
+              onClick={() => setAssumptionsOpen(true)}
+            >
+              Assumptions
+            </button>
+          </>
+        }
+      />
+
       <div className="cards">
         {KINDS.map((metric) => (
           <article className="card metric" key={metric}>
@@ -156,6 +199,34 @@ export default function NetWorthView() {
         </p>
       )}
 
+      <section className="card" aria-label="accounts summary">
+        <div className="section-heading">
+          <div>
+            <h2>Accounts</h2>
+            <p className="muted">
+              {accounts.isPending
+                ? "Loading accounts…"
+                : `${accounts.data?.length ?? 0} account${
+                    accounts.data?.length === 1 ? "" : "s"
+                  } tracked`}
+            </p>
+          </div>
+          <Link to="/accounts">Manage accounts</Link>
+        </div>
+        {data?.has_stale_data && (
+          <p className="notice notice-warning">
+            Some balances are stale or manually entered. Review them in Accounts.
+          </p>
+        )}
+        {accounts.data?.length === 0 && (
+          <EmptyState
+            title="No accounts yet"
+            description="Add your first checking, savings, brokerage, or property account."
+            action={<Link className="button-link" to="/accounts">Add an account</Link>}
+          />
+        )}
+      </section>
+
       <section className="card" aria-label="history">
         <h2>History</h2>
         <div className="controls">
@@ -173,23 +244,6 @@ export default function NetWorthView() {
               ))}
             </select>
           </label>
-          <label>
-            <span>Owner age</span>
-            <input
-              aria-label="owner age"
-              type="number"
-              min={0}
-              value={ownerAgeInput}
-              onChange={(event) => setOwnerAgeInput(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => takeSnapshot.mutate()}
-            disabled={takeSnapshot.isPending || !canWrite}
-          >
-            Take snapshot
-          </button>
         </div>
 
         {snapshots.isPending && <p className="muted">Loading history …</p>}
@@ -255,6 +309,37 @@ export default function NetWorthView() {
           </table>
         )}
       </section>
+
+      <Drawer
+        open={assumptionsOpen}
+        title="Planning assumptions"
+        onClose={() => setAssumptionsOpen(false)}
+      >
+        <form className="stack" onSubmit={(event) => event.preventDefault()}>
+          <label className="field">
+            <span>Owner age</span>
+            <input
+              aria-label="owner age"
+              type="number"
+              min={0}
+              value={ownerAgeInput}
+              onChange={(event) => setOwnerAgeInput(event.target.value)}
+            />
+          </label>
+          <p className="muted">
+            Age changes the estimated taxes, penalties, and accessible net worth.
+            Results update after you close this panel.
+          </p>
+          <button type="button" onClick={() => setAssumptionsOpen(false)}>
+            Done
+          </button>
+        </form>
+      </Drawer>
+
+      <AddBalanceDrawer
+        open={balanceOpen}
+        onClose={() => setBalanceOpen(false)}
+      />
     </section>
   );
 }

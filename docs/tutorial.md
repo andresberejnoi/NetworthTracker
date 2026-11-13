@@ -51,25 +51,26 @@ Examples:
 | Mortgage | `mortgage` |
 | Crypto (total) | `crypto` |
 
-Use **Record a balance** for each account with a date and exact amount. Do this
-for the most recent date first; you can add history later.
+Use the **Add balance** action for each account with a date and exact amount.
+Do this for the most recent date first; you can add history later.
 
 ## 3. Look at net worth
 
-Open **Net worth**. You will see:
+Open **Home**. You will see:
 
 - **Total** — assets minus liabilities.
 - **Liquid** — cash, brokerage, retirement, and crypto.
 - **Liquidity** — cash available now.
 - **Accessible** — after estimated taxes, penalties, and selling costs.
 
-Adjust the age/tax/penalty/selling assumptions to see the accessible figure.
-**Take snapshot** stores an immutable point in history; the chart compares
-snapshots over time. Changing assumptions later does not rewrite old snapshots.
+Open **Assumptions** to adjust age/tax/penalty/selling assumptions and see the
+accessible figure. **Take snapshot** stores an immutable point in history; the
+chart compares snapshots over time. Changing assumptions later does not rewrite
+old snapshots.
 
 ## 4. Enter many balances quickly
 
-Use **Bulk entry** for a spreadsheet-like grid:
+Open **Accounts → Bulk entry** for a spreadsheet-like grid:
 
 1. Select the account.
 2. Paste rows from a spreadsheet, or type with keyboard navigation.
@@ -82,7 +83,7 @@ re-importing the same file is idempotent.
 
 ## 5. Track investments and tax lots
 
-Open **Investments**.
+Open **Portfolio → Investments**.
 
 1. Create a security (for example `VTI`) with an asset class and sector.
 2. Add a purchase lot: account, acquired date, quantity, total cost basis
@@ -98,7 +99,7 @@ purchase price. Calculations use the value you enter; the UI/report flags it.
 
 ## 6. Track crypto
 
-Open **Crypto**.
+Open **Portfolio → Crypto**.
 
 ### Manual wallet / bucket
 
@@ -139,7 +140,7 @@ stale when offline.
 
 ## 7. Budget (optional)
 
-Open **Budget**:
+Open **Budget** from the optional sidebar section:
 
 1. Enter annual income.
 2. Assign category percentages.

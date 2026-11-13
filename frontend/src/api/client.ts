@@ -724,3 +724,23 @@ export function importDocument(
     body: JSON.stringify(body),
   });
 }
+
+export type MigrationSourceKind = components["schemas"]["MigrationSourceKind"];
+export type MigrationMode = components["schemas"]["MigrationMode"];
+export type MigrationPreview = components["schemas"]["MigrationPreview"];
+export type MigrationRequest = components["schemas"]["MigrationRequest"];
+export type MigrationApplyRequest = components["schemas"]["MigrationApplyRequest"];
+
+export function previewMigration(body: MigrationRequest): Promise<MigrationPreview> {
+  return request<MigrationPreview>("/api/v1/migrations/preview", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function applyMigration(body: MigrationApplyRequest): Promise<MigrationReport> {
+  return request<MigrationReport>("/api/v1/migrations/apply", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

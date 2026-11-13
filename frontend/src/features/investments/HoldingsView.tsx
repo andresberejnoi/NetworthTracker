@@ -19,6 +19,7 @@ import {
   type SecurityAssetClass,
   type Sector,
 } from "../../api/client";
+import Drawer from "../../components/Drawer";
 import BulkGrid, {
   type GridColumn,
   type GridRow,
@@ -136,6 +137,9 @@ export default function HoldingsView() {
   const [saleQuantity, setSaleQuantity] = useState("");
   const [saleProceeds, setSaleProceeds] = useState("");
   const [saleFees, setSaleFees] = useState("");
+  const [formDrawer, setFormDrawer] = useState<
+    "security" | "holding" | "sale" | "price" | null
+  >(null);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["securities"] });
@@ -256,6 +260,21 @@ export default function HoldingsView() {
           holding has a price, the account's holdings value replaces its recorded
           balance in net worth.
         </p>
+
+        <div className="page-actions">
+          <button type="button" onClick={() => setFormDrawer("security")} disabled={!canWrite}>
+            New security
+          </button>
+          <button type="button" className="secondary" onClick={() => setFormDrawer("holding")} disabled={!canWrite}>
+            New purchase lot
+          </button>
+          <button type="button" className="secondary" onClick={() => setFormDrawer("sale")} disabled={!canWrite}>
+            New sale
+          </button>
+          <button type="button" className="quiet" onClick={() => setFormDrawer("price")} disabled={!canWrite}>
+            Manual price
+          </button>
+        </div>
 
         {accounts.isPending && <p className="muted">Loading accounts …</p>}
         {accounts.data && investmentAccounts.length === 0 && (
@@ -423,6 +442,11 @@ export default function HoldingsView() {
 
       {investmentAccounts.length > 0 && (
         <>
+          <Drawer
+            open={formDrawer === "security"}
+            title="Add security"
+            onClose={() => setFormDrawer(null)}
+          >
           <section className="card" aria-label="add security">
             <h2>Add security</h2>
             <form
@@ -492,7 +516,13 @@ export default function HoldingsView() {
               </p>
             )}
           </section>
+          </Drawer>
 
+          <Drawer
+            open={formDrawer === "holding"}
+            title="Add purchase lot"
+            onClose={() => setFormDrawer(null)}
+          >
           <section className="card" aria-label="add holding">
             <h2>Add purchase lot</h2>
             <form
@@ -572,7 +602,13 @@ export default function HoldingsView() {
               </p>
             )}
           </section>
+          </Drawer>
 
+          <Drawer
+            open={formDrawer === "sale"}
+            title="Record sale"
+            onClose={() => setFormDrawer(null)}
+          >
           <section className="card" aria-label="record sale">
             <h2>Record sale</h2>
             <p className="muted">
@@ -657,7 +693,13 @@ export default function HoldingsView() {
               </p>
             )}
           </section>
+          </Drawer>
 
+          <Drawer
+            open={formDrawer === "price"}
+            title="Manual price"
+            onClose={() => setFormDrawer(null)}
+          >
           <section className="card" aria-label="manual price">
             <h2>Manual price</h2>
             <form
@@ -700,6 +742,7 @@ export default function HoldingsView() {
               </p>
             )}
           </section>
+          </Drawer>
 
           <section className="card" aria-label="realized gains">
             <h2>Realized gains</h2>

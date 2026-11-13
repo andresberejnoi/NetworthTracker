@@ -1,7 +1,7 @@
 {
   "name": "networth-tracker-frontend",
   "private": true,
-  "version": "0.1.20261110",
+  "version": "0.1.20261112",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,8 @@
   "dependencies": {
     "@tanstack/react-query": "^5.59.16",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "7.18.5"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",

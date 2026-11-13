@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +10,9 @@ function renderView() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AccountsView />
+      <MemoryRouter>
+        <AccountsView />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -71,11 +74,12 @@ describe("AccountsView", () => {
     renderView();
 
     await screen.findByText(/no accounts yet/i);
+    await userEvent.click(screen.getAllByRole("button", { name: /add account/i })[0]);
     await userEvent.type(
       screen.getByLabelText("account name"),
       "New Brokerage",
     );
-    await userEvent.click(screen.getByRole("button", { name: /add account/i }));
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -99,8 +103,9 @@ describe("AccountsView", () => {
     renderView();
 
     await screen.findByText(/no accounts yet/i);
+    await userEvent.click(screen.getAllByRole("button", { name: /add account/i })[0]);
     await userEvent.type(screen.getByLabelText("account name"), "Bad");
-    await userEvent.click(screen.getByRole("button", { name: /add account/i }));
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
 
     expect(
       await screen.findByText(/unknown account type/i),
@@ -130,6 +135,7 @@ describe("AccountsView", () => {
 
     renderView();
     await screen.findAllByText("Everyday Checking");
+    await userEvent.click(screen.getAllByRole("button", { name: /^add balance$/i })[0]);
 
     await userEvent.selectOptions(
       screen.getByLabelText("balance account"),
@@ -162,7 +168,9 @@ describe("AccountsView", () => {
         }}
       >
         <QueryClientProvider client={client}>
-          <AccountsView />
+          <MemoryRouter>
+            <AccountsView />
+          </MemoryRouter>
         </QueryClientProvider>
       </AuthProvider>,
     );

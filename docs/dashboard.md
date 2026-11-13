@@ -7,12 +7,12 @@ HTTP API. It never imports backend code.
 
 | View | What it shows |
 |------|---------------|
-| Overview | Backend service and version (liveness) |
-| Net worth | Summary cards, history chart, breakdown |
-| Accounts | Create, list, and archive accounts |
-| Bulk entry | Spreadsheet-like grid with paste and per-row results |
-| Data | Import/export CSV/XLSX and download templates |
-| Users | Household members (owners only) |
+| Home | Net worth dashboard: summary cards, history chart, breakdown, account context, quick actions |
+| Accounts | List/detail, add and archive accounts, focused balance entry |
+| Portfolio | Investments and Crypto tabs |
+| Data | Import/export, guided migration, and encrypted documents |
+| Budget | Optional planning and plan-versus-actual |
+| Settings | Users/access, SSO, Aggregation, Backups, and About (owner) |
 
 When authentication is enabled, the app shows a first-run setup screen or a
 login screen before any of these views. See `docs/access-control.md`.
@@ -34,7 +34,8 @@ login screen before any of these views. See `docs/access-control.md`.
 - **Breakdown** — a table grouped by asset class or account type, showing the
   net amount per group. A selector switches the grouping.
 - **Owner age** — feeds the early-withdrawal penalty used by accessible net
-  worth, so changing it immediately updates the accessible figure.
+  worth; it is available from the secondary **Assumptions** drawer rather than
+  the main summary.
 - **Freshness badges** — `manual entries` appears when any contributing balance
   was typed by hand; `stale balances` appears when a balance is older than the
   freshness threshold (45 days).
@@ -63,5 +64,6 @@ container at build time. The backend allows the frontend origin via CORS.
 2. Regenerate the typed client (`make frontend-api`).
 3. Add the client function in `src/api/client.ts`.
 4. Build the view under `src/features/<name>/` with component tests.
-5. Add it to the nav in `App.tsx`.
+5. Add it to the route tree and the appropriate primary/secondary navigation
+   section (`App.tsx` / `src/app/navigation.ts`).
 6. Extend the integration test if the feature spans the boundary.

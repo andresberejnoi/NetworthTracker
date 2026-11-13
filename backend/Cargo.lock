@@ -1380,7 +1380,7 @@ checksum = "743fb55ba31b18fb1ecef6bdc9aa2743314978ac084044301a7eee33fb99a20d"
 
 [[package]]
 name = "networth-adapters"
-version = "0.1.20261110"
+version = "0.1.20261112"
 dependencies = [
  "async-trait",
  "bigdecimal",
@@ -1401,7 +1401,7 @@ dependencies = [
 
 [[package]]
 name = "networth-api"
-version = "0.1.20261110"
+version = "0.1.20261112"
 dependencies = [
  "axum",
  "bigdecimal",
@@ -1424,7 +1424,7 @@ dependencies = [
 
 [[package]]
 name = "networth-application"
-version = "0.1.20261110"
+version = "0.1.20261112"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -1449,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "networth-domain"
-version = "0.1.20261110"
+version = "0.1.20261112"
 dependencies = [
  "bigdecimal",
  "proptest",

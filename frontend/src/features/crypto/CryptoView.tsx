@@ -22,6 +22,7 @@ import {
   type Sale,
 } from "../../api/client";
 import { groupWalletRows } from "./bulk";
+import Drawer from "../../components/Drawer";
 import BulkGrid, {
   type GridColumn,
   type GridRow,
@@ -166,6 +167,9 @@ export default function CryptoView() {
   const [saleProceeds, setSaleProceeds] = useState("");
   const [saleFees, setSaleFees] = useState("");
   const [saleYears, setSaleYears] = useState("1");
+  const [formDrawer, setFormDrawer] = useState<
+    "asset" | "wallet" | "balance" | "price" | null
+  >(null);
 
   const selectedAsset = (assets.data ?? []).find((asset) => asset.id === walletAsset);
 
@@ -454,6 +458,21 @@ export default function CryptoView() {
           Address sync is optional; manual balances and prices work offline.
         </p>
 
+        <div className="page-actions">
+          <button type="button" onClick={() => setFormDrawer("asset")} disabled={!canWrite}>
+            New asset
+          </button>
+          <button type="button" className="secondary" onClick={() => setFormDrawer("wallet")} disabled={!canWrite}>
+            New wallet
+          </button>
+          <button type="button" className="secondary" onClick={() => setFormDrawer("balance")} disabled={!canWrite}>
+            New balance
+          </button>
+          <button type="button" className="quiet" onClick={() => setFormDrawer("price")} disabled={!canWrite}>
+            Manual price
+          </button>
+        </div>
+
         <div className="controls">
           <span className="badge">
             {provider.data?.configured
@@ -547,6 +566,11 @@ export default function CryptoView() {
         )}
       </section>
 
+      <Drawer
+        open={formDrawer === "asset"}
+        title="Add crypto asset"
+        onClose={() => setFormDrawer(null)}
+      >
       <section className="card" aria-label="add crypto asset">
         <h2>Add asset</h2>
         <form
@@ -608,7 +632,13 @@ export default function CryptoView() {
           </p>
         )}
       </section>
+      </Drawer>
 
+      <Drawer
+        open={formDrawer === "wallet"}
+        title="Add crypto wallet"
+        onClose={() => setFormDrawer(null)}
+      >
       <section className="card" aria-label="add crypto wallet">
         <h2>Add wallet</h2>
         <form
@@ -675,7 +705,13 @@ export default function CryptoView() {
           </p>
         )}
       </section>
+      </Drawer>
 
+      <Drawer
+        open={formDrawer === "balance"}
+        title="Record crypto balance"
+        onClose={() => setFormDrawer(null)}
+      >
       <section className="card" aria-label="record crypto balance">
         <h2>Record balance</h2>
         <form
@@ -734,7 +770,13 @@ export default function CryptoView() {
           </p>
         )}
       </section>
+      </Drawer>
 
+      <Drawer
+        open={formDrawer === "price"}
+        title="Crypto manual price"
+        onClose={() => setFormDrawer(null)}
+      >
       <section className="card" aria-label="crypto manual price">
         <h2>Manual price</h2>
         <form
@@ -777,6 +819,7 @@ export default function CryptoView() {
           </p>
         )}
       </section>
+      </Drawer>
 
       <section className="card" aria-label="crypto tax lots">
         <h2>Crypto tax lots</h2>

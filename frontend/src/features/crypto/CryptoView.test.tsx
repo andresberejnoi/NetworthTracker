@@ -150,6 +150,7 @@ describe("CryptoView", () => {
     renderView();
 
     await screen.findByText("Coinbase");
+    await userEvent.click(screen.getByRole("button", { name: "New asset" }));
     await userEvent.type(screen.getByLabelText("crypto asset symbol"), "ETH");
     await userEvent.type(screen.getByLabelText("crypto asset name"), "Ethereum");
     await userEvent.selectOptions(screen.getByLabelText("crypto asset chain"), "ethereum");
@@ -168,6 +169,7 @@ describe("CryptoView", () => {
     renderView();
 
     await screen.findByText("Coinbase");
+    await userEvent.click(screen.getByRole("button", { name: "New balance" }));
     await userEvent.selectOptions(
       screen.getByLabelText("crypto balance wallet"),
       wallet.id,
@@ -189,8 +191,8 @@ describe("CryptoView", () => {
     renderView("viewer");
 
     await screen.findByText("Coinbase");
-    expect(screen.getByRole("button", { name: "Add asset" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add wallet" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New asset" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New wallet" })).toBeDisabled();
   });
   it("shows crypto tax lots for a selected wallet", async () => {
     stubApi();

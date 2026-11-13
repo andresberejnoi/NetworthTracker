@@ -1,48 +1,58 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
-  API_BASE_URL,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import {
   exchangeOidcCode,
   getAuthStatus,
   getMe,
-  getPing,
   logout,
   setAuthToken,
   type AuthStatus,
+  type Session,
   type User,
 } from "./api/client";
-import { AuthProvider } from "./auth/AuthContext";
+import { AuthProvider, useCurrentUser } from "./auth/AuthContext";
+import AppShell from "./app/AppShell";
+import DataLayout from "./app/DataLayout";
+import NotFound from "./app/NotFound";
+import PortfolioLayout from "./app/PortfolioLayout";
+import SettingsLayout from "./app/SettingsLayout";
+import AccountDetailView from "./features/accounts/AccountDetailView";
+import AccountsBulkPage from "./features/accounts/AccountsBulkPage";
 import AccountsView from "./features/accounts/AccountsView";
 import AuthScreen from "./features/auth/AuthScreen";
+import BudgetPage from "./features/budget/BudgetPage";
 import AggregationView from "./features/aggregation/AggregationView";
-import BudgetView from "./features/budget/BudgetView";
-import BulkEntryView from "./features/bulk-entry/BulkEntryView";
 import CryptoView from "./features/crypto/CryptoView";
 import DataView from "./features/data/DataView";
+import MigrationView from "./features/data/MigrationView";
 import DocumentsView from "./features/documents/DocumentsView";
 import HoldingsView from "./features/investments/HoldingsView";
 import NetWorthView from "./features/networth/NetWorthView";
+import AboutView from "./features/settings/AboutView";
+import BackupsView from "./features/settings/BackupsView";
+import SsoSettings from "./features/settings/SsoSettings";
 import UsersView from "./features/users/UsersView";
 
-type View =
-  | "overview"
-  | "networth"
-  | "accounts"
-  | "bulk"
-  | "data"
-  | "documents"
-  | "investments"
-  | "crypto"
-  | "budget"
-  | "aggregation"
-  | "users";
+function OwnerOnly({ children }: { children: ReactNode }) {
+  const user = useCurrentUser();
+  return user?.role === "owner" ? <>{children}</> : <Navigate to="/" replace />;
+}
 
 export default function App() {
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [view, setView] = useState<View>("overview");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const callbackSession = useRef<Promise<Session> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,65 +60,48 @@ export default function App() {
     const load = async () => {
       try {
         const authStatus = await getAuthStatus();
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
         setStatus(authStatus);
 
-        const callback = window.location.pathname === "/auth/oidc/callback";
-        const params = new URLSearchParams(window.location.search);
+        const callback = location.pathname === "/auth/oidc/callback";
+        const params = new URLSearchParams(location.search);
         const ssoCode = params.get("code");
         if (callback && ssoCode) {
-          const session = await exchangeOidcCode(ssoCode);
+          callbackSession.current ??= exchangeOidcCode(ssoCode);
+          const session = await callbackSession.current;
           setAuthToken(session.token);
-          window.history.replaceState({}, "", window.location.pathname);
           if (!cancelled) {
             setUser(session.user);
+            navigate("/", { replace: true });
           }
           return;
         }
         if (callback && params.get("linked") === "1") {
-          window.history.replaceState({}, "", window.location.pathname);
+          navigate("/settings/users", { replace: true });
         }
 
-        // Auth disabled: the backend returns an implicit local owner.
-        // Auth enabled with users: resume the stored session.
         if (!authStatus.auth_enabled || !authStatus.needs_setup) {
           try {
             const me = await getMe();
-            if (!cancelled) {
-              setUser(me);
-            }
+            if (!cancelled) setUser(me);
           } catch {
             setAuthToken(null);
           }
         }
       } catch (error) {
-        if (!cancelled) {
-          setAuthError((error as Error).message);
-        }
+        if (!cancelled) setAuthError((error as Error).message);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
     void load();
-
-    const onUnauthorized = () => setUser(null);
-    window.addEventListener("networth:unauthorized", onUnauthorized);
     return () => {
       cancelled = true;
-      window.removeEventListener("networth:unauthorized", onUnauthorized);
     };
+    // The OIDC callback is handled once on initial load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: ["ping"],
-    queryFn: ({ signal }) => getPing(signal),
-    enabled: Boolean(user),
-  });
 
   const handleLogout = async () => {
     try {
@@ -116,20 +109,21 @@ export default function App() {
     } finally {
       setAuthToken(null);
       setUser(null);
+      navigate("/", { replace: true });
     }
   };
 
   if (loading) {
     return (
-      <main className="app">
-        <p className="muted">Loading …</p>
+      <main className="app-loading">
+        <p className="muted">Loading NetworthTracker…</p>
       </main>
     );
   }
 
   if (authError) {
     return (
-      <main className="app">
+      <main className="app-loading">
         <p className="error" role="alert">
           {authError}
         </p>
@@ -155,7 +149,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <main className="app">
+      <main className="app-loading">
         <p className="error" role="alert">
           Could not determine the current user.
         </p>
@@ -165,160 +159,63 @@ export default function App() {
 
   return (
     <AuthProvider user={user}>
-      <main className="app">
-        <header className="hero">
-          <div className="hero-top">
-            <div>
-              <h1>NetworthTracker</h1>
-              <p className="subtitle">Local-first net worth tracking</p>
-            </div>
-            <div className="session">
-              <span className="badge">
-                {user.display_name} · {user.role}
-              </span>
-              {status?.auth_enabled && (
-                <button type="button" onClick={handleLogout}>
-                  Sign out
-                </button>
-              )}
-            </div>
-          </div>
+      <Routes>
+        <Route
+          element={<AppShell user={user} status={status} onLogout={() => void handleLogout()} />}
+        >
+          <Route index element={<NetWorthView />} />
+          <Route path="accounts" element={<AccountsView />} />
+          <Route path="accounts/bulk" element={<AccountsBulkPage />} />
+          <Route path="accounts/:id" element={<AccountDetailView />} />
 
-          <nav className="nav" aria-label="views">
-            <button
-              type="button"
-              aria-pressed={view === "overview"}
-              onClick={() => setView("overview")}
-            >
-              Overview
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "networth"}
-              onClick={() => setView("networth")}
-            >
-              Net worth
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "accounts"}
-              onClick={() => setView("accounts")}
-            >
-              Accounts
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "bulk"}
-              onClick={() => setView("bulk")}
-            >
-              Bulk entry
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "data"}
-              onClick={() => setView("data")}
-            >
-              Data
-            </button>
-            {user.role === "owner" && (
-              <button
-                type="button"
-                aria-pressed={view === "documents"}
-                onClick={() => setView("documents")}
-              >
-                Documents
-              </button>
-            )}
-            <button
-              type="button"
-              aria-pressed={view === "investments"}
-              onClick={() => setView("investments")}
-            >
-              Investments
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "crypto"}
-              onClick={() => setView("crypto")}
-            >
-              Crypto
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "budget"}
-              onClick={() => setView("budget")}
-            >
-              Budget
-            </button>
-            {user.role === "owner" && (
-              <button
-                type="button"
-                aria-pressed={view === "aggregation"}
-                onClick={() => setView("aggregation")}
-              >
-                Aggregation
-              </button>
-            )}
-            {user.role === "owner" && (
-              <button
-                type="button"
-                aria-pressed={view === "users"}
-                onClick={() => setView("users")}
-              >
-                Users
-              </button>
-            )}
-          </nav>
-        </header>
+          <Route path="portfolio" element={<PortfolioLayout />}>
+            <Route index element={<Navigate to="investments" replace />} />
+            <Route path="investments" element={<HoldingsView />} />
+            <Route path="crypto" element={<CryptoView />} />
+          </Route>
 
-        {view === "accounts" ? (
-          <AccountsView />
-        ) : view === "networth" ? (
-          <NetWorthView />
-        ) : view === "bulk" ? (
-          <BulkEntryView />
-        ) : view === "data" ? (
-          <DataView />
-        ) : view === "documents" ? (
-          <DocumentsView />
-        ) : view === "investments" ? (
-          <HoldingsView />
-        ) : view === "crypto" ? (
-          <CryptoView />
-        ) : view === "budget" ? (
-          <BudgetView />
-        ) : view === "aggregation" ? (
-          <AggregationView />
-        ) : view === "users" ? (
-          <UsersView />
-        ) : (
-          <section className="card" aria-label="backend status">
-            <h2>Backend</h2>
-            {isPending && <p className="muted">Checking {API_BASE_URL} …</p>}
-            {isError && (
-              <p className="error" role="alert">
-                Unreachable: {(error as Error).message}
-              </p>
-            )}
-            {data && (
-              <dl className="meta">
-                <div>
-                  <dt>Service</dt>
-                  <dd>{data.service}</dd>
-                </div>
-                <div>
-                  <dt>Version</dt>
-                  <dd>{data.version}</dd>
-                </div>
-                <div>
-                  <dt>Reply</dt>
-                  <dd>{data.message}</dd>
-                </div>
-              </dl>
-            )}
-          </section>
-        )}
-      </main>
+          <Route path="data" element={<DataLayout />}>
+            <Route index element={<Navigate to="import-export" replace />} />
+            <Route path="import-export" element={<DataView />} />
+            <Route
+              path="migration"
+              element={
+                <OwnerOnly>
+                  <MigrationView />
+                </OwnerOnly>
+              }
+            />
+            <Route
+              path="documents"
+              element={
+                <OwnerOnly>
+                  <DocumentsView />
+                </OwnerOnly>
+              }
+            />
+          </Route>
+
+          <Route path="budget" element={<BudgetPage />} />
+
+          <Route
+            path="settings"
+            element={
+              <OwnerOnly>
+                <SettingsLayout />
+              </OwnerOnly>
+            }
+          >
+            <Route index element={<Navigate to="users" replace />} />
+            <Route path="users" element={<UsersView />} />
+            <Route path="sso" element={<SsoSettings />} />
+            <Route path="aggregation" element={<AggregationView />} />
+            <Route path="backups" element={<BackupsView />} />
+            <Route path="about" element={<AboutView />} />
+          </Route>
+
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
     </AuthProvider>
   );
 }

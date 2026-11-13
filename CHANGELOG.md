@@ -8,6 +8,31 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261112] - 2026-11-12
+
+A responsive, route-based shell that reduces navigation clutter and makes Home
+the net worth dashboard.
+
+### Added
+
+- Desktop sidebar and mobile bottom navigation with a More sheet.
+- Route-based views with deep links, refresh-safe URLs, and browser history.
+- A Home dashboard combining net worth, trend, allocation, account context, and
+  quick actions.
+- Settings pages for users/access, SSO, aggregation, backups, and About.
+- Shared page-header, drawer, empty-state, table, field, and tab primitives.
+
+### Changed
+
+- Primary navigation is now Home, Accounts, Portfolio, and Data.
+- Investments and Crypto are grouped under Portfolio; import/export, migration,
+  and documents are grouped under Data.
+- Budget and Aggregation live in the secondary/sidebar menu; admin views live in
+  Settings.
+- Accounts is list-first with account detail routes and focused drawers for
+  creation/editing; holdings, crypto, and balance entry use the same pattern.
+- Planning assumptions moved out of the main dashboard into a secondary drawer.
+
 ## [0.1.20261110] - 2026-11-10
 
 Optional OpenID Connect SSO for existing homelab identity providers.
@@ -219,7 +244,8 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261110...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261112...HEAD
+[0.1.20261112]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261110...v0.1.20261112
 [0.1.20261110]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261108...v0.1.20261110
 [0.1.20261108]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261101...v0.1.20261108
 [0.1.20261101]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261031...v0.1.20261101

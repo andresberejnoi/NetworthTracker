@@ -10,11 +10,11 @@ I'm primarily using agentic development to work on this app. Some concepts build
 
 I wanted a tool to track networth in different ways and that allows me to keep my data private. I assume there will be other people who find it useful.
 
-![Net worth dashboard](docs/screenshots/networth.png)
+![Home net worth dashboard](docs/screenshots/networth.png)
 
 | Mobile | Tablet |
 |--------|--------|
-| <img src="docs/screenshots/mobile-networth.png" alt="Mobile net worth" width="320" /> | <img src="docs/screenshots/tablet-networth.png" alt="Tablet net worth" width="520" /> |
+| <img src="docs/screenshots/mobile-networth.png" alt="Mobile Home dashboard" width="320" /> | <img src="docs/screenshots/tablet-networth.png" alt="Tablet Home dashboard" width="520" /> |
 
 ## What it does
 
@@ -191,13 +191,14 @@ still planned.
 ## Versioning
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
-The current version is `0.1.20261110`. The authoritative value lives in
+The current version is `0.1.20261112`. The authoritative value lives in
 `backend/Cargo.toml`; `make version` prints it. See `AGENTS.md` and
 [`CHANGELOG.md`](CHANGELOG.md) for the release process and per-release notes.
 
 ## Documentation
 
 - `docs/tutorial.md` — guided first setup and feature tour
+- `docs/ui-navigation.md` — app shell, routes, and navigation model
 - `docs/deployment.md` — Docker Compose and Podman deployment
 - `docs/backup.md` — manual/scheduled backups, timers, key separation
 - `docs/data-migration.md` — guided CSV/JSON migration, preview/apply
