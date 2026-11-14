@@ -25,4 +25,4 @@
 
 - [x] 4.1 Update `docs/backup.md`, README, CHANGELOG, and deployment notes
 - [x] 4.2 Run the full frontend/backend/integration/upgrade matrix
-- [ ] 4.3 Run the release process and tag the next version
+- [x] 4.3 Run the release process and tag the next version
