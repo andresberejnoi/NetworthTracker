@@ -28,6 +28,36 @@ the database dump. See [`document-ingestion.md`](document-ingestion.md).
 
 See [`upgrades.md`](upgrades.md) for restore and pre-migration backup behavior.
 
+## GUI backup
+
+Owners can create and download a full encrypted backup from **Settings →
+Backups** without using a terminal. The backend container runs
+`scripts/backup-container.sh`, which uses its direct PostgreSQL connection and
+the mounted `/backups` and `/documents` directories.
+
+- **Back up now** creates `networth-<timestamp>.sql.gz.gpg` and, when documents
+  exist, `networth-documents-<timestamp>.tar.gz.gpg`. Both are encrypted with
+  `BACKUP_PASSPHRASE`, verified by decrypting and testing the archive, and
+  pruned with `BACKUP_KEEP`.
+- The page lists recent archives with their sizes and offers authenticated
+  download links for the encrypted files.
+- A missing, empty, or `change-me` passphrase fails closed before a dump is
+  written. The passphrase is never sent to the browser or returned by the API.
+- Only the household owner can list, create, or download backups. A second
+  create request while one is running receives a busy response instead of
+  overlapping jobs.
+- The API is authenticated, so downloads do not expose the host filesystem or
+  arbitrary paths.
+
+The GUI does **not** restore backups. Full restore deliberately remains a
+host/CLI operation because replacing the database under a live API is unsafe.
+Use `make restore FILE=backups/networth-....sql.gz.gpg` from the host, after
+stopping the backend, and follow [`upgrades.md`](upgrades.md).
+
+Scheduled and off-site copies still belong to the host timer. The GUI is for
+ad-hoc backups and downloads; it does not replace the schedule, rclone copy, or
+restore drill.
+
 ## Scheduled backups
 
 `scripts/scheduled-backup.sh` is the cron/systemd entry point. It:

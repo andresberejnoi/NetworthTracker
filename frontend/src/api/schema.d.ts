@@ -262,6 +262,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List full encrypted backups (owner only) */
+        get: operations["listFullBackups"];
+        put?: never;
+        /** Create a full encrypted backup now (owner only) */
+        post: operations["createFullBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/backups/{name}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download an encrypted full backup (owner only) */
+        get: operations["downloadFullBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/migrations/preview": {
         parameters: {
             query?: never;
@@ -1041,7 +1076,7 @@ export interface components {
             message: string;
             /** @example NetworthTracker */
             service: string;
-            /** @example 0.1.20261112 */
+            /** @example 0.1.20261114 */
             version: string;
         };
         ApiError: {
@@ -1199,6 +1234,16 @@ export interface components {
             crypto_lots_saved: number;
             crypto_holdings_skipped: number;
             errors: components["schemas"]["MigrationRowError"][];
+        };
+        BackupFile: {
+            name: string;
+            size_bytes: number;
+            modified_at: string;
+        };
+        BackupSummary: {
+            timestamp: string;
+            database: components["schemas"]["BackupFile"];
+            documents: components["schemas"]["BackupFile"] | null;
         };
         BackupAccount: {
             name: string;
@@ -2314,6 +2359,75 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listFullBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backup files, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupSummary"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createFullBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The created backup. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    downloadFullBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Encrypted backup bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     previewMigration: {

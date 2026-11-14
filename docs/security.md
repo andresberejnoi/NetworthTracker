@@ -100,7 +100,9 @@ config, and uploads the SARIF report. A finding fails the job.
   files like any other secret. `make backup` encrypts dumps with GPG AES-256
   using `BACKUP_PASSPHRASE`; keep that passphrase out of the backup directory
   and store a copy somewhere safe, because a lost passphrase means an
-  unrecoverable backup.
+  unrecoverable backup. The owner-only Settings → Backups flow uses the same
+  passphrase and only returns encrypted files through authenticated API
+  requests.
 
 ## Dependency security
 

@@ -8,6 +8,35 @@ where the date is the UTC release date. See `AGENTS.md` for the release process.
 
 ## [Unreleased]
 
+## [0.1.20261114] - 2026-11-14
+
+### Added
+
+- Owner-only GUI backups in Settings → Backups: create a full encrypted
+  PostgreSQL dump plus document archive, list recent archives, and download the
+  encrypted files without host terminal access.
+- A container-safe backup runner using the backend's direct database
+  connection, GPG AES-256, verification, and local retention.
+- API tests and a shell-level test covering create/list/download, owner-only
+  access, fail-closed passphrase handling, concurrency, verification failure,
+  and retention.
+
+### Changed
+
+- The Backups settings page is now functional instead of host-only guidance.
+- GUI backup creation is serialized; overlapping requests return busy/conflict.
+
+### Security
+
+- Backup downloads validate basenames and reject paths outside `BACKUP_DIR`.
+- Missing, empty, or placeholder backup passphrases block creation before any
+  dump is written. Full restore remains host/CLI only.
+
+### Fixed
+
+- Pin the backend builder to the bookworm Rust image so the release binary
+  matches the Debian bookworm runtime instead of requiring a newer glibc.
+
 ## [0.1.20261112] - 2026-11-12
 
 A responsive, route-based shell that reduces navigation clutter and makes Home
@@ -244,7 +273,8 @@ planned for later releases.
 - An incremental-migration test verifies that a schema upgrade preserves
   existing rows and exact `NUMERIC` values.
 
-[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261112...HEAD
+[Unreleased]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261114...HEAD
+[0.1.20261114]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261112...v0.1.20261114
 [0.1.20261112]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261110...v0.1.20261112
 [0.1.20261110]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261108...v0.1.20261110
 [0.1.20261108]: https://github.com/andresberejnoi/NetworthTracker/compare/v0.1.20261101...v0.1.20261108

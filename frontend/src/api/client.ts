@@ -744,3 +744,36 @@ export function applyMigration(body: MigrationApplyRequest): Promise<MigrationRe
     body: JSON.stringify(body),
   });
 }
+
+export type BackupFile = components["schemas"]["BackupFile"];
+export type BackupSummary = components["schemas"]["BackupSummary"];
+
+export function listFullBackups(): Promise<BackupSummary[]> {
+  return request<BackupSummary[]>("/api/v1/admin/backups");
+}
+
+export function createFullBackup(): Promise<BackupSummary> {
+  return request<BackupSummary>("/api/v1/admin/backups", { method: "POST" });
+}
+
+export async function downloadFullBackup(name: string): Promise<Blob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/admin/backups/${encodeURIComponent(name)}/download`,
+    { headers: authHeaders() },
+  );
+  if (response.status === 401) {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("networth:unauthorized"));
+  }
+  if (!response.ok) {
+    let message = `backend returned ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body?.error) message = body.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(message);
+  }
+  return await response.blob();
+}

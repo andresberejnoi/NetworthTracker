@@ -16,7 +16,7 @@ curl -s localhost:8080/health
 # {"status":"ok"}
 
 curl -s localhost:8080/api/v1/ping
-# {"message":"pong","service":"NetworthTracker","version":"0.1.20261112"}
+# {"message":"pong","service":"NetworthTracker","version":"0.1.20261114"}
 ```
 
 ## Accounts
@@ -163,6 +163,29 @@ curl -s localhost:8080/api/v1/networth/snapshots
 A snapshot records the totals **and the policy used**, so later balance or
 policy changes never rewrite history. Only an explicit new snapshot changes the
 series.
+
+## Backups
+
+Full backups are owner-only. They run inside the backend container and return
+metadata; the passphrase never crosses the API.
+
+```bash
+# create a verified encrypted database + document backup
+curl -s -X POST localhost:8080/api/v1/admin/backups \
+  -H "authorization: Bearer $TOKEN"
+
+# list recent archives, newest first
+curl -s localhost:8080/api/v1/admin/backups \
+  -H "authorization: Bearer $TOKEN"
+
+# download an encrypted file (binary response)
+curl -s -OJ localhost:8080/api/v1/admin/backups/<name>/download \
+  -H "authorization: Bearer $TOKEN"
+```
+
+A missing `BACKUP_PASSPHRASE` returns 400, a non-owner returns 403, and an
+overlapping create request returns 409. Restore is intentionally not exposed
+over the API; use `make restore FILE=...` on the host.
 
 ## Errors
 

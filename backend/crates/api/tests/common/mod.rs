@@ -147,10 +147,20 @@ pub async fn post_bytes(
 
 /// `GET path`, returning the raw bytes and content type.
 pub async fn get_raw(app: &Router, path: &str) -> (StatusCode, Vec<u8>, Option<String>) {
-    let request = Request::builder()
-        .uri(path)
-        .body(Body::empty())
-        .expect("build request");
+    get_raw_with_token(app, path, None).await
+}
+
+/// `GET path` with an optional bearer token, returning raw bytes and content type.
+pub async fn get_raw_with_token(
+    app: &Router,
+    path: &str,
+    token: Option<&str>,
+) -> (StatusCode, Vec<u8>, Option<String>) {
+    let mut builder = Request::builder().uri(path);
+    if let Some(token) = token {
+        builder = builder.header("authorization", format!("Bearer {token}"));
+    }
+    let request = builder.body(Body::empty()).expect("build request");
     let response = app.clone().oneshot(request).await.expect("send request");
     let status = response.status();
     let content_type = response

@@ -30,7 +30,7 @@ At minimum, change:
 | `FRONTEND_PORT` | Frontend host port, default `3000` |
 | `BACKEND_PORT` | API host port, default `8080` |
 | `AUTH_DISABLED` | `false` for login, `true` for single-user offline mode |
-| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261112` |
+| `IMAGE_TAG` | Image version, default `latest`; pin a release such as `v0.1.20261114` |
 | `COMPOSE_CMD` | Compose command used by scripts, e.g. `podman compose` |
 | `UPGRADE_PULL` | `1` makes `make upgrade` pull versioned images instead of building |
 | `BACKUP_DIR` | Backup directory, default `./backups` |
@@ -105,8 +105,8 @@ The same images are also published as `:latest`. Pin a release in `.env` or on
 the command line:
 
 ```bash
-IMAGE_TAG=v0.1.20261112 docker compose pull
-IMAGE_TAG=v0.1.20261112 docker compose up -d --no-build
+IMAGE_TAG=v0.1.20261114 docker compose pull
+IMAGE_TAG=v0.1.20261114 docker compose up -d --no-build
 ```
 
 Use `--no-build` so Compose does not replace the pulled image with a local
@@ -133,7 +133,7 @@ published images, set `UPGRADE_PULL=1` in `.env` (or the environment); the
 script still takes the pre-upgrade backup and checks `/health`:
 
 ```bash
-IMAGE_TAG=v0.1.20261112 UPGRADE_PULL=1 make upgrade
+IMAGE_TAG=v0.1.20261114 UPGRADE_PULL=1 make upgrade
 ```
 
 A previous image tag can be used for rollback only while the database schema is
@@ -259,6 +259,10 @@ make restore FILE=backups/networth-....sql.gz.gpg
 make upgrade    # backup + rebuild + restart + health check
 ```
 
+Owners can also create and download encrypted backups from **Settings →
+Backups** in the running app. That flow runs inside the backend container,
+uses the same `BACKUP_PASSPHRASE`, and keeps restore host-only.
+
 With Podman, set `COMPOSE_CMD=podman compose` in `.env` so the scripts use the
 right command. The backend mounts `./backups` at `/backups`; the entrypoint
 writes a verified encrypted backup there when pending migrations are detected.
@@ -279,8 +283,8 @@ newest backup with `make restore-drill`; it restores into a throwaway database
 without touching the live stack.
 
 Release tags publish versioned images to GHCR; pin `IMAGE_TAG` for a
-reproducible deployment. Scheduled and off-site backups are the next
-`robust-upgrades` work.
+reproducible deployment. Scheduled and off-site backups remain host-side
+workflows; use the GUI for ad-hoc encrypted backups and downloads.
 
 ## Troubleshooting
 

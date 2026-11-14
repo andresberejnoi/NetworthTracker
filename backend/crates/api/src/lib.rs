@@ -14,6 +14,7 @@ mod data;
 mod documents;
 mod dto;
 mod error;
+mod full_backup;
 mod investments;
 mod migration;
 mod networth;
@@ -45,6 +46,8 @@ use tower_http::{
     cors::{AllowOrigin, CorsLayer},
     trace::TraceLayer,
 };
+
+use crate::full_backup::FullBackupService;
 
 use crate::accounts::{
     archive_account, create_account, get_account, list_accounts, list_balances, record_balance,
@@ -103,6 +106,8 @@ pub struct AppState {
     pub migration: Arc<MigrationService>,
     /// Encrypted document store, when configured.
     pub documents: Option<Arc<DocumentService>>,
+    /// Owner-triggered full backups.
+    pub full_backup: Arc<FullBackupService>,
     /// Prices.
     pub prices: Arc<PriceService>,
     /// FX conversion.
@@ -138,6 +143,7 @@ impl AppState {
             DocumentService::from_env(repositories.documents.clone(), migration.clone())
                 .ok()
                 .map(Arc::new);
+        let full_backup = FullBackupService::from_env();
         let oidc = match OidcClient::from_env() {
             Ok(oidc) => oidc,
             Err(error) => {
@@ -187,6 +193,7 @@ impl AppState {
             aggregation,
             migration,
             documents,
+            full_backup,
             prices,
             fx,
         }
@@ -236,6 +243,14 @@ pub fn app(state: AppState) -> Router {
         .route("/api/v1/auth/oidc/link", post(auth::oidc_link))
         .route("/api/v1/auth/oidc/callback", get(auth::oidc_callback))
         .route("/api/v1/auth/oidc/exchange", post(auth::oidc_exchange))
+        .route(
+            "/api/v1/admin/backups",
+            get(full_backup::list).post(full_backup::create),
+        )
+        .route(
+            "/api/v1/admin/backups/{name}/download",
+            get(full_backup::download),
+        )
         .route(
             "/api/v1/users",
             get(auth::list_users).post(auth::create_user),

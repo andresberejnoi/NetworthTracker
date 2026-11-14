@@ -4,7 +4,7 @@
 # Built from the repository root so the shared `docs/` guide that the domain
 # crate includes as doctests is available. The `backend/` level is preserved so
 # the crate-relative include paths resolve exactly as they do locally.
-FROM rust:1.95-slim AS build
+FROM rust:1.95-slim-bookworm AS build
 
 WORKDIR /usr/src
 
@@ -41,7 +41,7 @@ RUN cd backend \
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gnupg gzip \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg gzip tar \
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
          -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
@@ -54,7 +54,8 @@ RUN apt-get update \
 COPY --from=build /usr/src/backend/target/release/networth-api /usr/local/bin/networth-api
 COPY backend/migrations /usr/local/share/networth/migrations
 COPY backend/docker-entrypoint.sh /usr/local/bin/networth-entrypoint
-RUN chmod +x /usr/local/bin/networth-entrypoint
+COPY scripts/backup-container.sh /usr/local/bin/networth-backup-container
+RUN chmod +x /usr/local/bin/networth-entrypoint /usr/local/bin/networth-backup-container
 
 ENV BACKEND_ADDR=0.0.0.0:8080
 ENV BACKUP_DIR=/backups

@@ -13,6 +13,18 @@ aggregation_key="$(python3 -c 'import base64,os; print(base64.b64encode(os.urand
 document_key="$(python3 -c 'import base64,os; print(base64.b64encode(os.urandom(32)).decode())')"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/networth-integration-docs.XXXXXX")"
 url="http://127.0.0.1:${port}"
+mkdir -p "$work_dir/documents" "$work_dir/backups"
+cat > "$work_dir/fake-backup.sh" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+: "${BACKUP_TIMESTAMP:?}"
+mkdir -p "$BACKUP_DIR"
+printf 'database-%s' "$BACKUP_TIMESTAMP" > "$BACKUP_DIR/networth-$BACKUP_TIMESTAMP.sql.gz.gpg"
+if [[ -d "$DOCUMENT_DIR" ]]; then
+  printf 'documents-%s' "$BACKUP_TIMESTAMP" > "$BACKUP_DIR/networth-documents-$BACKUP_TIMESTAMP.tar.gz.gpg"
+fi
+FAKE
+chmod +x "$work_dir/fake-backup.sh"
 
 cleanup() {
   kill "${backend_pid:-}" >/dev/null 2>&1 || true
@@ -49,6 +61,9 @@ DATABASE_URL="postgres://networth:${db_password}@127.0.0.1:${db_port}/networth" 
   AGGREGATION_ENCRYPTION_KEY="$aggregation_key" \
   DOCUMENT_ENCRYPTION_KEY="$document_key" \
   DOCUMENT_DIR="$work_dir/documents" \
+  BACKUP_DIR="$work_dir/backups" \
+  BACKUP_PASSPHRASE="test-only-integration-backup" \
+  FULL_BACKUP_SCRIPT="$work_dir/fake-backup.sh" \
   "$root/backend/target/debug/networth-api" &
 backend_pid=$!
 

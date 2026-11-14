@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: NetworthTracker API
-  version: 0.1.20261112
+  version: 0.1.20261114
   description: |
     JSON API for the local-first NetworthTracker backend.
 
@@ -310,6 +310,64 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/backups:
+    get:
+      tags: [data]
+      operationId: listFullBackups
+      summary: List full encrypted backups (owner only)
+      responses:
+        "200":
+          description: Backup files, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BackupSummary"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [data]
+      operationId: createFullBackup
+      summary: Create a full encrypted backup now (owner only)
+      responses:
+        "201":
+          description: The created backup.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/admin/backups/{name}/download:
+    get:
+      tags: [data]
+      operationId: downloadFullBackup
+      summary: Download an encrypted full backup (owner only)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Encrypted backup bytes.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/migrations/preview:
     post:
       tags: [data]
@@ -1590,7 +1648,7 @@ components:
           examples: [NetworthTracker]
         version:
           type: string
-          examples: ["0.1.20261112"]
+          examples: ["0.1.20261114"]
     ApiError:
       type: object
       additionalProperties: false
@@ -1971,6 +2029,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MigrationRowError"
+    BackupFile:
+      type: object
+      additionalProperties: false
+      required: [name, size_bytes, modified_at]
+      properties:
+        name:
+          type: string
+        size_bytes:
+          type: integer
+        modified_at:
+          type: string
+    BackupSummary:
+      type: object
+      additionalProperties: false
+      required: [timestamp, database, documents]
+      properties:
+        timestamp:
+          type: string
+        database:
+          $ref: "#/components/schemas/BackupFile"
+        documents:
+          oneOf:
+            - $ref: "#/components/schemas/BackupFile"
+            - type: "null"
     BackupAccount:
       type: object
       additionalProperties: false

@@ -4,7 +4,7 @@ COMPOSE ?= docker compose
 .PHONY: help version hooks backend-build backend-test backend-test-db backend-fmt backend-lint \
         frontend-install frontend-build frontend-test frontend-api \
         integration-test upgrade-test upgrade-matrix entrypoint-test offline-test e2e-test verify-guards boundaries secrets validate test build up down \
-        backup backup-scheduled backup-timer backup-schedule-test documents-cleanup documents-cleanup-apply documents-cleanup-test restore restore-drill upgrade destroy clean
+        backup backup-scheduled backup-timer backup-schedule-test backup-container-test documents-cleanup documents-cleanup-apply documents-cleanup-test restore restore-drill upgrade destroy clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -62,6 +62,7 @@ e2e-test: ## Run the full local release/e2e matrix
 	$(MAKE) upgrade-test
 	$(MAKE) entrypoint-test
 	$(MAKE) backup-schedule-test
+	$(MAKE) backup-container-test
 	$(MAKE) documents-cleanup-test
 	$(MAKE) offline-test
 
@@ -81,7 +82,7 @@ secrets: ## Scan tracked files and full history for credentials
 validate: ## Validate all OpenSpec changes and specs strictly
 	openspec validate --all --strict
 
-test: secrets backend-test frontend-test boundaries ## Run all tests and checks
+test: secrets backend-test frontend-test boundaries backup-container-test ## Run all tests and checks
 
 build: backend-build frontend-build ## Build both projects
 
@@ -102,6 +103,9 @@ backup-timer: ## Print the systemd user timer (use --install to write it)
 
 backup-schedule-test: ## Test scheduled backup locking, logging, and fail-closed behavior
 	./scripts/test-backup-schedule.sh
+
+backup-container-test: ## Test the in-container backup script with stubbed pg_dump
+	./scripts/test-container-backup.sh
 
 documents-cleanup: ## Dry-run orphaned/temporary document file cleanup
 	./scripts/cleanup-documents.sh

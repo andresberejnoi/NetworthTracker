@@ -13,6 +13,8 @@ import {
   createSale,
   createSecurity,
   createSnapshot,
+  createFullBackup,
+  downloadFullBackup,
   getAggregation,
   getBudget,
   getNetWorth,
@@ -26,6 +28,7 @@ import {
   listSales,
   listSnapshots,
   importSpreadsheet,
+  listFullBackups,
   recordBalance,
   recordBalancesBatch,
   recordBudgetSpending,
@@ -160,6 +163,18 @@ describe.skipIf(!enabled)("cross-boundary integration", () => {
     );
     expect(badReport.balances_saved).toBe(0);
     expect(badReport.errors).toHaveLength(1);
+  });
+
+  it("creates, lists, and downloads a full encrypted backup", async () => {
+    const created = await createFullBackup();
+    expect(created.database.name).toMatch(/\.sql\.gz\.gpg$/);
+    expect(created.documents?.name).toMatch(/\.tar\.gz\.gpg$/);
+
+    const listed = await listFullBackups();
+    expect(listed.some((item) => item.timestamp === created.timestamp)).toBe(true);
+
+    const blob = await downloadFullBackup(created.database.name);
+    expect(await blob.text()).toMatch(/^database-/);
   });
 
   it("values investment holdings over HTTP", async () => {

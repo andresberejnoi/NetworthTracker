@@ -45,7 +45,11 @@ I wanted a tool to track networth in different ways and that allows me to keep m
 - **Encrypted document ingestion** — local AES-256-GCM document store, CSV/XLSX/
   XML/OFX/PDF detection, institution/type classification, preview/import, audit,
   and cleanup.
-- **Full backup/restore** — JSON with accounts, balances, snapshots, investments, crypto, budgets, and aggregation provenance.
+- **Full encrypted backups** — owner-only Settings → Backups creates and
+  downloads encrypted PostgreSQL and document archives; scheduled/off-site
+  backups use the host timer, and full restore stays a deliberate host/CLI step.
+- **Portable JSON backup/restore** — accounts, balances, snapshots, investments,
+  crypto, budgets, and aggregation provenance.
 - **Family accounts** — local login, optional OpenID Connect SSO for a homelab
   IdP, owner/editor/viewer roles, private accounts, and per-user visibility.
 - **Offline first** — the core app needs no internet. External providers are
@@ -191,7 +195,7 @@ still planned.
 ## Versioning
 
 Date-based semantic versioning: **`MAJOR.MINOR.yyyymmdd`** (UTC release date).
-The current version is `0.1.20261112`. The authoritative value lives in
+The current version is `0.1.20261114`. The authoritative value lives in
 `backend/Cargo.toml`; `make version` prints it. See `AGENTS.md` and
 [`CHANGELOG.md`](CHANGELOG.md) for the release process and per-release notes.
 
